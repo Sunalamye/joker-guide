@@ -21,6 +21,7 @@ from joker_env.env import (
     JOKER_SLOTS,
     SCALAR_COUNT,
     SELECTION_FEATURES,
+    SHOP_JOKER_COUNT,
 )
 
 
@@ -46,12 +47,15 @@ class JokerFeaturesExtractor(BaseFeaturesExtractor):
             + HAND_FEATURES
             + HAND_TYPE_COUNT
             + DECK_FEATURES
-            + embed_dim
-            + JOKER_SLOTS
+            + embed_dim  # pooled joker embedding
+            + JOKER_SLOTS  # joker_enabled flags
+            + embed_dim  # pooled shop embedding
+            + SHOP_JOKER_COUNT  # shop joker prices (normalized)
         )
         super().__init__(observation_space, features_dim=features_dim)
 
         self.joker_emb = torch.nn.Embedding(joker_vocab_size + 1, embed_dim, padding_idx=0)
+        self.shop_emb = torch.nn.Embedding(joker_vocab_size + 1, embed_dim, padding_idx=0)
 
     def forward(self, observations: dict[str, torch.Tensor]) -> torch.Tensor:
         scalars = observations["scalars"]
@@ -60,16 +64,27 @@ class JokerFeaturesExtractor(BaseFeaturesExtractor):
         hand_type = observations["hand_type"]
         deck = observations["deck"]
 
+        # 處理已擁有的 jokers
         jokers = observations["jokers"]
         joker_ids = jokers[..., 0].long().clamp_min(0)
         joker_enabled = jokers[..., 1]
 
         joker_emb = self.joker_emb(joker_ids)
-        mask = (joker_ids > 0).float().unsqueeze(-1)
-        pooled = (joker_emb * mask).sum(dim=1) / mask.sum(dim=1).clamp_min(1.0)
+        joker_mask = (joker_ids > 0).float().unsqueeze(-1)
+        joker_pooled = (joker_emb * joker_mask).sum(dim=1) / joker_mask.sum(dim=1).clamp_min(1.0)
+
+        # 處理商店中的 jokers
+        shop = observations["shop"]
+        shop_ids = shop[..., 0].long().clamp_min(0)
+        shop_prices = shop[..., 1] / 10.0  # 正規化價格
+
+        shop_emb = self.shop_emb(shop_ids)
+        shop_mask = (shop_ids > 0).float().unsqueeze(-1)
+        shop_pooled = (shop_emb * shop_mask).sum(dim=1) / shop_mask.sum(dim=1).clamp_min(1.0)
 
         return torch.cat(
-            [scalars, selection, hand, hand_type, deck, pooled, joker_enabled], dim=1
+            [scalars, selection, hand, hand_type, deck,
+             joker_pooled, joker_enabled, shop_pooled, shop_prices], dim=1
         )
 
 
@@ -104,15 +119,30 @@ def _record_checkpoint(
         log.write(json.dumps(entry) + "\n")
 
 
+def get_device(use_mps: bool = False) -> str:
+    """選擇運算裝置"""
+    if use_mps and torch.backends.mps.is_available():
+        print("Using Apple MPS (Metal) acceleration")
+        return "mps"
+    elif torch.cuda.is_available():
+        print("Using CUDA acceleration")
+        return "cuda"
+    else:
+        print("Using CPU")
+        return "cpu"
+
+
 def train(
     total_timesteps: int = 50000,
     checkpoint: Path | None = None,
     save_interval: int = 25000,
     tensorboard_log: Path | None = None,
+    use_mps: bool = False,
 ) -> None:
     env = JokerGymDictEnv()
     env = ActionMasker(env, lambda e: e.action_masks())
 
+    device = get_device(use_mps)
     joker_vocab_size = load_joker_vocab_size()
     policy_kwargs = dict(
         features_extractor_class=JokerFeaturesExtractor,
@@ -126,8 +156,10 @@ def train(
         verbose=1,
         n_steps=256,
         batch_size=64,
+        ent_coef=0.1,
         policy_kwargs=policy_kwargs,
         tensorboard_log=str(tensorboard_log) if tensorboard_log is not None else None,
+        device=device,
     )
 
     remaining = total_timesteps
@@ -152,6 +184,7 @@ def main() -> None:
     parser.add_argument("--checkpoint", type=Path, default=None)
     parser.add_argument("--save-interval", type=int, default=25000)
     parser.add_argument("--tensorboard-log", type=Path, default=None)
+    parser.add_argument("--mps", action="store_true", help="Use Apple MPS acceleration")
     args = parser.parse_args()
 
     train(
@@ -159,6 +192,7 @@ def main() -> None:
         checkpoint=args.checkpoint,
         save_interval=args.save_interval,
         tensorboard_log=args.tensorboard_log,
+        use_mps=args.mps,
     )
 
 
