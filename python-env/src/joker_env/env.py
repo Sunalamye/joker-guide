@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Optional
+from dataclasses import dataclass, field
+from collections import defaultdict
 
 import gymnasium as gym
 import numpy as np
@@ -128,13 +130,359 @@ SCALAR_IDX_ENDLESS_MODE = 17
 SCALAR_IDX_ENDLESS_ANTE = 18
 SCALAR_IDX_REROLL_COST = 19
 
+# Stage 常量
+STAGE_PRE_BLIND = 0
+STAGE_BLIND = 1
+STAGE_POST_BLIND = 2
+STAGE_SHOP = 3
+STAGE_END = 4
+
+# Action type 名稱（用於日誌）
+ACTION_TYPE_NAMES = [
+    "SELECT", "PLAY", "DISCARD", "SELECT_BLIND", "CASH_OUT",
+    "BUY_JOKER", "NEXT_ROUND", "REROLL", "SELL_JOKER", "SKIP_BLIND",
+    "USE_CONSUMABLE", "BUY_VOUCHER", "BUY_PACK"
+]
+
+
+# ============================================================================
+# Episode Metrics 追蹤系統
+# ============================================================================
+
+@dataclass
+class EpisodeMetrics:
+    """追蹤單個 episode 的詳細統計"""
+
+    # 基礎結果
+    won: bool = False
+    final_ante: int = 1
+    final_round: int = 0
+    total_steps: int = 0
+    total_reward: float = 0.0
+
+    # 經濟統計
+    max_money: int = 0
+    total_money_earned: int = 0
+    total_money_spent: int = 0
+    final_money: int = 0
+
+    # Joker 統計
+    max_jokers: int = 0
+    jokers_bought: int = 0
+    jokers_sold: int = 0
+
+    # Blind 統計
+    blinds_attempted: int = 0
+    blinds_cleared: int = 0
+    blinds_skipped: int = 0
+    boss_blinds_cleared: int = 0
+
+    # 動作統計
+    action_counts: Dict[int, int] = field(default_factory=lambda: defaultdict(int))
+
+    # 階段時間分布
+    steps_in_blind: int = 0
+    steps_in_shop: int = 0
+    steps_in_pre_blind: int = 0
+
+    # 商店統計
+    shop_visits: int = 0
+    rerolls_used: int = 0
+    vouchers_bought: int = 0
+    packs_bought: int = 0
+    consumables_used: int = 0
+
+    # 出牌統計
+    plays_made: int = 0
+    discards_made: int = 0
+    avg_cards_per_play: float = 0.0
+    total_cards_played: int = 0
+
+    # 獎勵來源分解
+    reward_from_play: float = 0.0
+    reward_from_blind_clear: float = 0.0
+    reward_from_shop: float = 0.0
+    reward_from_skip: float = 0.0
+    reward_from_game_end: float = 0.0
+
+    # 分數統計
+    max_score_in_blind: int = 0
+    total_score: int = 0
+
+    # 追蹤用的內部狀態
+    _prev_stage: int = -1
+    _prev_ante: int = 1
+    _prev_money: int = 0
+    _prev_score: int = 0
+    _prev_joker_count: int = 0
+    _in_blind_start_score: int = 0
+
+    def update_from_obs(self, scalars: np.ndarray, action_type: int, reward: float, done: bool):
+        """根據觀察和動作更新統計"""
+        # 解析 scalars
+        ante = max(1, int(scalars[SCALAR_IDX_ANTE] * 8))
+        stage = int(scalars[SCALAR_IDX_STAGE] * 4 + 0.5)
+        money = int(scalars[SCALAR_IDX_MONEY] * 100)
+        score = int(scalars[SCALAR_IDX_SCORE_PROGRESS] * scalars[SCALAR_IDX_ANTE] * 8 * 300)  # 近似
+        joker_count = int(scalars[SCALAR_IDX_JOKER_USAGE] * JOKER_SLOTS + 0.5)
+        round_num = int(scalars[SCALAR_IDX_ROUND] * 24)
+
+        self.total_steps += 1
+        self.total_reward += reward
+
+        # 更新動作計數
+        if 0 <= action_type < ACTION_TYPE_COUNT:
+            self.action_counts[action_type] += 1
+
+        # 階段時間追蹤
+        if stage == STAGE_BLIND:
+            self.steps_in_blind += 1
+        elif stage == STAGE_SHOP:
+            self.steps_in_shop += 1
+        elif stage == STAGE_PRE_BLIND:
+            self.steps_in_pre_blind += 1
+
+        # 經濟追蹤
+        self.max_money = max(self.max_money, money)
+        if money > self._prev_money:
+            self.total_money_earned += money - self._prev_money
+        elif money < self._prev_money:
+            self.total_money_spent += self._prev_money - money
+
+        # Joker 追蹤
+        self.max_jokers = max(self.max_jokers, joker_count)
+
+        # 動作特定統計
+        if action_type == ACTION_TYPE_PLAY:
+            self.plays_made += 1
+        elif action_type == ACTION_TYPE_DISCARD:
+            self.discards_made += 1
+        elif action_type == ACTION_TYPE_BUY_JOKER:
+            if joker_count > self._prev_joker_count:
+                self.jokers_bought += 1
+        elif action_type == ACTION_TYPE_SELL_JOKER:
+            if joker_count < self._prev_joker_count:
+                self.jokers_sold += 1
+        elif action_type == ACTION_TYPE_REROLL:
+            self.rerolls_used += 1
+        elif action_type == ACTION_TYPE_SKIP_BLIND:
+            self.blinds_skipped += 1
+            self.reward_from_skip += max(0, reward)
+        elif action_type == ACTION_TYPE_USE_CONSUMABLE:
+            self.consumables_used += 1
+        elif action_type == ACTION_TYPE_BUY_VOUCHER:
+            self.vouchers_bought += 1
+        elif action_type == ACTION_TYPE_BUY_PACK:
+            self.packs_bought += 1
+
+        # 階段轉換檢測
+        if self._prev_stage != stage:
+            # 進入 Blind
+            if stage == STAGE_BLIND and self._prev_stage != STAGE_BLIND:
+                self.blinds_attempted += 1
+                self._in_blind_start_score = score
+
+            # 離開 Blind（進入 PostBlind = 過關）
+            if self._prev_stage == STAGE_BLIND and stage == STAGE_POST_BLIND:
+                self.blinds_cleared += 1
+                blind_score = score - self._in_blind_start_score
+                self.max_score_in_blind = max(self.max_score_in_blind, blind_score)
+                self.total_score += blind_score
+                # Boss Blind 檢測
+                blind_type = int(scalars[SCALAR_IDX_BLIND_TYPE] * 2 + 0.5)
+                if blind_type == 2:  # Boss
+                    self.boss_blinds_cleared += 1
+
+            # 進入商店
+            if stage == STAGE_SHOP:
+                self.shop_visits += 1
+
+            self._prev_stage = stage
+
+        # Ante 進度追蹤
+        if ante > self._prev_ante:
+            self._prev_ante = ante
+
+        # 獎勵來源分解（啟發式）
+        if action_type == ACTION_TYPE_PLAY and reward > 0:
+            self.reward_from_play += reward
+        elif stage == STAGE_POST_BLIND and reward > 0.2:
+            self.reward_from_blind_clear += reward
+        elif stage == STAGE_SHOP and abs(reward) > 0.01:
+            self.reward_from_shop += reward
+
+        # 更新 prev 狀態
+        self._prev_money = money
+        self._prev_score = score
+        self._prev_joker_count = joker_count
+
+        # 最終狀態
+        if done:
+            self.final_ante = ante
+            self.final_round = round_num
+            self.final_money = money
+            # 判斷勝負：Ante 8 且 stage 是 End
+            self.won = (ante >= 8 and stage == STAGE_END)
+            self.reward_from_game_end = reward if abs(reward) > 0.3 else 0
+
+            # 計算平均出牌數
+            if self.plays_made > 0:
+                self.avg_cards_per_play = self.total_cards_played / self.plays_made
+
+    def to_dict(self) -> Dict[str, Any]:
+        """轉換為字典格式，用於 info"""
+        action_dist = {
+            ACTION_TYPE_NAMES[k]: v
+            for k, v in self.action_counts.items()
+            if k < len(ACTION_TYPE_NAMES)
+        }
+
+        return {
+            # 基礎結果
+            "episode/won": int(self.won),
+            "episode/final_ante": self.final_ante,
+            "episode/final_round": self.final_round,
+            "episode/total_steps": self.total_steps,
+            "episode/total_reward": self.total_reward,
+
+            # 進度指標
+            "progress/blind_clear_rate": self.blinds_cleared / max(1, self.blinds_attempted),
+            "progress/boss_clear_rate": self.boss_blinds_cleared / max(1, self.blinds_cleared),
+            "progress/skip_rate": self.blinds_skipped / max(1, self.blinds_attempted + self.blinds_skipped),
+
+            # 經濟指標
+            "economy/max_money": self.max_money,
+            "economy/total_earned": self.total_money_earned,
+            "economy/total_spent": self.total_money_spent,
+            "economy/final_money": self.final_money,
+            "economy/efficiency": self.total_money_spent / max(1, self.total_money_earned),
+
+            # Joker 指標
+            "joker/max_count": self.max_jokers,
+            "joker/bought": self.jokers_bought,
+            "joker/sold": self.jokers_sold,
+            "joker/net": self.jokers_bought - self.jokers_sold,
+
+            # 商店行為
+            "shop/visits": self.shop_visits,
+            "shop/rerolls": self.rerolls_used,
+            "shop/rerolls_per_visit": self.rerolls_used / max(1, self.shop_visits),
+            "shop/vouchers_bought": self.vouchers_bought,
+            "shop/packs_bought": self.packs_bought,
+            "shop/consumables_used": self.consumables_used,
+
+            # 出牌行為
+            "play/total_plays": self.plays_made,
+            "play/total_discards": self.discards_made,
+            "play/discard_ratio": self.discards_made / max(1, self.plays_made),
+
+            # 時間分布
+            "time/pct_in_blind": self.steps_in_blind / max(1, self.total_steps),
+            "time/pct_in_shop": self.steps_in_shop / max(1, self.total_steps),
+            "time/pct_in_pre_blind": self.steps_in_pre_blind / max(1, self.total_steps),
+
+            # 獎勵分解
+            "reward/from_play": self.reward_from_play,
+            "reward/from_blind_clear": self.reward_from_blind_clear,
+            "reward/from_shop": self.reward_from_shop,
+            "reward/from_skip": self.reward_from_skip,
+            "reward/from_game_end": self.reward_from_game_end,
+
+            # 分數
+            "score/max_in_blind": self.max_score_in_blind,
+            "score/total": self.total_score,
+
+            # 動作分布
+            **{f"action/{k}": v for k, v in action_dist.items()},
+        }
+
+
+@dataclass
+class AggregatedMetrics:
+    """聚合多個 episode 的統計"""
+
+    episodes: int = 0
+    wins: int = 0
+    total_reward: float = 0.0
+    total_ante: int = 0
+    total_rounds: int = 0
+    total_blinds_cleared: int = 0
+    total_blinds_attempted: int = 0
+    total_boss_cleared: int = 0
+    total_money_earned: int = 0
+    total_jokers_bought: int = 0
+    total_plays: int = 0
+    total_discards: int = 0
+    total_skips: int = 0
+    total_rerolls: int = 0
+
+    # 用於計算移動平均
+    recent_wins: list = field(default_factory=list)
+    recent_antes: list = field(default_factory=list)
+    recent_rewards: list = field(default_factory=list)
+    window_size: int = 100
+
+    def update(self, metrics: EpisodeMetrics):
+        """用新 episode 的統計更新聚合"""
+        self.episodes += 1
+        self.wins += int(metrics.won)
+        self.total_reward += metrics.total_reward
+        self.total_ante += metrics.final_ante
+        self.total_rounds += metrics.final_round
+        self.total_blinds_cleared += metrics.blinds_cleared
+        self.total_blinds_attempted += metrics.blinds_attempted
+        self.total_boss_cleared += metrics.boss_blinds_cleared
+        self.total_money_earned += metrics.total_money_earned
+        self.total_jokers_bought += metrics.jokers_bought
+        self.total_plays += metrics.plays_made
+        self.total_discards += metrics.discards_made
+        self.total_skips += metrics.blinds_skipped
+        self.total_rerolls += metrics.rerolls_used
+
+        # 更新移動窗口
+        self.recent_wins.append(int(metrics.won))
+        self.recent_antes.append(metrics.final_ante)
+        self.recent_rewards.append(metrics.total_reward)
+
+        if len(self.recent_wins) > self.window_size:
+            self.recent_wins.pop(0)
+            self.recent_antes.pop(0)
+            self.recent_rewards.pop(0)
+
+    def to_dict(self) -> Dict[str, Any]:
+        """轉換為字典格式"""
+        n = max(1, self.episodes)
+        recent_n = max(1, len(self.recent_wins))
+
+        return {
+            # 總體統計
+            "agg/episodes": self.episodes,
+            "agg/win_rate": self.wins / n,
+            "agg/avg_reward": self.total_reward / n,
+            "agg/avg_ante": self.total_ante / n,
+            "agg/avg_rounds": self.total_rounds / n,
+
+            # 移動平均（最近 N 局）
+            "recent/win_rate": sum(self.recent_wins) / recent_n,
+            "recent/avg_ante": sum(self.recent_antes) / recent_n,
+            "recent/avg_reward": sum(self.recent_rewards) / recent_n,
+
+            # 行為統計
+            "agg/blind_clear_rate": self.total_blinds_cleared / max(1, self.total_blinds_attempted),
+            "agg/boss_clear_rate": self.total_boss_cleared / max(1, self.total_blinds_cleared),
+            "agg/skip_rate": self.total_skips / max(1, self.total_blinds_attempted + self.total_skips),
+            "agg/avg_jokers_bought": self.total_jokers_bought / n,
+            "agg/avg_rerolls": self.total_rerolls / n,
+            "agg/discard_ratio": self.total_discards / max(1, self.total_plays),
+        }
+
 
 class JokerGymEnv(gym.Env):
-    """簡化的 Gym 環境，使用扁平化 observation"""
+    """簡化的 Gym 環境，使用扁平化 observation，支援詳細 metrics 追蹤"""
 
     metadata = {"render_modes": []}
 
-    def __init__(self, address: str = "127.0.0.1:50051") -> None:
+    def __init__(self, address: str = "127.0.0.1:50051", track_metrics: bool = True) -> None:
         self._client = JokerEnvClient(address)
         spec = self._client.get_spec()
 
@@ -150,14 +498,31 @@ class JokerGymEnv(gym.Env):
         self._last_done = False
         self._last_obs = None
 
+        # Metrics 追蹤
+        self._track_metrics = track_metrics
+        self._episode_metrics: Optional[EpisodeMetrics] = None
+        self._aggregated_metrics = AggregatedMetrics()
+        self._last_action_type = -1
+
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
     ) -> Tuple[np.ndarray, Dict[str, Any]]:
+        # 如果有上一局的 metrics，聚合它
+        if self._episode_metrics is not None and self._track_metrics:
+            self._aggregated_metrics.update(self._episode_metrics)
+
         response = self._client.reset(seed or 0)
         observation = _tensor_to_numpy(response.observation.features)
         info = _info_to_dict(response.info)
+
         self._last_done = False
         self._last_obs = observation
+        self._last_action_type = -1
+
+        # 開始新的 episode metrics
+        if self._track_metrics:
+            self._episode_metrics = EpisodeMetrics()
+
         return observation, info
 
     def step(self, action):
@@ -167,8 +532,26 @@ class JokerGymEnv(gym.Env):
         info = _info_to_dict(response.info)
         terminated = response.done
         truncated = False
+
         self._last_done = terminated
         self._last_obs = observation
+        self._last_action_type = action_type
+
+        # 更新 metrics
+        if self._track_metrics and self._episode_metrics is not None:
+            scalars = observation[:SCALAR_COUNT]
+            self._episode_metrics.update_from_obs(
+                scalars, action_type, response.reward, terminated
+            )
+
+            # 如果 episode 結束，將詳細 metrics 加入 info
+            if terminated:
+                episode_info = self._episode_metrics.to_dict()
+                info.update(episode_info)
+                # 也加入聚合統計
+                agg_info = self._aggregated_metrics.to_dict()
+                info.update(agg_info)
+
         return observation, response.reward, terminated, truncated, info
 
     def action_masks(self) -> np.ndarray:
@@ -176,13 +559,23 @@ class JokerGymEnv(gym.Env):
             return np.zeros(ACTION_TYPE_COUNT + HAND_SIZE * 2, dtype=bool)
         return _build_action_mask_from_obs(self._last_obs)
 
+    def get_aggregated_metrics(self) -> Dict[str, Any]:
+        """取得聚合的 metrics（用於外部監控）"""
+        return self._aggregated_metrics.to_dict()
+
+    def get_episode_metrics(self) -> Optional[Dict[str, Any]]:
+        """取得當前 episode 的 metrics"""
+        if self._episode_metrics is not None:
+            return self._episode_metrics.to_dict()
+        return None
+
 
 class JokerGymDictEnv(gym.Env):
-    """使用 Dict observation 的 Gym 環境，適合訓練"""
+    """使用 Dict observation 的 Gym 環境，適合訓練，支援詳細 metrics 追蹤"""
 
     metadata = {"render_modes": []}
 
-    def __init__(self, address: str = "127.0.0.1:50051") -> None:
+    def __init__(self, address: str = "127.0.0.1:50051", track_metrics: bool = True) -> None:
         self._client = JokerEnvClient(address)
         spec = self._client.get_spec()
 
@@ -240,16 +633,33 @@ class JokerGymDictEnv(gym.Env):
         self._last_done = False
         self._last_obs = None
 
+        # Metrics 追蹤
+        self._track_metrics = track_metrics
+        self._episode_metrics: Optional[EpisodeMetrics] = None
+        self._aggregated_metrics = AggregatedMetrics()
+        self._last_action_type = -1
+
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
     ) -> Tuple[Dict[str, np.ndarray], Dict[str, Any]]:
+        # 如果有上一局的 metrics，聚合它
+        if self._episode_metrics is not None and self._track_metrics:
+            self._aggregated_metrics.update(self._episode_metrics)
+
         response = self._client.reset(seed or 0)
         flat = _tensor_to_numpy(response.observation.features)
         observation = _split_observation(flat)
         info = _info_to_dict(response.info)
+
         self._last_done = False
         self._last_obs = flat
         self._last_action_mask = _action_mask_from_scalars(observation["scalars"])
+        self._last_action_type = -1
+
+        # 開始新的 episode metrics
+        if self._track_metrics:
+            self._episode_metrics = EpisodeMetrics()
+
         return observation, info
 
     def step(self, action):
@@ -260,15 +670,43 @@ class JokerGymDictEnv(gym.Env):
         info = _info_to_dict(response.info)
         terminated = response.done
         truncated = False
+
         self._last_done = terminated
         self._last_obs = flat
         self._last_action_mask = _action_mask_from_scalars(observation["scalars"])
+        self._last_action_type = action_type
+
+        # 更新 metrics
+        if self._track_metrics and self._episode_metrics is not None:
+            scalars = observation["scalars"]
+            self._episode_metrics.update_from_obs(
+                scalars, action_type, response.reward, terminated
+            )
+
+            # 如果 episode 結束，將詳細 metrics 加入 info
+            if terminated:
+                episode_info = self._episode_metrics.to_dict()
+                info.update(episode_info)
+                # 也加入聚合統計
+                agg_info = self._aggregated_metrics.to_dict()
+                info.update(agg_info)
+
         return observation, response.reward, terminated, truncated, info
 
     def action_masks(self) -> np.ndarray:
         if self._last_done:
             return np.zeros(ACTION_TYPE_COUNT + HAND_SIZE * 2, dtype=bool)
         return self._last_action_mask
+
+    def get_aggregated_metrics(self) -> Dict[str, Any]:
+        """取得聚合的 metrics（用於外部監控）"""
+        return self._aggregated_metrics.to_dict()
+
+    def get_episode_metrics(self) -> Optional[Dict[str, Any]]:
+        """取得當前 episode 的 metrics"""
+        if self._episode_metrics is not None:
+            return self._episode_metrics.to_dict()
+        return None
 
 
 # ============================================================================
