@@ -1,0 +1,239 @@
+{
+  "category": "challenges",
+  "description": "Challenge Decks are unique decks with special conditions making them more challenging than normal decks. They can only be played on White Stake.",
+  "total_count": 20,
+  "unlock_requirement": "Win a regular run with five different decks",
+  "challenges": [
+    {
+      "id": "the_omelette",
+      "order": 1,
+      "name_en": "The Omelette",
+      "name_zh": "煎蛋捲",
+      "rules_en": "All Blinds give no reward money, Extra Hands no longer earn money, Earn no Interest at end of round",
+      "rules_zh": "所有盲注不給獎勵金錢，額外出牌次數不再賺錢，回合結束無利息",
+      "initial_jokers": ["5x Egg"],
+      "deck": "Standard 52 cards",
+      "banned": ["Seed Money", "Money Tree", "To the Moon", "Rocket", "Golden Joker", "Satellite"]
+    },
+    {
+      "id": "15_minute_city",
+      "order": 2,
+      "name_en": "15 Minute City",
+      "name_zh": "15 分鐘城市",
+      "rules_en": "None",
+      "rules_zh": "無",
+      "initial_jokers": ["Eternal Ride the Bus", "Eternal Shortcut"],
+      "deck": "Two copies of every face card; no Aces, 2s, or 3s",
+      "banned": []
+    },
+    {
+      "id": "rich_get_richer",
+      "order": 3,
+      "name_en": "Rich get Richer",
+      "name_zh": "富者愈富",
+      "rules_en": "Chips cannot exceed the current $, Start with $100",
+      "rules_zh": "籌碼不能超過當前金額，起始 $100",
+      "initial_jokers": [],
+      "initial_vouchers": ["Seed Money", "Money Tree"],
+      "deck": "Standard 52 cards",
+      "banned": []
+    },
+    {
+      "id": "on_a_knifes_edge",
+      "order": 4,
+      "name_en": "On a Knife's Edge",
+      "name_zh": "刀鋒邊緣",
+      "rules_en": "None",
+      "rules_zh": "無",
+      "initial_jokers": ["Eternal, Pinned Ceremonial Dagger"],
+      "deck": "Standard 52 cards",
+      "banned": []
+    },
+    {
+      "id": "xray_vision",
+      "order": 5,
+      "name_en": "X-ray Vision",
+      "name_zh": "透視眼",
+      "rules_en": "1 in 4 cards are drawn face down",
+      "rules_zh": "每 4 張牌有 1 張面朝下發放",
+      "initial_jokers": [],
+      "deck": "Standard 52 cards",
+      "banned": []
+    },
+    {
+      "id": "mad_world",
+      "order": 6,
+      "name_en": "Mad World",
+      "name_zh": "瘋狂世界",
+      "rules_en": "Extra Hands no longer earn money, Earn no Interest at end of round",
+      "rules_zh": "額外出牌次數不再賺錢，回合結束無利息",
+      "initial_jokers": ["Eternal, Negative Pareidolia", "Eternal Business Card"],
+      "deck": "Ranks 2 through 9 only, 32 cards total",
+      "banned": ["The Plant (Boss Blind)"]
+    },
+    {
+      "id": "luxury_tax",
+      "order": 7,
+      "name_en": "Luxury Tax",
+      "name_zh": "奢侈稅",
+      "rules_en": "Hold -1 cards in hand for every $5 you have, 10 hand size",
+      "rules_zh": "每持有 $5 手牌上限 -1，初始手牌上限 10",
+      "initial_jokers": [],
+      "deck": "Standard 52 cards",
+      "banned": []
+    },
+    {
+      "id": "non_perishable",
+      "order": 8,
+      "name_en": "Non-Perishable",
+      "name_zh": "不易腐壞",
+      "rules_en": "All Jokers are Eternal",
+      "rules_zh": "所有小丑牌都是永恆的",
+      "initial_jokers": [],
+      "deck": "Standard 52 cards",
+      "banned": ["Gros Michel", "Cavendish", "Ice Cream", "Turtle Bean", "Ramen", "Diet Cola", "Seltzer", "Popcorn", "Mr. Bones", "Invisible Joker", "Luchador", "Verdant Leaf (Boss Blind)"]
+    },
+    {
+      "id": "medusa",
+      "order": 9,
+      "name_en": "Medusa",
+      "name_zh": "美杜莎",
+      "rules_en": "None",
+      "rules_zh": "無",
+      "initial_jokers": ["Eternal Marble Joker"],
+      "deck": "52 cards, all face cards replaced by Stone cards",
+      "banned": []
+    },
+    {
+      "id": "double_or_nothing",
+      "order": 10,
+      "name_en": "Double or Nothing",
+      "name_zh": "孤注一擲",
+      "rules_en": "All Played cards become debuffed after scoring",
+      "rules_zh": "所有打出的牌在計分後被削弱",
+      "initial_jokers": [],
+      "deck": "Standard 52 cards with Red Seal",
+      "banned": []
+    },
+    {
+      "id": "typecast",
+      "order": 11,
+      "name_en": "Typecast",
+      "name_zh": "定型",
+      "rules_en": "When ante 4 boss is defeated: all Jokers become eternal, set Joker slots to 0",
+      "rules_zh": "當擊敗底注 4 的 Boss 後：所有小丑牌變為永恆，小丑欄位設為 0",
+      "initial_jokers": [],
+      "deck": "Standard 52 cards",
+      "banned": ["Verdant Leaf (Boss Blind)"]
+    },
+    {
+      "id": "inflation",
+      "order": 12,
+      "name_en": "Inflation",
+      "name_zh": "通貨膨脹",
+      "rules_en": "Permanently raise prices by $1 on every purchase",
+      "rules_zh": "每次購買後永久提高價格 $1",
+      "initial_consumables": ["Credit Card"],
+      "deck": "Standard 52 cards",
+      "banned": ["Clearance Sale", "Liquidation"]
+    },
+    {
+      "id": "bram_poker",
+      "order": 13,
+      "name_en": "Bram Poker",
+      "name_zh": "布拉姆撲克",
+      "rules_en": "Jokers no longer appear in the shop",
+      "rules_zh": "商店不再出現小丑牌",
+      "initial_jokers": ["Eternal Vampire"],
+      "initial_consumables": ["The Emperor", "The Empress"],
+      "initial_vouchers": ["Magic Trick", "Illusion"],
+      "deck": "Standard 52 cards",
+      "banned": []
+    },
+    {
+      "id": "fragile",
+      "order": 14,
+      "name_en": "Fragile",
+      "name_zh": "易碎",
+      "rules_en": "None",
+      "rules_zh": "無",
+      "initial_jokers": ["2x Eternal, Negative Oops! All 6s"],
+      "deck": "Standard 52 cards, all glass",
+      "banned": ["Marble Joker", "Vampire", "Midas Mask", "Certificate", "The Magician", "The Empress", "The Hierophant", "The Chariot", "The Devil", "The Tower", "The Lovers", "Incantation", "Grim", "Familiar", "Magic Trick", "Illusion", "Standard Pack", "Standard Tag"]
+    },
+    {
+      "id": "monolith",
+      "order": 15,
+      "name_en": "Monolith",
+      "name_zh": "巨石",
+      "rules_en": "None",
+      "rules_zh": "無",
+      "initial_jokers": ["Eternal Obelisk", "Eternal Negative Marble Joker"],
+      "deck": "Standard 52 cards",
+      "banned": []
+    },
+    {
+      "id": "blast_off",
+      "order": 16,
+      "name_en": "Blast Off",
+      "name_zh": "發射升空",
+      "rules_en": "2 hands per round, 2 discards per round, 4 Joker Slots",
+      "rules_zh": "每回合 2 次出牌，2 次棄牌，4 個小丑欄位",
+      "initial_jokers": ["Eternal Constellation", "Eternal Rocket"],
+      "initial_vouchers": ["Planet Merchant", "Planet Tycoon"],
+      "deck": "Standard 52 cards",
+      "banned": ["Grabber", "Nacho Tong", "Burglar"]
+    },
+    {
+      "id": "five_card_draw",
+      "order": 17,
+      "name_en": "Five-Card Draw",
+      "name_zh": "五張換牌",
+      "rules_en": "6 discards per round, 5 hand size, 7 Joker slots",
+      "rules_zh": "每回合 6 次棄牌，手牌上限 5，7 個小丑欄位",
+      "initial_jokers": ["Card Sharp", "Joker"],
+      "deck": "Standard 52 cards",
+      "banned": ["Juggler", "Troubadour", "Turtle Bean"]
+    },
+    {
+      "id": "golden_needle",
+      "order": 18,
+      "name_en": "Golden Needle",
+      "name_zh": "金針",
+      "rules_en": "Discards each cost $1, 1 hand per round, 6 discards per round, Start with $10",
+      "rules_zh": "每次棄牌花費 $1，每回合 1 次出牌，6 次棄牌，起始 $10",
+      "initial_consumables": ["Credit Card"],
+      "deck": "Standard 52 cards",
+      "banned": ["Burglar", "Grabber", "Nacho Tong"]
+    },
+    {
+      "id": "cruelty",
+      "order": 19,
+      "name_en": "Cruelty",
+      "name_zh": "殘酷",
+      "rules_en": "Small Blinds give no reward money, Big Blinds give no reward money, 3 Joker Slots",
+      "rules_zh": "小盲注不給獎勵金錢，大盲注不給獎勵金錢，3 個小丑欄位",
+      "initial_jokers": [],
+      "deck": "Standard 52 cards",
+      "banned": []
+    },
+    {
+      "id": "jokerless",
+      "order": 20,
+      "name_en": "Jokerless",
+      "name_zh": "無小丑",
+      "rules_en": "Jokers no longer appear in the shop, 0 Joker Slots",
+      "rules_zh": "商店不再出現小丑牌，0 個小丑欄位",
+      "initial_jokers": [],
+      "deck": "Standard 52 cards",
+      "banned": ["Judgement", "Wraith", "The Soul", "Uncommon Tag", "Rare Tag", "Negative Tag", "Foil Tag", "Holographic Tag", "Polychrome Tag", "Buffoon Tag", "Top-up Tag", "Crimson Heart", "Verdant Leaf", "Amber Acorn", "Antimatter", "All Buffoon Packs"]
+    }
+  ],
+  "notes": [
+    "Challenge Decks can only be played on White Stake",
+    "Achievements and unlocks cannot be obtained during Challenge runs",
+    "Statistics like consumable usage and high scores still update",
+    "Each subsequent deck unlocks after winning with a Challenge Deck",
+    "Need to win with 15 Challenge Decks to unlock all 20"
+  ]
+}

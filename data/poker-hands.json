@@ -1,0 +1,150 @@
+{
+  "category": "poker_hands",
+  "description": "Poker Hands are sets of one to five cards that can be played in Balatro to obtain Chips and Mult for scoring.",
+  "total_count": 13,
+  "regular_hands": [
+    {
+      "id": "high_card",
+      "name_en": "High Card",
+      "name_zh": "高牌",
+      "base_chips": 5,
+      "base_mult": 1,
+      "description_en": "When no other hand is possible, scores whichever played card is the highest rank.",
+      "description_zh": "當無法組成其他牌型時，以打出的最高點數牌計分。",
+      "planet": "Pluto"
+    },
+    {
+      "id": "pair",
+      "name_en": "Pair",
+      "name_zh": "對子",
+      "base_chips": 10,
+      "base_mult": 2,
+      "description_en": "Two cards with a matching rank. Suits may be different.",
+      "description_zh": "兩張相同點數的牌。花色可以不同。",
+      "planet": "Mercury"
+    },
+    {
+      "id": "two_pair",
+      "name_en": "Two Pair",
+      "name_zh": "兩對",
+      "base_chips": 20,
+      "base_mult": 2,
+      "description_en": "Two cards with a matching rank and two cards with a different matching rank. Suits may differ.",
+      "description_zh": "兩張相同點數的牌，加上另外兩張不同但相同點數的牌。花色可以不同。",
+      "planet": "Uranus"
+    },
+    {
+      "id": "three_of_a_kind",
+      "name_en": "Three of a Kind",
+      "name_zh": "三條",
+      "base_chips": 30,
+      "base_mult": 3,
+      "description_en": "Three cards with a matching rank. Suits may be different.",
+      "description_zh": "三張相同點數的牌。花色可以不同。",
+      "planet": "Venus"
+    },
+    {
+      "id": "straight",
+      "name_en": "Straight",
+      "name_zh": "順子",
+      "base_chips": 30,
+      "base_mult": 4,
+      "description_en": "Five cards with ranks that are in consecutive order. Suits may be different. Aces can be counted as high (A K Q J 10) or low (A 2 3 4 5), however, not at the same time.",
+      "description_zh": "五張連續點數的牌。花色可以不同。A 可作為最大（A K Q J 10）或最小（A 2 3 4 5），但不能同時。",
+      "planet": "Saturn"
+    },
+    {
+      "id": "flush",
+      "name_en": "Flush",
+      "name_zh": "同花",
+      "base_chips": 35,
+      "base_mult": 4,
+      "description_en": "Five cards of any rank that all share the same suit.",
+      "description_zh": "五張相同花色的牌，點數不限。",
+      "planet": "Jupiter"
+    },
+    {
+      "id": "full_house",
+      "name_en": "Full House",
+      "name_zh": "葫蘆",
+      "base_chips": 40,
+      "base_mult": 4,
+      "description_en": "Three cards with a matching rank and two cards with a different matching rank, with cards from at least two or more suits.",
+      "description_zh": "三張相同點數的牌加上兩張另一相同點數的牌，需來自至少兩種花色。",
+      "planet": "Earth"
+    },
+    {
+      "id": "four_of_a_kind",
+      "name_en": "Four of a Kind",
+      "name_zh": "四條",
+      "base_chips": 60,
+      "base_mult": 7,
+      "description_en": "Four cards with a matching rank. Suits may be different.",
+      "description_zh": "四張相同點數的牌。花色可以不同。",
+      "planet": "Mars"
+    },
+    {
+      "id": "straight_flush",
+      "name_en": "Straight Flush",
+      "name_zh": "同花順",
+      "base_chips": 100,
+      "base_mult": 8,
+      "description_en": "Five cards in consecutive order that all share the same suit.",
+      "description_zh": "五張連續點數且相同花色的牌。",
+      "planet": "Neptune"
+    },
+    {
+      "id": "royal_flush",
+      "name_en": "Royal Flush",
+      "name_zh": "皇家同花順",
+      "base_chips": 100,
+      "base_mult": 8,
+      "description_en": "A Straight Flush that contains an Ace, King, Queen, Jack, and 10 on the same suit. (Levels up alongside Straight Flush)",
+      "description_zh": "由 A、K、Q、J、10 組成的同花順。（與同花順共用等級）",
+      "planet": "Neptune",
+      "note": "Shares level with Straight Flush"
+    }
+  ],
+  "secret_hands": [
+    {
+      "id": "five_of_a_kind",
+      "name_en": "Five of a Kind",
+      "name_zh": "五條",
+      "base_chips": 120,
+      "base_mult": 12,
+      "description_en": "Five cards with the same rank which are not all the same suit.",
+      "description_zh": "五張相同點數的牌，但不全是同一花色。",
+      "planet": "Planet X",
+      "unlock_condition": "Play once to unlock"
+    },
+    {
+      "id": "flush_house",
+      "name_en": "Flush House",
+      "name_zh": "同花葫蘆",
+      "base_chips": 140,
+      "base_mult": 14,
+      "description_en": "Three cards with the same rank, and two cards with the same rank, all from a single suit.",
+      "description_zh": "三張相同點數加兩張另一相同點數，全部同一花色。",
+      "planet": "Ceres",
+      "unlock_condition": "Play once to unlock"
+    },
+    {
+      "id": "flush_five",
+      "name_en": "Flush Five",
+      "name_zh": "同花五條",
+      "base_chips": 160,
+      "base_mult": 16,
+      "description_en": "Five cards with the same rank and same suit.",
+      "description_zh": "五張相同點數且相同花色的牌。",
+      "planet": "Eris",
+      "unlock_condition": "Play once to unlock"
+    }
+  ],
+  "notes": [
+    "All hands start at Level 1 at the beginning of a run",
+    "Hands are upgraded through Planet cards",
+    "Higher-tier hands take precedence over lower-tier hands",
+    "Only cards relevant to the hand are scored (except with Splash Joker)",
+    "Secret hands only appear in Run Info after being played once"
+  ]
+}

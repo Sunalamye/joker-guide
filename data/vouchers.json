@@ -1,0 +1,256 @@
+{
+  "category": "vouchers",
+  "description": "Vouchers are permanent upgrades purchased from the shop that last for the entire run.",
+  "total_count": 32,
+  "base_vouchers": 16,
+  "upgraded_vouchers": 16,
+  "cost": 10,
+  "vouchers": [
+    {
+      "id": "overstock",
+      "name_en": "Overstock",
+      "name_zh": "庫存過剩",
+      "effect_en": "+1 card slot available in shop (to 3 slots)",
+      "effect_zh": "商店 +1 卡片欄位（共 3 欄）",
+      "upgrade": {
+        "id": "overstock_plus",
+        "name_en": "Overstock Plus",
+        "name_zh": "庫存過剩+",
+        "effect_en": "+1 card slot available in shop (to 4 slots)",
+        "effect_zh": "商店 +1 卡片欄位（共 4 欄）",
+        "unlock_condition": "Spend a total of $2500 at the shop"
+      }
+    },
+    {
+      "id": "clearance_sale",
+      "name_en": "Clearance Sale",
+      "name_zh": "清倉特賣",
+      "effect_en": "All cards and packs in shop are 25% off",
+      "effect_zh": "商店所有卡片和卡包 75 折",
+      "upgrade": {
+        "id": "liquidation",
+        "name_en": "Liquidation",
+        "name_zh": "清算",
+        "effect_en": "All cards and packs in shop are 50% off",
+        "effect_zh": "商店所有卡片和卡包 5 折",
+        "unlock_condition": "Redeem at least 10 Voucher cards in one run"
+      }
+    },
+    {
+      "id": "hone",
+      "name_en": "Hone",
+      "name_zh": "磨練",
+      "effect_en": "Foil, Holographic, and Polychrome cards appear 2X more often",
+      "effect_zh": "閃卡、全息、幻彩卡片出現機率 2 倍",
+      "upgrade": {
+        "id": "glow_up",
+        "name_en": "Glow Up",
+        "name_zh": "光芒四射",
+        "effect_en": "Foil, Holographic, and Polychrome cards appear 4X more often",
+        "effect_zh": "閃卡、全息、幻彩卡片出現機率 4 倍",
+        "unlock_condition": "Have at least 5 Joker cards with Foil, Holographic, or Polychrome effect"
+      }
+    },
+    {
+      "id": "reroll_surplus",
+      "name_en": "Reroll Surplus",
+      "name_zh": "重擲盈餘",
+      "effect_en": "Rerolls cost $2 less",
+      "effect_zh": "重擲費用 -$2",
+      "upgrade": {
+        "id": "reroll_glut",
+        "name_en": "Reroll Glut",
+        "name_zh": "重擲過剩",
+        "effect_en": "Rerolls cost an additional $2 less",
+        "effect_zh": "重擲費用再 -$2",
+        "unlock_condition": "Reroll the shop a total of 100 times"
+      }
+    },
+    {
+      "id": "crystal_ball",
+      "name_en": "Crystal Ball",
+      "name_zh": "水晶球",
+      "effect_en": "+1 consumable slot",
+      "effect_zh": "+1 消耗品欄位",
+      "upgrade": {
+        "id": "omen_globe",
+        "name_en": "Omen Globe",
+        "name_zh": "預兆球",
+        "effect_en": "Spectral cards may appear in any of the Arcana Packs",
+        "effect_zh": "秘法包可能出現幻靈牌",
+        "unlock_condition": "Use a total of 25 Tarot cards from booster packs"
+      }
+    },
+    {
+      "id": "telescope",
+      "name_en": "Telescope",
+      "name_zh": "望遠鏡",
+      "effect_en": "Celestial Packs always contain the Planet card for your most played poker hand",
+      "effect_zh": "天體包必定包含你最常出的牌型對應的星球牌",
+      "upgrade": {
+        "id": "observatory",
+        "name_en": "Observatory",
+        "name_zh": "天文台",
+        "effect_en": "Planet cards in your consumable area give X1.5 Mult for their specified poker hand",
+        "effect_zh": "消耗品區的星球牌為其對應牌型提供 X1.5 倍率",
+        "unlock_condition": "Use a total of 25 Planet cards from booster packs"
+      }
+    },
+    {
+      "id": "grabber",
+      "name_en": "Grabber",
+      "name_zh": "抓取器",
+      "effect_en": "Permanently gain +1 hand per round",
+      "effect_zh": "每回合永久 +1 出牌次數",
+      "upgrade": {
+        "id": "nacho_tong",
+        "name_en": "Nacho Tong",
+        "name_zh": "玉米片夾",
+        "effect_en": "Permanently gain an additional +1 hand per round",
+        "effect_zh": "每回合再 +1 出牌次數",
+        "unlock_condition": "Play a total of 2500 cards"
+      }
+    },
+    {
+      "id": "wasteful",
+      "name_en": "Wasteful",
+      "name_zh": "浪費",
+      "effect_en": "Permanently gain +1 discard each round",
+      "effect_zh": "每回合永久 +1 棄牌次數",
+      "upgrade": {
+        "id": "recyclomancy",
+        "name_en": "Recyclomancy",
+        "name_zh": "回收術",
+        "effect_en": "Permanently gain an additional +1 discard each round",
+        "effect_zh": "每回合再 +1 棄牌次數",
+        "unlock_condition": "Discard a total of 2500 cards"
+      }
+    },
+    {
+      "id": "tarot_merchant",
+      "name_en": "Tarot Merchant",
+      "name_zh": "塔羅商人",
+      "effect_en": "Tarot cards appear 2X more frequently in the shop",
+      "effect_zh": "塔羅牌在商店出現機率 2 倍",
+      "upgrade": {
+        "id": "tarot_tycoon",
+        "name_en": "Tarot Tycoon",
+        "name_zh": "塔羅大亨",
+        "effect_en": "Tarot cards appear 4X more frequently in the shop",
+        "effect_zh": "塔羅牌在商店出現機率 4 倍",
+        "unlock_condition": "Buy a total of 50 Tarot cards from the shop"
+      }
+    },
+    {
+      "id": "planet_merchant",
+      "name_en": "Planet Merchant",
+      "name_zh": "星球商人",
+      "effect_en": "Planet cards appear 2X more frequently in the shop",
+      "effect_zh": "星球牌在商店出現機率 2 倍",
+      "upgrade": {
+        "id": "planet_tycoon",
+        "name_en": "Planet Tycoon",
+        "name_zh": "星球大亨",
+        "effect_en": "Planet cards appear 4X more frequently in the shop",
+        "effect_zh": "星球牌在商店出現機率 4 倍",
+        "unlock_condition": "Buy a total of 50 Planet cards from the shop"
+      }
+    },
+    {
+      "id": "seed_money",
+      "name_en": "Seed Money",
+      "name_zh": "種子資金",
+      "effect_en": "Raise the cap on interest earned in each round to $10",
+      "effect_zh": "每回合利息上限提高至 $10",
+      "upgrade": {
+        "id": "money_tree",
+        "name_en": "Money Tree",
+        "name_zh": "搖錢樹",
+        "effect_en": "Raise the cap on interest earned in each round to $20",
+        "effect_zh": "每回合利息上限提高至 $20",
+        "unlock_condition": "Max out interest earnings for 10 consecutive rounds"
+      }
+    },
+    {
+      "id": "blank",
+      "name_en": "Blank",
+      "name_zh": "空白",
+      "effect_en": "Does nothing?",
+      "effect_zh": "什麼都不做？",
+      "upgrade": {
+        "id": "antimatter",
+        "name_en": "Antimatter",
+        "name_zh": "反物質",
+        "effect_en": "+1 Joker slot",
+        "effect_zh": "+1 小丑欄位",
+        "unlock_condition": "Redeem Blank 10 total times"
+      }
+    },
+    {
+      "id": "magic_trick",
+      "name_en": "Magic Trick",
+      "name_zh": "魔術把戲",
+      "effect_en": "Playing cards can be purchased from the shop",
+      "effect_zh": "可以在商店購買撲克牌",
+      "upgrade": {
+        "id": "illusion",
+        "name_en": "Illusion",
+        "name_zh": "幻象",
+        "effect_en": "Playing cards in shop may have an Enhancement, Edition, and/or a Seal",
+        "effect_zh": "商店的撲克牌可能有強化、版本和/或封印",
+        "unlock_condition": "Buy a total of 20 Playing cards from the shop"
+      }
+    },
+    {
+      "id": "hieroglyph",
+      "name_en": "Hieroglyph",
+      "name_zh": "象形文字",
+      "effect_en": "-1 Ante, -1 hand each round",
+      "effect_zh": "-1 底注，每回合 -1 出牌次數",
+      "upgrade": {
+        "id": "petroglyph",
+        "name_en": "Petroglyph",
+        "name_zh": "岩畫",
+        "effect_en": "-1 Ante again, -1 discard each round",
+        "effect_zh": "再 -1 底注，每回合 -1 棄牌次數",
+        "unlock_condition": "Reach Ante level 12"
+      }
+    },
+    {
+      "id": "directors_cut",
+      "name_en": "Director's Cut",
+      "name_zh": "導演剪輯版",
+      "effect_en": "Reroll Boss Blind 1 time per Ante, $10 per roll",
+      "effect_zh": "每底注可重擲 Boss 盲注 1 次，每次 $10",
+      "upgrade": {
+        "id": "retcon",
+        "name_en": "Retcon",
+        "name_zh": "追溯修改",
+        "effect_en": "Reroll Boss Blind unlimited times, $10 per roll",
+        "effect_zh": "可無限次重擲 Boss 盲注，每次 $10",
+        "unlock_condition": "Discover 25 Blinds"
+      }
+    },
+    {
+      "id": "paint_brush",
+      "name_en": "Paint Brush",
+      "name_zh": "畫筆",
+      "effect_en": "+1 hand size",
+      "effect_zh": "+1 手牌上限",
+      "upgrade": {
+        "id": "palette",
+        "name_en": "Palette",
+        "name_zh": "調色板",
+        "effect_en": "+1 hand size again",
+        "effect_zh": "再 +1 手牌上限",
+        "unlock_condition": "Reduce your hand size down to 5 cards"
+      }
+    }
+  ],
+  "notes": [
+    "Each Voucher costs $10",
+    "Upgraded Vouchers become available after purchasing their base version",
+    "Vouchers are permanent for the entire run",
+    "Only 1 Voucher is available per shop visit (2 after beating first Boss Blind)"
+  ]
+}

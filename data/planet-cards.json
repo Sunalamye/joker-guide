@@ -1,0 +1,156 @@
+{
+  "category": "planet_cards",
+  "description": "Planet cards are consumables that permanently upgrade the base Chips and Mult of poker hands.",
+  "total_count": 12,
+  "source": "Celestial Packs, The High Priestess Tarot, the Shop",
+  "cards": [
+    {
+      "id": "pluto",
+      "name_en": "Pluto",
+      "name_zh": "冥王星",
+      "upgrades_hand": "high_card",
+      "upgrades_hand_en": "High Card",
+      "upgrades_hand_zh": "高牌",
+      "mult_bonus": 1,
+      "chips_bonus": 10
+    },
+    {
+      "id": "mercury",
+      "name_en": "Mercury",
+      "name_zh": "水星",
+      "upgrades_hand": "pair",
+      "upgrades_hand_en": "Pair",
+      "upgrades_hand_zh": "對子",
+      "mult_bonus": 1,
+      "chips_bonus": 15
+    },
+    {
+      "id": "uranus",
+      "name_en": "Uranus",
+      "name_zh": "天王星",
+      "upgrades_hand": "two_pair",
+      "upgrades_hand_en": "Two Pair",
+      "upgrades_hand_zh": "兩對",
+      "mult_bonus": 1,
+      "chips_bonus": 20
+    },
+    {
+      "id": "venus",
+      "name_en": "Venus",
+      "name_zh": "金星",
+      "upgrades_hand": "three_of_a_kind",
+      "upgrades_hand_en": "Three of a Kind",
+      "upgrades_hand_zh": "三條",
+      "mult_bonus": 2,
+      "chips_bonus": 20
+    },
+    {
+      "id": "saturn",
+      "name_en": "Saturn",
+      "name_zh": "土星",
+      "upgrades_hand": "straight",
+      "upgrades_hand_en": "Straight",
+      "upgrades_hand_zh": "順子",
+      "mult_bonus": 3,
+      "chips_bonus": 30
+    },
+    {
+      "id": "jupiter",
+      "name_en": "Jupiter",
+      "name_zh": "木星",
+      "upgrades_hand": "flush",
+      "upgrades_hand_en": "Flush",
+      "upgrades_hand_zh": "同花",
+      "mult_bonus": 2,
+      "chips_bonus": 15
+    },
+    {
+      "id": "earth",
+      "name_en": "Earth",
+      "name_zh": "地球",
+      "upgrades_hand": "full_house",
+      "upgrades_hand_en": "Full House",
+      "upgrades_hand_zh": "葫蘆",
+      "mult_bonus": 2,
+      "chips_bonus": 25
+    },
+    {
+      "id": "mars",
+      "name_en": "Mars",
+      "name_zh": "火星",
+      "upgrades_hand": "four_of_a_kind",
+      "upgrades_hand_en": "Four of a Kind",
+      "upgrades_hand_zh": "四條",
+      "mult_bonus": 3,
+      "chips_bonus": 30
+    },
+    {
+      "id": "neptune",
+      "name_en": "Neptune",
+      "name_zh": "海王星",
+      "upgrades_hand": "straight_flush",
+      "upgrades_hand_en": "Straight Flush",
+      "upgrades_hand_zh": "同花順",
+      "mult_bonus": 4,
+      "chips_bonus": 40,
+      "note": "Also upgrades Royal Flush"
+    },
+    {
+      "id": "planet_x",
+      "name_en": "Planet X",
+      "name_zh": "X行星",
+      "upgrades_hand": "five_of_a_kind",
+      "upgrades_hand_en": "Five of a Kind",
+      "upgrades_hand_zh": "五條",
+      "mult_bonus": 3,
+      "chips_bonus": 35,
+      "is_secret": true,
+      "unlock_condition": "Discover Five of a Kind"
+    },
+    {
+      "id": "ceres",
+      "name_en": "Ceres",
+      "name_zh": "穀神星",
+      "upgrades_hand": "flush_house",
+      "upgrades_hand_en": "Flush House",
+      "upgrades_hand_zh": "同花葫蘆",
+      "mult_bonus": 4,
+      "chips_bonus": 40,
+      "is_secret": true,
+      "unlock_condition": "Discover Flush House"
+    },
+    {
+      "id": "eris",
+      "name_en": "Eris",
+      "name_zh": "鬩神星",
+      "upgrades_hand": "flush_five",
+      "upgrades_hand_en": "Flush Five",
+      "upgrades_hand_zh": "同花五條",
+      "mult_bonus": 3,
+      "chips_bonus": 50,
+      "is_secret": true,
+      "unlock_condition": "Discover Flush Five"
+    }
+  ],
+  "hand_planet_mapping": {
+    "high_card": "pluto",
+    "pair": "mercury",
+    "two_pair": "uranus",
+    "three_of_a_kind": "venus",
+    "straight": "saturn",
+    "flush": "jupiter",
+    "full_house": "earth",
+    "four_of_a_kind": "mars",
+    "straight_flush": "neptune",
+    "royal_flush": "neptune",
+    "five_of_a_kind": "planet_x",
+    "flush_house": "ceres",
+    "flush_five": "eris"
+  },
+  "notes": [
+    "Each Planet card corresponds to a specific poker hand",
+    "Neptune upgrades both Straight Flush and Royal Flush",
+    "Planet X, Ceres, and Eris are secret planets that appear after discovering their corresponding secret hands",
+    "Planet cards can be obtained from Celestial Packs, The High Priestess Tarot, or the Shop"
+  ]
+}

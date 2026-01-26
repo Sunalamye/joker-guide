@@ -1,0 +1,288 @@
+{
+  "category": "blinds",
+  "description": "Blinds are the challenges you must defeat in each Ante. Each Ante has a Small Blind, Big Blind, and Boss Blind.",
+  "basic_blinds": [
+    {
+      "id": "small_blind",
+      "name_en": "Small Blind",
+      "name_zh": "小盲注",
+      "chip_multiplier": 1,
+      "reward_multiplier": 1,
+      "effect_en": "No special effect",
+      "effect_zh": "無特殊效果",
+      "skippable": true,
+      "skip_reward": "tag"
+    },
+    {
+      "id": "big_blind",
+      "name_en": "Big Blind",
+      "name_zh": "大盲注",
+      "chip_multiplier": 1.5,
+      "reward_multiplier": 1,
+      "effect_en": "No special effect",
+      "effect_zh": "無特殊效果",
+      "skippable": true,
+      "skip_reward": "tag"
+    }
+  ],
+  "boss_blinds": [
+    {
+      "id": "the_hook",
+      "name_en": "The Hook",
+      "name_zh": "鉤子",
+      "chip_multiplier": 2,
+      "effect_en": "Discards 2 random cards per hand played",
+      "effect_zh": "每次出牌隨機棄掉 2 張手牌"
+    },
+    {
+      "id": "the_ox",
+      "name_en": "The Ox",
+      "name_zh": "公牛",
+      "chip_multiplier": 2,
+      "effect_en": "Playing a #1 most played hand sets money to $0",
+      "effect_zh": "打出最常用的牌型時，金錢歸零"
+    },
+    {
+      "id": "the_house",
+      "name_en": "The House",
+      "name_zh": "房子",
+      "chip_multiplier": 2,
+      "effect_en": "First hand is drawn face down",
+      "effect_zh": "第一手牌面朝下發放"
+    },
+    {
+      "id": "the_wall",
+      "name_en": "The Wall",
+      "name_zh": "牆壁",
+      "chip_multiplier": 4,
+      "effect_en": "Extra large blind",
+      "effect_zh": "超大盲注"
+    },
+    {
+      "id": "the_wheel",
+      "name_en": "The Wheel",
+      "name_zh": "輪子",
+      "chip_multiplier": 2,
+      "effect_en": "1 in 7 cards get drawn face down",
+      "effect_zh": "每 7 張牌有 1 張面朝下發放"
+    },
+    {
+      "id": "the_arm",
+      "name_en": "The Arm",
+      "name_zh": "手臂",
+      "chip_multiplier": 2,
+      "effect_en": "Decrease level of played poker hand by 1",
+      "effect_zh": "打出的牌型等級降低 1 級"
+    },
+    {
+      "id": "the_club",
+      "name_en": "The Club",
+      "name_zh": "梅花",
+      "chip_multiplier": 2,
+      "effect_en": "All Club cards are debuffed",
+      "effect_zh": "所有梅花牌被削弱"
+    },
+    {
+      "id": "the_fish",
+      "name_en": "The Fish",
+      "name_zh": "魚",
+      "chip_multiplier": 2,
+      "effect_en": "Cards drawn face down after each hand played",
+      "effect_zh": "每次出牌後抽到的牌面朝下"
+    },
+    {
+      "id": "the_psychic",
+      "name_en": "The Psychic",
+      "name_zh": "靈媒",
+      "chip_multiplier": 2,
+      "effect_en": "Must play 5 cards",
+      "effect_zh": "必須出 5 張牌"
+    },
+    {
+      "id": "the_goad",
+      "name_en": "The Goad",
+      "name_zh": "刺棒",
+      "chip_multiplier": 2,
+      "effect_en": "All Spade cards are debuffed",
+      "effect_zh": "所有黑桃牌被削弱"
+    },
+    {
+      "id": "the_water",
+      "name_en": "The Water",
+      "name_zh": "水",
+      "chip_multiplier": 2,
+      "effect_en": "Start with 0 discards",
+      "effect_zh": "起始棄牌次數為 0"
+    },
+    {
+      "id": "the_window",
+      "name_en": "The Window",
+      "name_zh": "窗戶",
+      "chip_multiplier": 2,
+      "effect_en": "All Diamond cards are debuffed",
+      "effect_zh": "所有方塊牌被削弱"
+    },
+    {
+      "id": "the_manacle",
+      "name_en": "The Manacle",
+      "name_zh": "鐐銬",
+      "chip_multiplier": 2,
+      "effect_en": "-1 Hand Size",
+      "effect_zh": "手牌上限 -1"
+    },
+    {
+      "id": "the_eye",
+      "name_en": "The Eye",
+      "name_zh": "眼睛",
+      "chip_multiplier": 2,
+      "effect_en": "No repeat hand types this round",
+      "effect_zh": "本回合不能重複打出相同牌型"
+    },
+    {
+      "id": "the_mouth",
+      "name_en": "The Mouth",
+      "name_zh": "嘴巴",
+      "chip_multiplier": 2,
+      "effect_en": "Only play 1 hand type this round",
+      "effect_zh": "本回合只能打出一種牌型"
+    },
+    {
+      "id": "the_plant",
+      "name_en": "The Plant",
+      "name_zh": "植物",
+      "chip_multiplier": 2,
+      "effect_en": "All face cards are debuffed",
+      "effect_zh": "所有人頭牌被削弱"
+    },
+    {
+      "id": "the_serpent",
+      "name_en": "The Serpent",
+      "name_zh": "蛇",
+      "chip_multiplier": 2,
+      "effect_en": "After Play or Discard, always draw 3 cards",
+      "effect_zh": "出牌或棄牌後，固定抽 3 張牌"
+    },
+    {
+      "id": "the_pillar",
+      "name_en": "The Pillar",
+      "name_zh": "柱子",
+      "chip_multiplier": 2,
+      "effect_en": "Cards played previously this Ante are debuffed",
+      "effect_zh": "本底注中之前打出過的牌被削弱"
+    },
+    {
+      "id": "the_needle",
+      "name_en": "The Needle",
+      "name_zh": "針",
+      "chip_multiplier": 1,
+      "effect_en": "Play only 1 hand",
+      "effect_zh": "只能出 1 手牌"
+    },
+    {
+      "id": "the_head",
+      "name_en": "The Head",
+      "name_zh": "頭",
+      "chip_multiplier": 2,
+      "effect_en": "All Heart cards are debuffed",
+      "effect_zh": "所有紅心牌被削弱"
+    },
+    {
+      "id": "the_tooth",
+      "name_en": "The Tooth",
+      "name_zh": "牙齒",
+      "chip_multiplier": 2,
+      "effect_en": "Lose $1 per card played",
+      "effect_zh": "每打出 1 張牌損失 $1"
+    },
+    {
+      "id": "the_flint",
+      "name_en": "The Flint",
+      "name_zh": "燧石",
+      "chip_multiplier": 2,
+      "effect_en": "Base Chips and Mult are halved",
+      "effect_zh": "基礎籌碼和倍率減半"
+    },
+    {
+      "id": "the_mark",
+      "name_en": "The Mark",
+      "name_zh": "記號",
+      "chip_multiplier": 2,
+      "effect_en": "All face cards are drawn face down",
+      "effect_zh": "所有人頭牌面朝下發放"
+    }
+  ],
+  "showdown_bosses": [
+    {
+      "id": "amber_acorn",
+      "name_en": "Amber Acorn",
+      "name_zh": "琥珀橡果",
+      "chip_multiplier": 2,
+      "effect_en": "Flips and shuffles all Joker cards",
+      "effect_zh": "翻轉並打亂所有小丑牌"
+    },
+    {
+      "id": "verdant_leaf",
+      "name_en": "Verdant Leaf",
+      "name_zh": "翠綠樹葉",
+      "chip_multiplier": 2,
+      "effect_en": "All cards are debuffed until 1 Joker sold",
+      "effect_zh": "所有牌被削弱，直到賣出 1 張小丑牌"
+    },
+    {
+      "id": "violet_vessel",
+      "name_en": "Violet Vessel",
+      "name_zh": "紫羅蘭容器",
+      "chip_multiplier": 6,
+      "effect_en": "Very large blind",
+      "effect_zh": "非常大的盲注"
+    },
+    {
+      "id": "crimson_heart",
+      "name_en": "Crimson Heart",
+      "name_zh": "緋紅之心",
+      "chip_multiplier": 2,
+      "effect_en": "One random Joker disabled every hand",
+      "effect_zh": "每手牌隨機禁用 1 張小丑牌"
+    },
+    {
+      "id": "cerulean_bell",
+      "name_en": "Cerulean Bell",
+      "name_zh": "蔚藍鐘聲",
+      "chip_multiplier": 2,
+      "effect_en": "Forces 1 card to always be selected",
+      "effect_zh": "強制選擇 1 張固定的牌"
+    }
+  ],
+  "ante_requirements": [
+    { "ante": 0, "base_chips": 100 },
+    { "ante": 1, "base_chips": 300 },
+    { "ante": 2, "base_chips": 800 },
+    { "ante": 3, "base_chips": 2000 },
+    { "ante": 4, "base_chips": 5000 },
+    { "ante": 5, "base_chips": 11000 },
+    { "ante": 6, "base_chips": 20000 },
+    { "ante": 7, "base_chips": 35000 },
+    { "ante": 8, "base_chips": 50000 }
+  ],
+  "endless_mode_scaling": {
+    "description": "After Ante 8, chip requirements scale exponentially",
+    "formula": "Previous requirement × 1.6 (approximately)",
+    "examples": [
+      { "ante": 9, "base_chips": 80000 },
+      { "ante": 10, "base_chips": 128000 },
+      { "ante": 12, "base_chips": 327680 },
+      { "ante": 15, "base_chips": 1310720 },
+      { "ante": 20, "base_chips": 13421773 },
+      { "ante": 25, "base_chips": 137438953 },
+      { "ante": 30, "base_chips": 1407374883 },
+      { "ante": 39, "base_chips": 115292150460 }
+    ]
+  },
+  "notes": [
+    "Small and Big Blinds can be skipped for a Tag reward",
+    "Boss Blinds cannot be skipped and have unique effects",
+    "Showdown Bosses appear only in Endless Mode after Ante 8",
+    "Chip requirements multiply based on blind type and stake",
+    "Debuffed cards provide no chips, mult, or trigger abilities"
+  ]
+}

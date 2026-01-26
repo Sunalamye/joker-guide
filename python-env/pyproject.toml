@@ -1,0 +1,19 @@
+[project]
+name = "joker-env"
+version = "0.1.0"
+description = "Python client for the JokerEnv gRPC server"
+requires-python = ">=3.10"
+dependencies = [
+  "grpcio>=1.62",
+  "grpcio-tools>=1.62",
+  "protobuf>=4.25",
+  "numpy>=1.26",
+  "gymnasium>=0.29",
+  "torch>=2.1",
+  "stable-baselines3>=2.3",
+  "sb3-contrib>=2.3",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"

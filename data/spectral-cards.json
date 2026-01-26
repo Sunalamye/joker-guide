@@ -1,0 +1,219 @@
+{
+  "category": "spectral_cards",
+  "description": "Spectral cards are powerful consumables with dramatic effects that often involve destroying cards or Jokers.",
+  "total_count": 18,
+  "source": "Spectral Packs, Blue Seal, Ouija Board Joker",
+  "cards": [
+    {
+      "id": "familiar",
+      "name_en": "Familiar",
+      "name_zh": "使魔",
+      "effect_en": "Destroy 1 random card in your hand, add 3 random Enhanced face cards to your hand",
+      "effect_zh": "銷毀手中 1 張隨機牌，新增 3 張隨機強化人頭牌到手中",
+      "destroys": 1,
+      "creates": "3 enhanced face cards"
+    },
+    {
+      "id": "grim",
+      "name_en": "Grim",
+      "name_zh": "冷酷",
+      "effect_en": "Destroy 1 random card in your hand, add 2 random Enhanced Aces to your hand",
+      "effect_zh": "銷毀手中 1 張隨機牌，新增 2 張隨機強化 A 到手中",
+      "destroys": 1,
+      "creates": "2 enhanced aces"
+    },
+    {
+      "id": "incantation",
+      "name_en": "Incantation",
+      "name_zh": "咒語",
+      "effect_en": "Destroy 1 random card in your hand, add 4 random Enhanced numbered cards to your hand",
+      "effect_zh": "銷毀手中 1 張隨機牌，新增 4 張隨機強化數字牌到手中",
+      "destroys": 1,
+      "creates": "4 enhanced numbered cards"
+    },
+    {
+      "id": "talisman",
+      "name_en": "Talisman",
+      "name_zh": "護符",
+      "effect_en": "Add a Gold Seal to 1 selected card in your hand",
+      "effect_zh": "為手中 1 張選擇的牌新增金色封印",
+      "target": "1 card",
+      "adds": "gold_seal"
+    },
+    {
+      "id": "aura",
+      "name_en": "Aura",
+      "name_zh": "光環",
+      "effect_en": "Add Foil, Holographic, or Polychrome effect to 1 selected card in hand",
+      "effect_zh": "為手中 1 張選擇的牌新增閃卡、全息或幻彩效果",
+      "target": "1 card",
+      "adds": "random_edition"
+    },
+    {
+      "id": "wraith",
+      "name_en": "Wraith",
+      "name_zh": "怨靈",
+      "effect_en": "Creates a random Rare Joker, sets money to $0",
+      "effect_zh": "創造一張隨機稀有小丑，金錢歸零",
+      "creates": "rare_joker",
+      "cost": "all money"
+    },
+    {
+      "id": "sigil",
+      "name_en": "Sigil",
+      "name_zh": "印記",
+      "effect_en": "Converts all cards in hand to a single random suit",
+      "effect_zh": "將手中所有牌轉換為同一隨機花色",
+      "target": "all cards in hand",
+      "converts": "suit"
+    },
+    {
+      "id": "ouija",
+      "name_en": "Ouija",
+      "name_zh": "乩板",
+      "effect_en": "Converts all cards in hand to a single random rank, -1 hand size",
+      "effect_zh": "將手中所有牌轉換為同一隨機點數，-1 手牌上限",
+      "target": "all cards in hand",
+      "converts": "rank",
+      "penalty": "-1 hand size"
+    },
+    {
+      "id": "ectoplasm",
+      "name_en": "Ectoplasm",
+      "name_zh": "靈質",
+      "effect_en": "Add Negative to a random Joker, -1 hand size",
+      "effect_zh": "為隨機小丑新增負片效果，-1 手牌上限",
+      "target": "random joker",
+      "adds": "negative",
+      "penalty": "-1 hand size"
+    },
+    {
+      "id": "immolate",
+      "name_en": "Immolate",
+      "name_zh": "獻祭",
+      "effect_en": "Destroys 5 random cards in hand, gain $20",
+      "effect_zh": "銷毀手中 5 張隨機牌，獲得 $20",
+      "destroys": 5,
+      "money_gain": 20
+    },
+    {
+      "id": "ankh",
+      "name_en": "Ankh",
+      "name_zh": "安卡",
+      "effect_en": "Create a copy of a random Joker, destroy all other Jokers (Removes Negative from copy)",
+      "effect_zh": "複製一張隨機小丑，銷毀所有其他小丑（複製品會移除負片效果）",
+      "creates": "joker_copy",
+      "destroys": "all other jokers"
+    },
+    {
+      "id": "deja_vu",
+      "name_en": "Deja Vu",
+      "name_zh": "既視感",
+      "effect_en": "Add a Red Seal to 1 selected card in your hand",
+      "effect_zh": "為手中 1 張選擇的牌新增紅色封印",
+      "target": "1 card",
+      "adds": "red_seal"
+    },
+    {
+      "id": "hex",
+      "name_en": "Hex",
+      "name_zh": "詛咒",
+      "effect_en": "Add Polychrome to a random Joker, destroy all other Jokers",
+      "effect_zh": "為隨機小丑新增幻彩效果，銷毀所有其他小丑",
+      "target": "random joker",
+      "adds": "polychrome",
+      "destroys": "all other jokers"
+    },
+    {
+      "id": "trance",
+      "name_en": "Trance",
+      "name_zh": "恍惚",
+      "effect_en": "Add a Blue Seal to 1 selected card in your hand",
+      "effect_zh": "為手中 1 張選擇的牌新增藍色封印",
+      "target": "1 card",
+      "adds": "blue_seal"
+    },
+    {
+      "id": "medium",
+      "name_en": "Medium",
+      "name_zh": "靈媒",
+      "effect_en": "Add a Purple Seal to 1 selected card in your hand",
+      "effect_zh": "為手中 1 張選擇的牌新增紫色封印",
+      "target": "1 card",
+      "adds": "purple_seal"
+    },
+    {
+      "id": "cryptid",
+      "name_en": "Cryptid",
+      "name_zh": "神秘生物",
+      "effect_en": "Create 2 copies of 1 selected card in your hand",
+      "effect_zh": "複製手中 1 張選擇的牌 2 份",
+      "target": "1 card",
+      "creates": "2 copies"
+    },
+    {
+      "id": "the_soul",
+      "name_en": "The Soul",
+      "name_zh": "靈魂",
+      "effect_en": "Creates a Legendary Joker (Must have room)",
+      "effect_zh": "創造一張傳奇小丑（需有空間）",
+      "creates": "legendary_joker"
+    },
+    {
+      "id": "black_hole",
+      "name_en": "Black Hole",
+      "name_zh": "黑洞",
+      "effect_en": "Upgrade every poker hand by 1 level",
+      "effect_zh": "所有撲克牌型升級 1 級",
+      "target": "all poker hands",
+      "upgrades": 1
+    }
+  ],
+  "effect_categories": {
+    "card_creation": ["familiar", "grim", "incantation", "cryptid"],
+    "seal_addition": ["talisman", "deja_vu", "trance", "medium"],
+    "edition_addition": ["aura", "ectoplasm", "hex"],
+    "joker_creation": ["wraith", "the_soul"],
+    "joker_manipulation": ["ankh", "hex"],
+    "card_conversion": ["sigil", "ouija"],
+    "money": ["immolate"],
+    "hand_upgrade": ["black_hole"]
+  },
+  "seals": [
+    {
+      "id": "gold_seal",
+      "name_en": "Gold Seal",
+      "name_zh": "金色封印",
+      "effect": "Earn $3 when this card is played and scores",
+      "spectral_source": "talisman"
+    },
+    {
+      "id": "red_seal",
+      "name_en": "Red Seal",
+      "name_zh": "紅色封印",
+      "effect": "Retrigger this card",
+      "spectral_source": "deja_vu"
+    },
+    {
+      "id": "blue_seal",
+      "name_en": "Blue Seal",
+      "name_zh": "藍色封印",
+      "effect": "Creates a Planet card if this card is held in hand at end of round",
+      "spectral_source": "trance"
+    },
+    {
+      "id": "purple_seal",
+      "name_en": "Purple Seal",
+      "name_zh": "紫色封印",
+      "effect": "Creates a Tarot card when discarded",
+      "spectral_source": "medium"
+    }
+  ],
+  "notes": [
+    "Spectral cards are more rare and powerful than Tarot cards",
+    "Can be obtained from Spectral Packs or via Blue Seal cards",
+    "Some Spectral cards have significant downsides (destroying cards/Jokers, reducing hand size)",
+    "The Soul is the only way to guarantee a Legendary Joker",
+    "Black Hole is extremely powerful as it upgrades all poker hands simultaneously"
+  ]
+}

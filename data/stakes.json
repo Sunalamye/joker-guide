@@ -1,0 +1,112 @@
+{
+  "category": "stakes",
+  "description": "Stakes are difficulty levels in Balatro. Each stake adds its modifier on top of all previous stakes, making the game progressively harder.",
+  "total_count": 8,
+  "stakes": [
+    {
+      "id": "white_stake",
+      "order": 1,
+      "name_en": "White Stake",
+      "name_zh": "白色賭注",
+      "effect_en": "Base difficulty",
+      "effect_zh": "基礎難度",
+      "unlocks_deck": null
+    },
+    {
+      "id": "red_stake",
+      "order": 2,
+      "name_en": "Red Stake",
+      "name_zh": "紅色賭注",
+      "effect_en": "Small Blind gives no reward money",
+      "effect_zh": "小盲注不給獎勵金錢",
+      "unlocks_deck": "zodiac_deck"
+    },
+    {
+      "id": "green_stake",
+      "order": 3,
+      "name_en": "Green Stake",
+      "name_zh": "綠色賭注",
+      "effect_en": "Required score scales faster for each Ante",
+      "effect_zh": "每個底注所需分數增長更快",
+      "unlocks_deck": "painted_deck"
+    },
+    {
+      "id": "black_stake",
+      "order": 4,
+      "name_en": "Black Stake",
+      "name_zh": "黑色賭注",
+      "effect_en": "30% chance for Jokers in shops or booster packs to have an Eternal sticker (Cannot be sold or destroyed)",
+      "effect_zh": "商店或卡包中的小丑牌有 30% 機率帶有永恆貼紙（無法出售或銷毀）",
+      "unlocks_deck": "anaglyph_deck"
+    },
+    {
+      "id": "blue_stake",
+      "order": 5,
+      "name_en": "Blue Stake",
+      "name_zh": "藍色賭注",
+      "effect_en": "-1 Discard",
+      "effect_zh": "-1 棄牌次數",
+      "unlocks_deck": "plasma_deck"
+    },
+    {
+      "id": "purple_stake",
+      "order": 6,
+      "name_en": "Purple Stake",
+      "name_zh": "紫色賭注",
+      "effect_en": "Required score scales even faster for each Ante",
+      "effect_zh": "每個底注所需分數增長更加快速",
+      "unlocks_deck": null
+    },
+    {
+      "id": "orange_stake",
+      "order": 7,
+      "name_en": "Orange Stake",
+      "name_zh": "橘色賭注",
+      "effect_en": "30% chance for Jokers in shops or booster packs to have a Perishable sticker (Debuffed after 5 Rounds)",
+      "effect_zh": "商店或卡包中的小丑牌有 30% 機率帶有易腐貼紙（5 回合後被削弱）",
+      "unlocks_deck": "erratic_deck"
+    },
+    {
+      "id": "gold_stake",
+      "order": 8,
+      "name_en": "Gold Stake",
+      "name_zh": "金色賭注",
+      "effect_en": "30% chance for Jokers in shops or booster packs to have a Rental sticker (Costs $3 per round, can be bought for $1)",
+      "effect_zh": "商店或卡包中的小丑牌有 30% 機率帶有租賃貼紙（每回合花費 $3，可以 $1 購買）",
+      "unlocks_deck": null
+    }
+  ],
+  "stickers": [
+    {
+      "id": "eternal",
+      "name_en": "Eternal",
+      "name_zh": "永恆",
+      "effect_en": "Cannot be sold or destroyed",
+      "effect_zh": "無法出售或銷毀",
+      "introduced_at": "black_stake"
+    },
+    {
+      "id": "perishable",
+      "name_en": "Perishable",
+      "name_zh": "易腐",
+      "effect_en": "Debuffed after 5 Rounds",
+      "effect_zh": "5 回合後被削弱",
+      "introduced_at": "orange_stake"
+    },
+    {
+      "id": "rental",
+      "name_en": "Rental",
+      "name_zh": "租賃",
+      "effect_en": "Costs $3 per round",
+      "effect_zh": "每回合花費 $3",
+      "introduced_at": "gold_stake"
+    }
+  ],
+  "notes": [
+    "Each stake adds its effect on top of all previous stakes",
+    "Must complete a stake with a specific deck to unlock the next stake for that deck",
+    "Challenge Decks can only be played on White Stake",
+    "Completing a run on a stake gives Jokers a stake sticker of that color",
+    "Stake progression is per-deck, not global"
+  ]
+}

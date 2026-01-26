@@ -1,0 +1,143 @@
+{
+  "category": "jokers",
+  "description": "Jokers are the face of Balatro's gameplay. They hold significant importance in score generation and provide perks and utilities.",
+  "total_count": 150,
+  "initially_available": 105,
+  "unlockable": 45,
+  "rarities": {
+    "common": {
+      "count": 61,
+      "appearance_rate": 0.70,
+      "color": "blue"
+    },
+    "uncommon": {
+      "count": 64,
+      "appearance_rate": 0.25,
+      "color": "green"
+    },
+    "rare": {
+      "count": 20,
+      "appearance_rate": 0.05,
+      "color": "red"
+    },
+    "legendary": {
+      "count": 5,
+      "appearance_rate": 0.003,
+      "note": "Only obtainable through The Soul Spectral card or Spectral/Arcana Packs",
+      "color": "purple"
+    }
+  },
+  "types": {
+    "+c": {
+      "name_en": "Chips Jokers",
+      "name_zh": "籌碼型小丑",
+      "description": "Adds chips to score"
+    },
+    "+m": {
+      "name_en": "Additive Mult Jokers",
+      "name_zh": "加法倍率型小丑",
+      "description": "Adds mult to score"
+    },
+    "Xm": {
+      "name_en": "Multiplicative Mult Jokers",
+      "name_zh": "乘法倍率型小丑",
+      "description": "Multiplies mult"
+    },
+    "++": {
+      "name_en": "Chips & Additive Mult Jokers",
+      "name_zh": "籌碼與加法倍率型小丑",
+      "description": "Adds both chips and mult"
+    },
+    "!!": {
+      "name_en": "Effect Jokers",
+      "name_zh": "效果型小丑",
+      "description": "Special effects and utilities"
+    },
+    "...": {
+      "name_en": "Retrigger Jokers",
+      "name_zh": "重觸發型小丑",
+      "description": "Causes cards to trigger again"
+    },
+    "+$": {
+      "name_en": "Economy Jokers",
+      "name_zh": "經濟型小丑",
+      "description": "Provides money or economic benefits"
+    }
+  },
+  "editions": [
+    {
+      "id": "base",
+      "name_en": "Base",
+      "name_zh": "基礎",
+      "effect": "Standard card, no bonus"
+    },
+    {
+      "id": "foil",
+      "name_en": "Foil",
+      "name_zh": "閃卡",
+      "effect": "+50 Chips"
+    },
+    {
+      "id": "holographic",
+      "name_en": "Holographic",
+      "name_zh": "全息",
+      "effect": "+10 Mult"
+    },
+    {
+      "id": "polychrome",
+      "name_en": "Polychrome",
+      "name_zh": "幻彩",
+      "effect": "X1.5 Mult"
+    },
+    {
+      "id": "negative",
+      "name_en": "Negative",
+      "name_zh": "負片",
+      "effect": "+1 Joker slot"
+    }
+  ],
+  "stickers": [
+    {
+      "id": "eternal",
+      "name_en": "Eternal",
+      "name_zh": "永恆",
+      "effect": "Cannot be sold or destroyed",
+      "unlock_stake": "Orange Stake"
+    },
+    {
+      "id": "perishable",
+      "name_en": "Perishable",
+      "name_zh": "易腐",
+      "effect": "Debuffed after 5 rounds",
+      "unlock_stake": "Gold Stake"
+    },
+    {
+      "id": "rental",
+      "name_en": "Rental",
+      "name_zh": "租用",
+      "effect": "Lose $3 at end of round",
+      "unlock_stake": "Gold Stake"
+    }
+  ],
+  "activation_types": {
+    "Indep.": "Independent - Always active",
+    "On Scored": "Triggers when a card is scored",
+    "On Held": "Triggers for cards held in hand",
+    "On Blind Select": "Triggers when a blind is selected",
+    "N/A": "Passive effect"
+  },
+  "key_terms": {
+    "when_scored": "Effect triggers when a card is scored",
+    "contains": "Hand contains a certain poker hand type",
+    "is": "Hand is classified as a specific poker hand",
+    "when_blind_selected": "Effect triggers when selecting a Blind",
+    "in_deck": "Cards remaining in deck (not hand/played/discarded)",
+    "in_full_deck": "All cards in complete deck",
+    "add": "Adds a playing card permanently",
+    "destroy": "Removes a card permanently",
+    "create": "Creates a consumable or Joker",
+    "gains": "Adds a permanent effect",
+    "retrigger": "Scores a card again",
+    "debuffed": "Joker and edition cannot trigger"
+  }
+}

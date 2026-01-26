@@ -1,0 +1,231 @@
+{
+  "category": "card_modifiers",
+  "description": "Modifiers are upgrades applied to cards providing various benefits. Playing cards can have one Enhancement, one Edition, and one Seal. Jokers can have one Edition and multiple Stickers.",
+  "enhancements": {
+    "description": "Enhancements modify the scoring behavior of playing cards",
+    "count": 8,
+    "items": [
+      {
+        "id": "bonus",
+        "name_en": "Bonus Card",
+        "name_zh": "獎勵牌",
+        "effect_en": "+30 Chips when scored",
+        "effect_zh": "計分時 +30 籌碼"
+      },
+      {
+        "id": "mult",
+        "name_en": "Mult Card",
+        "name_zh": "倍率牌",
+        "effect_en": "+4 Mult when scored",
+        "effect_zh": "計分時 +4 倍率"
+      },
+      {
+        "id": "wild",
+        "name_en": "Wild Card",
+        "name_zh": "萬能牌",
+        "effect_en": "Considered to be every suit simultaneously",
+        "effect_zh": "視為同時擁有所有花色"
+      },
+      {
+        "id": "glass",
+        "name_en": "Glass Card",
+        "name_zh": "玻璃牌",
+        "effect_en": "X2 Mult when scored, 1 in 4 chance to destroy after scoring",
+        "effect_zh": "計分時 X2 倍率，計分後有 1/4 機率銷毀"
+      },
+      {
+        "id": "steel",
+        "name_en": "Steel Card",
+        "name_zh": "鋼鐵牌",
+        "effect_en": "X1.5 Mult while held in hand",
+        "effect_zh": "持有在手中時 X1.5 倍率"
+      },
+      {
+        "id": "stone",
+        "name_en": "Stone Card",
+        "name_zh": "石頭牌",
+        "effect_en": "+50 Chips, no rank or suit, always scores",
+        "effect_zh": "+50 籌碼，無點數或花色，永遠計分"
+      },
+      {
+        "id": "gold",
+        "name_en": "Gold Card",
+        "name_zh": "黃金牌",
+        "effect_en": "$3 if held in hand at end of round",
+        "effect_zh": "回合結束時持有在手中可獲得 $3"
+      },
+      {
+        "id": "lucky",
+        "name_en": "Lucky Card",
+        "name_zh": "幸運牌",
+        "effect_en": "1 in 5 chance for +20 Mult, 1 in 15 chance for $20",
+        "effect_zh": "1/5 機率 +20 倍率，1/15 機率獲得 $20"
+      }
+    ]
+  },
+  "editions": {
+    "description": "Editions add permanent effects to cards and cannot be overwritten",
+    "count": 5,
+    "items": [
+      {
+        "id": "base",
+        "name_en": "Base",
+        "name_zh": "基礎",
+        "effect_playing_card_en": "No extra effects",
+        "effect_playing_card_zh": "無額外效果",
+        "effect_joker_en": "No extra effects",
+        "effect_joker_zh": "無額外效果"
+      },
+      {
+        "id": "foil",
+        "name_en": "Foil",
+        "name_zh": "閃卡",
+        "effect_playing_card_en": "+50 Chips when scored",
+        "effect_playing_card_zh": "計分時 +50 籌碼",
+        "effect_joker_en": "+50 Chips",
+        "effect_joker_zh": "+50 籌碼"
+      },
+      {
+        "id": "holographic",
+        "name_en": "Holographic",
+        "name_zh": "全息",
+        "effect_playing_card_en": "+10 Mult when scored",
+        "effect_playing_card_zh": "計分時 +10 倍率",
+        "effect_joker_en": "+10 Mult",
+        "effect_joker_zh": "+10 倍率"
+      },
+      {
+        "id": "polychrome",
+        "name_en": "Polychrome",
+        "name_zh": "幻彩",
+        "effect_playing_card_en": "X1.5 Mult when scored",
+        "effect_playing_card_zh": "計分時 X1.5 倍率",
+        "effect_joker_en": "X1.5 Mult",
+        "effect_joker_zh": "X1.5 倍率"
+      },
+      {
+        "id": "negative",
+        "name_en": "Negative",
+        "name_zh": "負片",
+        "effect_playing_card_en": "N/A (Cannot apply to playing cards)",
+        "effect_playing_card_zh": "不適用（無法套用於撲克牌）",
+        "effect_joker_en": "+1 Joker slot",
+        "effect_joker_zh": "+1 小丑欄位",
+        "effect_consumable_en": "+1 Consumable slot (via Perkeo only)",
+        "effect_consumable_zh": "+1 消耗品欄位（僅限透過 Perkeo）"
+      }
+    ]
+  },
+  "seals": {
+    "description": "Seals provide special triggered effects on playing cards",
+    "count": 4,
+    "items": [
+      {
+        "id": "gold_seal",
+        "name_en": "Gold Seal",
+        "name_zh": "金色封印",
+        "effect_en": "Earn $3 when this card is played and scores",
+        "effect_zh": "打出此牌並計分時獲得 $3"
+      },
+      {
+        "id": "red_seal",
+        "name_en": "Red Seal",
+        "name_zh": "紅色封印",
+        "effect_en": "Retrigger this card 1 time",
+        "effect_zh": "此牌再次觸發 1 次"
+      },
+      {
+        "id": "blue_seal",
+        "name_en": "Blue Seal",
+        "name_zh": "藍色封印",
+        "effect_en": "Creates the Planet card for final played poker hand of round if held in hand (Must have room)",
+        "effect_zh": "持有在手中時，回合結束會創造最後打出牌型的星球牌（需有空位）"
+      },
+      {
+        "id": "purple_seal",
+        "name_en": "Purple Seal",
+        "name_zh": "紫色封印",
+        "effect_en": "Creates a Tarot card when discarded (Must have room)",
+        "effect_zh": "棄牌時創造一張塔羅牌（需有空位）"
+      }
+    ]
+  },
+  "stickers": {
+    "description": "Stickers are applied to Jokers at higher stakes and cannot be removed",
+    "count": 3,
+    "items": [
+      {
+        "id": "eternal",
+        "name_en": "Eternal",
+        "name_zh": "永恆",
+        "effect_en": "Cannot be sold or destroyed",
+        "effect_zh": "無法出售或銷毀",
+        "introduced_stake": "Black Stake"
+      },
+      {
+        "id": "perishable",
+        "name_en": "Perishable",
+        "name_zh": "易腐",
+        "effect_en": "Debuffed after 5 Rounds",
+        "effect_zh": "5 回合後被削弱",
+        "introduced_stake": "Orange Stake"
+      },
+      {
+        "id": "rental",
+        "name_en": "Rental",
+        "name_zh": "租賃",
+        "effect_en": "Costs $3 per round, can be bought for $1",
+        "effect_zh": "每回合花費 $3，可以 $1 購買",
+        "introduced_stake": "Gold Stake"
+      }
+    ]
+  },
+  "appearance_rates": {
+    "jokers": {
+      "base": {
+        "negative": 0.3,
+        "polychrome": 0.3,
+        "holographic": 1.4,
+        "foil": 2.0
+      },
+      "with_hone": {
+        "polychrome": 0.9,
+        "holographic": 2.8,
+        "foil": 4.0
+      },
+      "with_glow_up": {
+        "polychrome": 2.1,
+        "holographic": 5.6,
+        "foil": 8.0
+      },
+      "sticker_chance": 30
+    },
+    "playing_cards": {
+      "base": {
+        "polychrome": 1.2,
+        "holographic": 2.8,
+        "foil": 4.0,
+        "enhancement": 40,
+        "seal": 20
+      },
+      "with_hone": {
+        "polychrome": 2.4,
+        "holographic": 5.6,
+        "foil": 8.0
+      },
+      "with_glow_up": {
+        "polychrome": 4.8,
+        "holographic": 11.2,
+        "foil": 16.0
+      }
+    }
+  },
+  "notes": [
+    "Playing cards can have one Enhancement, one Edition, and one Seal",
+    "Jokers can have one Edition and multiple Stickers",
+    "Editions are permanent and cannot be overwritten",
+    "Applying a new Enhancement or Seal replaces the previous one",
+    "Debuffed cards have all modifier effects disabled except Negative and Stone",
+    "Consumables can only get Negative edition through Perkeo"
+  ]
+}

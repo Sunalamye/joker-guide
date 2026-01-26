@@ -1,0 +1,133 @@
+{
+  "category": "decks",
+  "description": "Decks are the starting configurations that determine your initial cards, vouchers, and special rules for a run.",
+  "total_count": 15,
+  "decks": [
+    {
+      "id": "red_deck",
+      "name_en": "Red Deck",
+      "name_zh": "紅色牌組",
+      "effect_en": "+1 discard every round",
+      "effect_zh": "每回合 +1 棄牌次數",
+      "unlock_condition": "Unlocked from start"
+    },
+    {
+      "id": "blue_deck",
+      "name_en": "Blue Deck",
+      "name_zh": "藍色牌組",
+      "effect_en": "+1 hand every round",
+      "effect_zh": "每回合 +1 出牌次數",
+      "unlock_condition": "Discover at least 20 items from your collection"
+    },
+    {
+      "id": "yellow_deck",
+      "name_en": "Yellow Deck",
+      "name_zh": "黃色牌組",
+      "effect_en": "Start with extra $10",
+      "effect_zh": "起始額外 $10",
+      "unlock_condition": "Discover at least 50 items from your collection"
+    },
+    {
+      "id": "green_deck",
+      "name_en": "Green Deck",
+      "name_zh": "綠色牌組",
+      "effect_en": "At end of each Round: $2 per remaining Hand, $1 per remaining Discard, Earn no Interest",
+      "effect_zh": "每回合結束：剩餘出牌次數每次 $2，剩餘棄牌次數每次 $1，無利息",
+      "unlock_condition": "Discover at least 75 items from your collection"
+    },
+    {
+      "id": "black_deck",
+      "name_en": "Black Deck",
+      "name_zh": "黑色牌組",
+      "effect_en": "+1 Joker slot, -1 hand every round",
+      "effect_zh": "+1 小丑欄位，每回合 -1 出牌次數",
+      "unlock_condition": "Discover at least 100 items from your collection"
+    },
+    {
+      "id": "magic_deck",
+      "name_en": "Magic Deck",
+      "name_zh": "魔法牌組",
+      "effect_en": "Start run with the Crystal Ball voucher and 2 copies of The Fool",
+      "effect_zh": "起始擁有水晶球增益券和 2 張愚者塔羅牌",
+      "unlock_condition": "Win a run with the Red Deck on any difficulty"
+    },
+    {
+      "id": "nebula_deck",
+      "name_en": "Nebula Deck",
+      "name_zh": "星雲牌組",
+      "effect_en": "Start run with the Telescope voucher, -1 consumable slot",
+      "effect_zh": "起始擁有望遠鏡增益券，-1 消耗品欄位",
+      "unlock_condition": "Win a run with the Blue Deck on any difficulty"
+    },
+    {
+      "id": "ghost_deck",
+      "name_en": "Ghost Deck",
+      "name_zh": "幽靈牌組",
+      "effect_en": "Spectral cards may appear in the shop, start with a Hex card",
+      "effect_zh": "幻靈牌可能出現在商店，起始擁有詛咒幻靈牌",
+      "unlock_condition": "Win a run with the Yellow Deck on any difficulty"
+    },
+    {
+      "id": "abandoned_deck",
+      "name_en": "Abandoned Deck",
+      "name_zh": "廢棄牌組",
+      "effect_en": "Start run with no Face Cards in your deck",
+      "effect_zh": "起始牌組無人頭牌",
+      "unlock_condition": "Win a run with the Green Deck on any difficulty"
+    },
+    {
+      "id": "checkered_deck",
+      "name_en": "Checkered Deck",
+      "name_zh": "格紋牌組",
+      "effect_en": "Start run with 26 Spades and 26 Hearts in deck",
+      "effect_zh": "起始牌組有 26 張黑桃和 26 張紅心",
+      "unlock_condition": "Win a run with the Black Deck on any difficulty"
+    },
+    {
+      "id": "zodiac_deck",
+      "name_en": "Zodiac Deck",
+      "name_zh": "星座牌組",
+      "effect_en": "Start run with Tarot Merchant, Planet Merchant, and Overstock vouchers",
+      "effect_zh": "起始擁有塔羅商人、星球商人、庫存過剩增益券",
+      "unlock_condition": "Win a run with any deck on Red Stake difficulty or harder"
+    },
+    {
+      "id": "painted_deck",
+      "name_en": "Painted Deck",
+      "name_zh": "彩繪牌組",
+      "effect_en": "+2 hand size, -1 Joker slot",
+      "effect_zh": "+2 手牌上限，-1 小丑欄位",
+      "unlock_condition": "Win a run with any deck on Green Stake difficulty or harder"
+    },
+    {
+      "id": "anaglyph_deck",
+      "name_en": "Anaglyph Deck",
+      "name_zh": "立體牌組",
+      "effect_en": "After defeating each Boss Blind, gain a Double Tag",
+      "effect_zh": "擊敗每個 Boss 盲注後，獲得雙倍標籤",
+      "unlock_condition": "Win a run with any deck on Black Stake difficulty or harder"
+    },
+    {
+      "id": "plasma_deck",
+      "name_en": "Plasma Deck",
+      "name_zh": "電漿牌組",
+      "effect_en": "Balance Chips and Mult when calculating score for played hand, X2 base Blind size",
+      "effect_zh": "計分時平衡籌碼和倍率，盲注底分 X2",
+      "unlock_condition": "Win a run with any deck on Blue Stake difficulty or harder"
+    },
+    {
+      "id": "erratic_deck",
+      "name_en": "Erratic Deck",
+      "name_zh": "混亂牌組",
+      "effect_en": "All Ranks and Suits in deck are randomized",
+      "effect_zh": "牌組中所有點數和花色隨機化",
+      "unlock_condition": "Win a run with any deck on Orange Stake difficulty or harder"
+    }
+  ],
+  "notes": [
+    "Each deck provides unique starting conditions or rules",
+    "Some decks have both advantages and disadvantages",
+    "Decks are unlocked by completing runs or discovering collection items",
+    "Higher stakes require completing runs with previous decks"
+  ]
+}

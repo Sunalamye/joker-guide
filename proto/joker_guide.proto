@@ -1,0 +1,70 @@
+syntax = "proto3";
+
+package joker_guide.v1;
+
+service JokerEnv {
+  rpc Reset(ResetRequest) returns (ResetResponse);
+  rpc Step(StepRequest) returns (StepResponse);
+  rpc GetSpec(GetSpecRequest) returns (GetSpecResponse);
+}
+
+message ResetRequest {
+  uint64 seed = 1;
+}
+
+message ResetResponse {
+  Observation observation = 1;
+  EnvInfo info = 2;
+}
+
+message StepRequest {
+  Action action = 1;
+}
+
+message StepResponse {
+  Observation observation = 1;
+  float reward = 2;
+  bool done = 3;
+  EnvInfo info = 4;
+}
+
+message GetSpecRequest {}
+
+message GetSpecResponse {
+  TensorSpec observation = 1;
+  TensorSpec action_mask = 2;
+  int32 action_space = 3;
+}
+
+message Observation {
+  // features layout:
+  // [scalars(8), selection_mask(5), hand(5*17), hand_type(10), deck_counts(52), jokers(5*2)]
+  // joker slots: (id, enabled) pairs, id=0 means empty.
+  Tensor features = 1;
+  Tensor action_mask = 2;
+}
+
+message Tensor {
+  repeated float data = 1;
+  repeated int32 shape = 2;
+}
+
+message TensorSpec {
+  repeated int32 shape = 1;
+  string dtype = 2; // e.g. "f32"
+}
+
+message Action {
+  // action_type: 0 = play, 1 = discard
+  // action_id: discard bitmask for a 5-card hand (0..31)
+  int32 action_id = 1;
+  repeated int32 params = 2;
+  int32 action_type = 3;
+}
+
+message EnvInfo {
+  int32 episode_step = 1;
+  int64 chips = 2;
+  int64 mult = 3;
+  int64 blind_target = 4;
+}

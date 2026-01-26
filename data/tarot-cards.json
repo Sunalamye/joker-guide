@@ -1,0 +1,244 @@
+{
+  "category": "tarot_cards",
+  "description": "Tarot cards are consumables based on Major Arcana that can enhance cards, convert suits, provide money, or create other cards.",
+  "total_count": 22,
+  "source": "Arcana Packs, Purple Seal, the Shop",
+  "cards": [
+    {
+      "id": "the_fool",
+      "name_en": "The Fool",
+      "name_zh": "愚者",
+      "arcana_number": 0,
+      "effect_en": "Creates the last Tarot or Planet card used during this run (The Fool excluded)",
+      "effect_zh": "創造本局使用過的最後一張塔羅牌或星球牌（愚者除外）",
+      "target": "none"
+    },
+    {
+      "id": "the_magician",
+      "name_en": "The Magician",
+      "name_zh": "魔術師",
+      "arcana_number": 1,
+      "effect_en": "Enhances 2 selected cards to Lucky Cards",
+      "effect_zh": "將 2 張選擇的牌強化為幸運牌",
+      "target": "2 cards",
+      "enhancement": "lucky"
+    },
+    {
+      "id": "the_high_priestess",
+      "name_en": "The High Priestess",
+      "name_zh": "女祭司",
+      "arcana_number": 2,
+      "effect_en": "Creates up to 2 random Planet cards (Must have room)",
+      "effect_zh": "創造最多 2 張隨機星球牌（需有空間）",
+      "target": "none",
+      "creates": "planet"
+    },
+    {
+      "id": "the_empress",
+      "name_en": "The Empress",
+      "name_zh": "女皇",
+      "arcana_number": 3,
+      "effect_en": "Enhances 2 selected cards to Mult Cards",
+      "effect_zh": "將 2 張選擇的牌強化為倍率牌",
+      "target": "2 cards",
+      "enhancement": "mult"
+    },
+    {
+      "id": "the_emperor",
+      "name_en": "The Emperor",
+      "name_zh": "皇帝",
+      "arcana_number": 4,
+      "effect_en": "Creates up to 2 random Tarot cards (Must have room)",
+      "effect_zh": "創造最多 2 張隨機塔羅牌（需有空間）",
+      "target": "none",
+      "creates": "tarot"
+    },
+    {
+      "id": "the_hierophant",
+      "name_en": "The Hierophant",
+      "name_zh": "教皇",
+      "arcana_number": 5,
+      "effect_en": "Enhances 2 selected cards to Bonus Cards",
+      "effect_zh": "將 2 張選擇的牌強化為獎勵牌",
+      "target": "2 cards",
+      "enhancement": "bonus"
+    },
+    {
+      "id": "the_lovers",
+      "name_en": "The Lovers",
+      "name_zh": "戀人",
+      "arcana_number": 6,
+      "effect_en": "Enhances 1 selected card into a Wild Card",
+      "effect_zh": "將 1 張選擇的牌強化為百搭牌",
+      "target": "1 card",
+      "enhancement": "wild"
+    },
+    {
+      "id": "the_chariot",
+      "name_en": "The Chariot",
+      "name_zh": "戰車",
+      "arcana_number": 7,
+      "effect_en": "Enhances 1 selected card into a Steel Card",
+      "effect_zh": "將 1 張選擇的牌強化為鋼鐵牌",
+      "target": "1 card",
+      "enhancement": "steel"
+    },
+    {
+      "id": "justice",
+      "name_en": "Justice",
+      "name_zh": "正義",
+      "arcana_number": 8,
+      "effect_en": "Enhances 1 selected card into a Glass Card",
+      "effect_zh": "將 1 張選擇的牌強化為玻璃牌",
+      "target": "1 card",
+      "enhancement": "glass"
+    },
+    {
+      "id": "the_hermit",
+      "name_en": "The Hermit",
+      "name_zh": "隱者",
+      "arcana_number": 9,
+      "effect_en": "Doubles money (Max of $20)",
+      "effect_zh": "金錢翻倍（最多 $20）",
+      "target": "none",
+      "money_effect": {
+        "type": "double",
+        "max": 20
+      }
+    },
+    {
+      "id": "the_wheel_of_fortune",
+      "name_en": "The Wheel of Fortune",
+      "name_zh": "命運之輪",
+      "arcana_number": 10,
+      "effect_en": "1 in 4 chance to add Foil, Holographic, or Polychrome edition to a random Joker",
+      "effect_zh": "1/4 機率為隨機小丑加上閃卡、全息或幻彩版本",
+      "target": "random joker",
+      "chance": "1 in 4"
+    },
+    {
+      "id": "strength",
+      "name_en": "Strength",
+      "name_zh": "力量",
+      "arcana_number": 11,
+      "effect_en": "Increases rank of up to 2 selected cards by 1",
+      "effect_zh": "將最多 2 張選擇的牌點數提升 1",
+      "target": "up to 2 cards"
+    },
+    {
+      "id": "the_hanged_man",
+      "name_en": "The Hanged Man",
+      "name_zh": "倒吊人",
+      "arcana_number": 12,
+      "effect_en": "Destroys up to 2 selected cards",
+      "effect_zh": "銷毀最多 2 張選擇的牌",
+      "target": "up to 2 cards"
+    },
+    {
+      "id": "death",
+      "name_en": "Death",
+      "name_zh": "死神",
+      "arcana_number": 13,
+      "effect_en": "Select 2 cards, convert the left card into the right card (Drag to rearrange)",
+      "effect_zh": "選擇 2 張牌，將左邊的牌轉換為右邊的牌（可拖曳調整順序）",
+      "target": "2 cards"
+    },
+    {
+      "id": "temperance",
+      "name_en": "Temperance",
+      "name_zh": "節制",
+      "arcana_number": 14,
+      "effect_en": "Gives the total sell value of all current Jokers (Max of $50)",
+      "effect_zh": "獲得所有目前小丑的總售價（最多 $50）",
+      "target": "none",
+      "money_effect": {
+        "type": "joker_value",
+        "max": 50
+      }
+    },
+    {
+      "id": "the_devil",
+      "name_en": "The Devil",
+      "name_zh": "惡魔",
+      "arcana_number": 15,
+      "effect_en": "Enhances 1 selected card into a Gold Card",
+      "effect_zh": "將 1 張選擇的牌強化為黃金牌",
+      "target": "1 card",
+      "enhancement": "gold"
+    },
+    {
+      "id": "the_tower",
+      "name_en": "The Tower",
+      "name_zh": "高塔",
+      "arcana_number": 16,
+      "effect_en": "Enhances 1 selected card into a Stone Card",
+      "effect_zh": "將 1 張選擇的牌強化為石頭牌",
+      "target": "1 card",
+      "enhancement": "stone"
+    },
+    {
+      "id": "the_star",
+      "name_en": "The Star",
+      "name_zh": "星星",
+      "arcana_number": 17,
+      "effect_en": "Converts up to 3 selected cards to Diamonds",
+      "effect_zh": "將最多 3 張選擇的牌轉換為方塊",
+      "target": "up to 3 cards",
+      "suit_conversion": "diamonds"
+    },
+    {
+      "id": "the_moon",
+      "name_en": "The Moon",
+      "name_zh": "月亮",
+      "arcana_number": 18,
+      "effect_en": "Converts up to 3 selected cards to Clubs",
+      "effect_zh": "將最多 3 張選擇的牌轉換為梅花",
+      "target": "up to 3 cards",
+      "suit_conversion": "clubs"
+    },
+    {
+      "id": "the_sun",
+      "name_en": "The Sun",
+      "name_zh": "太陽",
+      "arcana_number": 19,
+      "effect_en": "Converts up to 3 selected cards to Hearts",
+      "effect_zh": "將最多 3 張選擇的牌轉換為紅心",
+      "target": "up to 3 cards",
+      "suit_conversion": "hearts"
+    },
+    {
+      "id": "judgement",
+      "name_en": "Judgement",
+      "name_zh": "審判",
+      "arcana_number": 20,
+      "effect_en": "Creates a random Joker card (Must have room)",
+      "effect_zh": "創造一張隨機小丑牌（需有空間）",
+      "target": "none",
+      "creates": "joker"
+    },
+    {
+      "id": "the_world",
+      "name_en": "The World",
+      "name_zh": "世界",
+      "arcana_number": 21,
+      "effect_en": "Converts up to 3 selected cards to Spades",
+      "effect_zh": "將最多 3 張選擇的牌轉換為黑桃",
+      "target": "up to 3 cards",
+      "suit_conversion": "spades"
+    }
+  ],
+  "effect_categories": {
+    "enhancement": ["the_magician", "the_empress", "the_hierophant", "the_lovers", "the_chariot", "justice", "the_devil", "the_tower"],
+    "suit_conversion": ["the_star", "the_moon", "the_sun", "the_world"],
+    "creation": ["the_fool", "the_high_priestess", "the_emperor", "judgement"],
+    "money": ["the_hermit", "temperance"],
+    "card_manipulation": ["strength", "the_hanged_man", "death"],
+    "joker_effect": ["the_wheel_of_fortune"]
+  },
+  "notes": [
+    "All 22 Tarot cards are based on the Major Arcana",
+    "Can be obtained from Arcana Packs, Purple Seal cards, or the Shop",
+    "Jokers like Cartomancer, 8 Ball, Superposition, Vagabond, and Hallucination can also produce Tarot cards",
+    "Vouchers 'Tarot Merchant' and 'Tarot Tycoon' affect Tarot card availability in the Shop"
+  ]
+}

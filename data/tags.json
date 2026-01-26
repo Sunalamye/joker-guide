@@ -1,0 +1,238 @@
+{
+  "category": "tags",
+  "description": "Tags are rewards received for skipping Small Blind or Big Blind. Some trigger immediately, others wait for specific conditions.",
+  "total_count": 24,
+  "ante_1_available": 15,
+  "tags": [
+    {
+      "id": "uncommon_tag",
+      "name_en": "Uncommon Tag",
+      "name_zh": "罕見標籤",
+      "effect_en": "The next shop will have a free Uncommon Joker",
+      "effect_zh": "下一個商店會有免費的罕見小丑牌",
+      "ante_available": 1,
+      "trigger": "next_shop"
+    },
+    {
+      "id": "rare_tag",
+      "name_en": "Rare Tag",
+      "name_zh": "稀有標籤",
+      "effect_en": "The next shop will have a free Rare Joker",
+      "effect_zh": "下一個商店會有免費的稀有小丑牌",
+      "ante_available": 1,
+      "trigger": "next_shop",
+      "unlock_condition": "Discover Blueprint"
+    },
+    {
+      "id": "negative_tag",
+      "name_en": "Negative Tag",
+      "name_zh": "負片標籤",
+      "effect_en": "The next base edition Joker you find in a Shop becomes Negative (+1 joker slot) and free",
+      "effect_zh": "下一個在商店找到的基礎版本小丑牌變成負片版（+1 小丑欄位）且免費",
+      "ante_available": 2,
+      "trigger": "next_shop",
+      "unlock_condition": "Discover Negative edition"
+    },
+    {
+      "id": "foil_tag",
+      "name_en": "Foil Tag",
+      "name_zh": "閃卡標籤",
+      "effect_en": "The next base edition Joker you find in a Shop becomes Foil (+50 Chips) and free",
+      "effect_zh": "下一個在商店找到的基礎版本小丑牌變成閃卡版（+50 籌碼）且免費",
+      "ante_available": 1,
+      "trigger": "next_shop",
+      "unlock_condition": "Discover Foil edition"
+    },
+    {
+      "id": "holographic_tag",
+      "name_en": "Holographic Tag",
+      "name_zh": "全息標籤",
+      "effect_en": "The next base edition Joker you find in a Shop becomes Holographic (+10 Mult) and free",
+      "effect_zh": "下一個在商店找到的基礎版本小丑牌變成全息版（+10 倍率）且免費",
+      "ante_available": 1,
+      "trigger": "next_shop",
+      "unlock_condition": "Discover Holographic edition"
+    },
+    {
+      "id": "polychrome_tag",
+      "name_en": "Polychrome Tag",
+      "name_zh": "幻彩標籤",
+      "effect_en": "The next base edition Joker you find in a Shop becomes Polychrome (X1.5 Mult) and free",
+      "effect_zh": "下一個在商店找到的基礎版本小丑牌變成幻彩版（X1.5 倍率）且免費",
+      "ante_available": 1,
+      "trigger": "next_shop",
+      "unlock_condition": "Discover Polychrome edition"
+    },
+    {
+      "id": "investment_tag",
+      "name_en": "Investment Tag",
+      "name_zh": "投資標籤",
+      "effect_en": "Gain $25 after defeating the next Boss Blind",
+      "effect_zh": "擊敗下一個 Boss 盲注後獲得 $25",
+      "ante_available": 1,
+      "trigger": "boss_blind_defeat"
+    },
+    {
+      "id": "voucher_tag",
+      "name_en": "Voucher Tag",
+      "name_zh": "增益券標籤",
+      "effect_en": "Adds a Voucher to the next Shop",
+      "effect_zh": "在下一個商店添加一張增益券",
+      "ante_available": 1,
+      "trigger": "next_shop"
+    },
+    {
+      "id": "boss_tag",
+      "name_en": "Boss Tag",
+      "name_zh": "Boss 標籤",
+      "effect_en": "Re-rolls the next Boss Blind",
+      "effect_zh": "重擲下一個 Boss 盲注",
+      "ante_available": 1,
+      "trigger": "immediate"
+    },
+    {
+      "id": "standard_tag",
+      "name_en": "Standard Tag",
+      "name_zh": "標準標籤",
+      "effect_en": "Immediately open a free Mega Standard Pack",
+      "effect_zh": "立即打開免費的超級標準卡包",
+      "ante_available": 2,
+      "trigger": "immediate"
+    },
+    {
+      "id": "charm_tag",
+      "name_en": "Charm Tag",
+      "name_zh": "魅力標籤",
+      "effect_en": "Immediately open a free Mega Arcana Pack",
+      "effect_zh": "立即打開免費的超級奧秘卡包",
+      "ante_available": 1,
+      "trigger": "immediate"
+    },
+    {
+      "id": "meteor_tag",
+      "name_en": "Meteor Tag",
+      "name_zh": "流星標籤",
+      "effect_en": "Immediately open a free Mega Celestial Pack",
+      "effect_zh": "立即打開免費的超級天外卡包",
+      "ante_available": 2,
+      "trigger": "immediate"
+    },
+    {
+      "id": "buffoon_tag",
+      "name_en": "Buffoon Tag",
+      "name_zh": "丑角標籤",
+      "effect_en": "Immediately open a free Mega Buffoon Pack",
+      "effect_zh": "立即打開免費的超級丑角卡包",
+      "ante_available": 2,
+      "trigger": "immediate"
+    },
+    {
+      "id": "handy_tag",
+      "name_en": "Handy Tag",
+      "name_zh": "便利標籤",
+      "effect_en": "Gain $1 for each hand played this run",
+      "effect_zh": "本局每出過一手牌獲得 $1",
+      "ante_available": 2,
+      "trigger": "immediate"
+    },
+    {
+      "id": "garbage_tag",
+      "name_en": "Garbage Tag",
+      "name_zh": "垃圾標籤",
+      "effect_en": "Gain $1 for each unused discard this run",
+      "effect_zh": "本局每未使用的棄牌次數獲得 $1",
+      "ante_available": 2,
+      "trigger": "immediate"
+    },
+    {
+      "id": "ethereal_tag",
+      "name_en": "Ethereal Tag",
+      "name_zh": "空靈標籤",
+      "effect_en": "Immediately open a free Spectral Pack",
+      "effect_zh": "立即打開免費的幻靈卡包",
+      "ante_available": 2,
+      "trigger": "immediate",
+      "notes": "Only pack tag that doesn't give a Mega Pack"
+    },
+    {
+      "id": "coupon_tag",
+      "name_en": "Coupon Tag",
+      "name_zh": "優惠券標籤",
+      "effect_en": "In the next shop, initial Jokers, Consumables and Booster Packs are free ($0)",
+      "effect_zh": "下一個商店中，初始小丑牌、消耗品和卡包免費（$0）",
+      "ante_available": 1,
+      "trigger": "next_shop"
+    },
+    {
+      "id": "double_tag",
+      "name_en": "Double Tag",
+      "name_zh": "雙倍標籤",
+      "effect_en": "Gives a copy of the next Tag selected (excluding Double Tags)",
+      "effect_zh": "複製下一個選擇的標籤（雙倍標籤除外）",
+      "ante_available": 1,
+      "trigger": "next_tag"
+    },
+    {
+      "id": "juggle_tag",
+      "name_en": "Juggle Tag",
+      "name_zh": "雜耍標籤",
+      "effect_en": "+3 Hand Size for the next round only",
+      "effect_zh": "僅下一回合 +3 手牌上限",
+      "ante_available": 1,
+      "trigger": "next_round"
+    },
+    {
+      "id": "d6_tag",
+      "name_en": "D6 Tag",
+      "name_zh": "D6 標籤",
+      "effect_en": "In the next Shop, Rerolls start at $0",
+      "effect_zh": "下一個商店，重擲起始價格為 $0",
+      "ante_available": 1,
+      "trigger": "next_shop"
+    },
+    {
+      "id": "topup_tag",
+      "name_en": "Top-up Tag",
+      "name_zh": "補充標籤",
+      "effect_en": "Create up to 2 Common Jokers (if you have space)",
+      "effect_zh": "創造最多 2 張普通小丑牌（如果有空位）",
+      "ante_available": 2,
+      "trigger": "immediate"
+    },
+    {
+      "id": "speed_tag",
+      "name_en": "Speed Tag",
+      "name_zh": "速度標籤",
+      "effect_en": "Gives $5 for each Blind you've skipped this run",
+      "effect_zh": "本局每跳過一個盲注獲得 $5",
+      "ante_available": 1,
+      "trigger": "immediate"
+    },
+    {
+      "id": "orbital_tag",
+      "name_en": "Orbital Tag",
+      "name_zh": "軌道標籤",
+      "effect_en": "Upgrades a specified random Poker Hand by three levels",
+      "effect_zh": "將指定的隨機牌型升級 3 級",
+      "ante_available": 2,
+      "trigger": "immediate"
+    },
+    {
+      "id": "economy_tag",
+      "name_en": "Economy Tag",
+      "name_zh": "經濟標籤",
+      "effect_en": "Doubles your money (adds a maximum of $40)",
+      "effect_zh": "金錢翻倍（最多增加 $40）",
+      "ante_available": 1,
+      "trigger": "immediate"
+    }
+  ],
+  "notes": [
+    "Tags are received when skipping Small or Big Blind",
+    "Each Tag has equal chance to appear",
+    "Same Tag can appear multiple times in a run",
+    "9 Tags are restricted to Ante 2+: Negative, Standard, Meteor, Buffoon, Handy, Garbage, Ethereal, Top-up, Orbital",
+    "Edition Tags require discovering the respective edition first",
+    "Diet Cola Joker and Anaglyph Deck can also create Double Tags"
+  ]
+}

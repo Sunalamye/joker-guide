@@ -1,0 +1,294 @@
+{
+  "schema_version": "1.0.0",
+  "project": "Balatro 百科全書",
+  "description": "Balatro 小丑牌遊戲百科網站的資料結構設計",
+  "collections": {
+    "core_mechanics": {
+      "description": "遊戲核心機制",
+      "files": [
+        {
+          "file": "poker-hands.json",
+          "content": "13 種撲克牌型（含 3 種隱藏牌型）",
+          "count": 13,
+          "astro_collection": "poker-hands"
+        },
+        {
+          "file": "blinds.json",
+          "content": "盲注系統（小盲注、大盲注、23+ Boss 盲注、5 個 Showdown Boss）",
+          "count": 30,
+          "astro_collection": "blinds"
+        },
+        {
+          "file": "stakes.json",
+          "content": "8 種難度等級",
+          "count": 8,
+          "astro_collection": "stakes"
+        }
+      ]
+    },
+    "cards": {
+      "description": "遊戲中的卡牌",
+      "files": [
+        {
+          "file": "jokers-meta.json",
+          "content": "150 張小丑牌的元資料",
+          "count": 150,
+          "rarities": ["Common", "Uncommon", "Rare", "Legendary"],
+          "astro_collection": "jokers"
+        },
+        {
+          "file": "tarot-cards.json",
+          "content": "22 張塔羅牌",
+          "count": 22,
+          "astro_collection": "tarot-cards"
+        },
+        {
+          "file": "planet-cards.json",
+          "content": "12 張星球牌 + 3 張隱藏星球牌",
+          "count": 15,
+          "astro_collection": "planet-cards"
+        },
+        {
+          "file": "spectral-cards.json",
+          "content": "18 張幻靈牌",
+          "count": 18,
+          "astro_collection": "spectral-cards"
+        }
+      ]
+    },
+    "shop_items": {
+      "description": "商店物品",
+      "files": [
+        {
+          "file": "vouchers.json",
+          "content": "32 張增益券（16 基礎 + 16 升級）",
+          "count": 32,
+          "astro_collection": "vouchers"
+        },
+        {
+          "file": "booster-packs.json",
+          "content": "5 種卡包類型，各 3 種尺寸",
+          "count": 15,
+          "astro_collection": "booster-packs"
+        }
+      ]
+    },
+    "game_setup": {
+      "description": "遊戲設置選項",
+      "files": [
+        {
+          "file": "decks.json",
+          "content": "15 種牌組",
+          "count": 15,
+          "astro_collection": "decks"
+        },
+        {
+          "file": "challenges.json",
+          "content": "20 種挑戰模式",
+          "count": 20,
+          "astro_collection": "challenges"
+        }
+      ]
+    },
+    "modifiers": {
+      "description": "卡牌修飾系統",
+      "files": [
+        {
+          "file": "card-modifiers.json",
+          "content": "強化、版本、封印、貼紙",
+          "subcategories": {
+            "enhancements": 8,
+            "editions": 5,
+            "seals": 4,
+            "stickers": 3
+          },
+          "astro_collection": "card-modifiers"
+        }
+      ]
+    },
+    "rewards": {
+      "description": "獎勵系統",
+      "files": [
+        {
+          "file": "tags.json",
+          "content": "24 種跳過盲注的標籤獎勵",
+          "count": 24,
+          "astro_collection": "tags"
+        }
+      ]
+    }
+  },
+  "relationships": {
+    "poker_hands_to_planets": {
+      "description": "每種撲克牌型對應一張星球牌",
+      "from": "poker-hands",
+      "to": "planet-cards",
+      "type": "one-to-one"
+    },
+    "decks_to_stakes": {
+      "description": "完成特定賭注可解鎖新牌組",
+      "from": "stakes",
+      "to": "decks",
+      "type": "one-to-one"
+    },
+    "vouchers_upgrades": {
+      "description": "基礎增益券可升級為進階版",
+      "from": "vouchers.base",
+      "to": "vouchers.upgraded",
+      "type": "one-to-one"
+    },
+    "blinds_to_stakes": {
+      "description": "賭注影響盲注的籌碼倍率",
+      "from": "stakes",
+      "to": "blinds",
+      "type": "affects"
+    },
+    "tags_to_packs": {
+      "description": "部分標籤可獲得免費卡包",
+      "from": "tags",
+      "to": "booster-packs",
+      "type": "provides"
+    },
+    "modifiers_to_cards": {
+      "description": "修飾可應用於撲克牌和小丑牌",
+      "from": "card-modifiers",
+      "to": ["jokers", "playing-cards"],
+      "type": "applies-to"
+    }
+  },
+  "astro_content_collections": {
+    "suggested_structure": {
+      "src/content": {
+        "jokers": "每張小丑牌一個 .json 或 .md 檔案",
+        "consumables": {
+          "tarot": "塔羅牌",
+          "planet": "星球牌",
+          "spectral": "幻靈牌"
+        },
+        "mechanics": {
+          "poker-hands": "牌型",
+          "blinds": "盲注",
+          "stakes": "賭注"
+        },
+        "shop": {
+          "vouchers": "增益券",
+          "booster-packs": "卡包"
+        },
+        "setup": {
+          "decks": "牌組",
+          "challenges": "挑戰"
+        },
+        "modifiers": "卡牌修飾"
+      }
+    },
+    "common_fields": {
+      "id": "唯一識別碼",
+      "name_en": "英文名稱",
+      "name_zh": "中文名稱",
+      "effect_en": "英文效果說明",
+      "effect_zh": "中文效果說明"
+    }
+  },
+  "total_items": {
+    "jokers": 150,
+    "tarot_cards": 22,
+    "planet_cards": 15,
+    "spectral_cards": 18,
+    "vouchers": 32,
+    "decks": 15,
+    "challenges": 20,
+    "blinds": 30,
+    "tags": 24,
+    "stakes": 8,
+    "poker_hands": 13,
+    "booster_pack_types": 5,
+    "enhancements": 8,
+    "editions": 5,
+    "seals": 4,
+    "stickers": 3
+  },
+  "website_pages": {
+    "suggested": [
+      {
+        "path": "/",
+        "name_zh": "首頁",
+        "content": "遊戲介紹與快速導航"
+      },
+      {
+        "path": "/jokers",
+        "name_zh": "小丑牌",
+        "content": "所有 150 張小丑牌，支援篩選稀有度"
+      },
+      {
+        "path": "/jokers/[id]",
+        "name_zh": "小丑牌詳情",
+        "content": "單張小丑牌的詳細資訊"
+      },
+      {
+        "path": "/consumables",
+        "name_zh": "消耗品",
+        "content": "塔羅牌、星球牌、幻靈牌總覽"
+      },
+      {
+        "path": "/consumables/tarot",
+        "name_zh": "塔羅牌",
+        "content": "22 張塔羅牌列表"
+      },
+      {
+        "path": "/consumables/planet",
+        "name_zh": "星球牌",
+        "content": "星球牌與牌型對應關係"
+      },
+      {
+        "path": "/consumables/spectral",
+        "name_zh": "幻靈牌",
+        "content": "18 張幻靈牌列表"
+      },
+      {
+        "path": "/poker-hands",
+        "name_zh": "牌型",
+        "content": "所有撲克牌型與基礎分數"
+      },
+      {
+        "path": "/decks",
+        "name_zh": "牌組",
+        "content": "15 種牌組與解鎖條件"
+      },
+      {
+        "path": "/vouchers",
+        "name_zh": "增益券",
+        "content": "所有增益券與升級路徑"
+      },
+      {
+        "path": "/blinds",
+        "name_zh": "盲注",
+        "content": "盲注系統與 Boss 盲注效果"
+      },
+      {
+        "path": "/stakes",
+        "name_zh": "賭注難度",
+        "content": "8 種難度等級說明"
+      },
+      {
+        "path": "/tags",
+        "name_zh": "標籤",
+        "content": "跳過盲注的獎勵標籤"
+      },
+      {
+        "path": "/modifiers",
+        "name_zh": "卡牌修飾",
+        "content": "強化、版本、封印、貼紙系統"
+      },
+      {
+        "path": "/challenges",
+        "name_zh": "挑戰模式",
+        "content": "20 種挑戰牌組"
+      },
+      {
+        "path": "/booster-packs",
+        "name_zh": "卡包",
+        "content": "商店卡包種類與出現機率"
+      }
+    ]
+  }
+}

@@ -1,0 +1,42 @@
+# Rust
+target/
+Cargo.lock
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.eggs/
+dist/
+build/
+*.so
+
+# Models & checkpoints
+python-env/models/
+*.pt
+*.pth
+*.zip
+
+# Logs
+*.log
+python-env/logs/
+python-env/experiments/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.venv/
+venv/
+
+# References (external repos - clone separately if needed)
+references/

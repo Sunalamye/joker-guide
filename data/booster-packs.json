@@ -1,0 +1,181 @@
+{
+  "category": "booster_packs",
+  "description": "Booster Packs are purchasable items in the shop that contain cards to choose from.",
+  "pack_types": [
+    {
+      "id": "arcana",
+      "name_en": "Arcana Packs",
+      "name_zh": "奧秘禮包",
+      "contains": "Tarot Cards",
+      "contains_zh": "塔羅牌",
+      "use_type": "immediate",
+      "sizes": [
+        {
+          "size": "normal",
+          "cost": 4,
+          "choose": 1,
+          "options": 3
+        },
+        {
+          "size": "jumbo",
+          "cost": 6,
+          "choose": 1,
+          "options": 5
+        },
+        {
+          "size": "mega",
+          "cost": 8,
+          "choose": 2,
+          "options": 5
+        }
+      ],
+      "appearance_rates": {
+        "normal": 17.84,
+        "jumbo": 8.92,
+        "mega": 2.23
+      }
+    },
+    {
+      "id": "celestial",
+      "name_en": "Celestial Packs",
+      "name_zh": "天外禮包",
+      "contains": "Planet Cards",
+      "contains_zh": "星球牌",
+      "use_type": "immediate",
+      "sizes": [
+        {
+          "size": "normal",
+          "cost": 4,
+          "choose": 1,
+          "options": 3
+        },
+        {
+          "size": "jumbo",
+          "cost": 6,
+          "choose": 1,
+          "options": 5
+        },
+        {
+          "size": "mega",
+          "cost": 8,
+          "choose": 2,
+          "options": 5
+        }
+      ],
+      "appearance_rates": {
+        "normal": 17.84,
+        "jumbo": 8.92,
+        "mega": 2.23
+      }
+    },
+    {
+      "id": "standard",
+      "name_en": "Standard Packs",
+      "name_zh": "標準禮包",
+      "contains": "Playing Cards",
+      "contains_zh": "撲克牌",
+      "use_type": "add_to_deck",
+      "sizes": [
+        {
+          "size": "normal",
+          "cost": 4,
+          "choose": 1,
+          "options": 3
+        },
+        {
+          "size": "jumbo",
+          "cost": 6,
+          "choose": 1,
+          "options": 5
+        },
+        {
+          "size": "mega",
+          "cost": 8,
+          "choose": 2,
+          "options": 5
+        }
+      ],
+      "appearance_rates": {
+        "normal": 17.84,
+        "jumbo": 8.92,
+        "mega": 2.23
+      }
+    },
+    {
+      "id": "buffoon",
+      "name_en": "Buffoon Packs",
+      "name_zh": "丑角禮包",
+      "contains": "Joker Cards",
+      "contains_zh": "小丑牌",
+      "use_type": "add_to_jokers",
+      "sizes": [
+        {
+          "size": "normal",
+          "cost": 4,
+          "choose": 1,
+          "options": 2
+        },
+        {
+          "size": "jumbo",
+          "cost": 6,
+          "choose": 1,
+          "options": 4
+        },
+        {
+          "size": "mega",
+          "cost": 8,
+          "choose": 2,
+          "options": 4
+        }
+      ],
+      "appearance_rates": {
+        "normal": 5.35,
+        "jumbo": 2.68,
+        "mega": 0.67
+      }
+    },
+    {
+      "id": "spectral",
+      "name_en": "Spectral Packs",
+      "name_zh": "幻靈禮包",
+      "contains": "Spectral Cards",
+      "contains_zh": "幻靈牌",
+      "use_type": "immediate",
+      "sizes": [
+        {
+          "size": "normal",
+          "cost": 4,
+          "choose": 1,
+          "options": 2
+        },
+        {
+          "size": "jumbo",
+          "cost": 6,
+          "choose": 1,
+          "options": 4
+        },
+        {
+          "size": "mega",
+          "cost": 8,
+          "choose": 2,
+          "options": 4
+        }
+      ],
+      "appearance_rates": {
+        "normal": 2.68,
+        "jumbo": 1.34,
+        "mega": 0.31
+      }
+    }
+  ],
+  "notes": [
+    "Booster Packs appear in the shop after each blind",
+    "Standard, Arcana, and Celestial packs are most common",
+    "Buffoon packs are moderately rare",
+    "Spectral packs are the rarest type",
+    "Mega packs allow choosing up to 2 cards",
+    "Tarot, Planet, and Spectral cards are used immediately",
+    "Playing Cards are added to your deck",
+    "Joker Cards are added to your Joker slots"
+  ]
+}
