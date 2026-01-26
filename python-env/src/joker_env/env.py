@@ -17,18 +17,38 @@ HAND_SIZE = 8  # 手牌數量
 MAX_SELECTED = 5  # 最多選擇 5 張打出
 JOKER_SLOTS = 5
 SHOP_JOKER_COUNT = 2
+CONSUMABLE_SLOT_COUNT = 2
+SHOP_VOUCHER_COUNT = 1
+SHOP_PACK_COUNT = 2
 
-# Observation 大小
-SCALAR_COUNT = 13  # 擴展的標量特徵 (包含 boss_blind_id)
+# Observation 常量
+SCALAR_COUNT = 20  # 擴展的標量特徵
 SELECTION_FEATURES = HAND_SIZE
-# Card features: 13 rank + 4 suit + 4 enhance info (enhancement, seal, edition, face_down)
-CARD_FEATURES = 21
+CARD_BASE_FEATURES = 17  # 13 rank + 4 suit
+CARD_ENHANCE_FEATURES = 4  # enhancement, seal, edition, face_down
+CARD_FEATURES = CARD_BASE_FEATURES + CARD_ENHANCE_FEATURES  # 21
 HAND_FEATURES = HAND_SIZE * CARD_FEATURES
-HAND_TYPE_COUNT = 10
+HAND_TYPE_COUNT = 13  # 含進階牌型: FiveKind, FlushHouse, FlushFive
 DECK_FEATURES = 52
-JOKER_FEATURES = JOKER_SLOTS * 2
-SHOP_FEATURES = SHOP_JOKER_COUNT * 2
 
+# Joker 特徵: id (150 one-hot) + enabled (1) + eternal (1) + negative (1) = 153 per joker
+JOKER_ID_SIZE = 150
+JOKER_SINGLE_FEATURES = JOKER_ID_SIZE + 3  # 153
+JOKER_FEATURES = JOKER_SLOTS * JOKER_SINGLE_FEATURES  # 765
+
+# Shop: id (150 one-hot) + cost (1) = 151 per item
+SHOP_SINGLE_FEATURES = JOKER_ID_SIZE + 1  # 151
+SHOP_FEATURES = SHOP_JOKER_COUNT * SHOP_SINGLE_FEATURES  # 302
+
+# 新增觀察空間
+BOSS_BLIND_COUNT = 27
+DECK_TYPE_FEATURES = 12
+STAKE_FEATURES = 8
+VOUCHER_FEATURES = 32
+CONSUMABLE_FEATURES = 52  # Tarot(22) + Planet(12) + Spectral(18)
+TAG_FEATURES = 22
+
+# 計算總觀察空間大小
 TOTAL_OBS_SIZE = (
     SCALAR_COUNT
     + SELECTION_FEATURES
@@ -37,9 +57,15 @@ TOTAL_OBS_SIZE = (
     + DECK_FEATURES
     + JOKER_FEATURES
     + SHOP_FEATURES
+    + BOSS_BLIND_COUNT
+    + DECK_TYPE_FEATURES
+    + STAKE_FEATURES
+    + VOUCHER_FEATURES
+    + CONSUMABLE_SLOT_COUNT * CONSUMABLE_FEATURES
+    + TAG_FEATURES
 )
 
-# Action 類型
+# Action 類型 (13 種)
 ACTION_TYPE_SELECT = 0
 ACTION_TYPE_PLAY = 1
 ACTION_TYPE_DISCARD = 2
@@ -47,10 +73,60 @@ ACTION_TYPE_SELECT_BLIND = 3
 ACTION_TYPE_CASH_OUT = 4
 ACTION_TYPE_BUY_JOKER = 5
 ACTION_TYPE_NEXT_ROUND = 6
+ACTION_TYPE_REROLL = 7
+ACTION_TYPE_SELL_JOKER = 8
+ACTION_TYPE_SKIP_BLIND = 9
+ACTION_TYPE_USE_CONSUMABLE = 10
+ACTION_TYPE_BUY_VOUCHER = 11
+ACTION_TYPE_BUY_PACK = 12
+
+ACTION_TYPE_COUNT = 13
+
+# Action mask layout (與 Rust 端一致)
+# [0..13]: Action types (13)
+# [13..29]: Card selection (16 = HAND_SIZE * 2)
+# [29..32]: Blind selection (3)
+# [32..34]: Shop joker purchase (2)
+# [34..39]: Sell joker slots (5)
+# [39]: Reroll (1)
+# [40]: Skip Blind (1)
+# [41..43]: Use consumable (2)
+# [43]: Buy voucher (1)
+# [44..46]: Buy pack (2)
+ACTION_MASK_SIZE = (
+    ACTION_TYPE_COUNT
+    + HAND_SIZE * 2
+    + 3
+    + SHOP_JOKER_COUNT
+    + JOKER_SLOTS
+    + 1
+    + 1
+    + CONSUMABLE_SLOT_COUNT
+    + SHOP_VOUCHER_COUNT
+    + SHOP_PACK_COUNT
+)
 
 # Scalar 索引
+SCALAR_IDX_SCORE_PROGRESS = 0
+SCALAR_IDX_ANTE = 1
+SCALAR_IDX_BLIND_TYPE = 2
+SCALAR_IDX_STAGE = 3
 SCALAR_IDX_PLAYS_LEFT = 4
 SCALAR_IDX_DISCARDS_LEFT = 5
+SCALAR_IDX_MONEY = 6
+SCALAR_IDX_REWARD = 7
+SCALAR_IDX_DECK_RATIO = 8
+SCALAR_IDX_JOKER_USAGE = 9
+SCALAR_IDX_ROUND = 10
+SCALAR_IDX_STEP = 11
+SCALAR_IDX_BOSS_BLIND = 12
+SCALAR_IDX_CONSUMABLE_USAGE = 13
+SCALAR_IDX_VOUCHER_PROGRESS = 14
+SCALAR_IDX_HAND_LEVEL = 15
+SCALAR_IDX_TAG_COUNT = 16
+SCALAR_IDX_ENDLESS_MODE = 17
+SCALAR_IDX_ENDLESS_ANTE = 18
+SCALAR_IDX_REROLL_COST = 19
 
 
 class JokerGymEnv(gym.Env):
@@ -68,9 +144,9 @@ class JokerGymEnv(gym.Env):
         )
 
         # Action space: [action_type, card_selection]
-        # action_type: 7 種
+        # action_type: 13 種
         # card_selection: 8 張卡片，每張 0 或 1
-        self.action_space = spaces.MultiDiscrete([7] + [2] * HAND_SIZE)
+        self.action_space = spaces.MultiDiscrete([ACTION_TYPE_COUNT] + [2] * HAND_SIZE)
         self._last_done = False
         self._last_obs = None
 
@@ -97,7 +173,7 @@ class JokerGymEnv(gym.Env):
 
     def action_masks(self) -> np.ndarray:
         if self._last_done:
-            return np.zeros(7 + HAND_SIZE * 2, dtype=bool)
+            return np.zeros(ACTION_TYPE_COUNT + HAND_SIZE * 2, dtype=bool)
         return _build_action_mask_from_obs(self._last_obs)
 
 
@@ -114,7 +190,7 @@ class JokerGymDictEnv(gym.Env):
         if obs_shape and obs_shape[0] != TOTAL_OBS_SIZE:
             print(f"Warning: Observation size mismatch. Expected {TOTAL_OBS_SIZE}, got {obs_shape[0]}")
 
-        self.action_space = spaces.MultiDiscrete([7] + [2] * HAND_SIZE)
+        self.action_space = spaces.MultiDiscrete([ACTION_TYPE_COUNT] + [2] * HAND_SIZE)
         self.observation_space = spaces.Dict(
             {
                 "scalars": spaces.Box(
@@ -133,13 +209,31 @@ class JokerGymDictEnv(gym.Env):
                     low=0.0, high=1.0, shape=(HAND_TYPE_COUNT,), dtype=np.float32
                 ),
                 "deck": spaces.Box(
-                    low=0.0, high=4.0, shape=(DECK_FEATURES,), dtype=np.float32
+                    low=0.0, high=1.0, shape=(DECK_FEATURES,), dtype=np.float32
                 ),
                 "jokers": spaces.Box(
-                    low=0.0, high=np.inf, shape=(JOKER_SLOTS, 2), dtype=np.float32
+                    low=0.0, high=1.0, shape=(JOKER_SLOTS, JOKER_SINGLE_FEATURES), dtype=np.float32
                 ),
                 "shop": spaces.Box(
-                    low=0.0, high=np.inf, shape=(SHOP_JOKER_COUNT, 2), dtype=np.float32
+                    low=0.0, high=np.inf, shape=(SHOP_JOKER_COUNT, SHOP_SINGLE_FEATURES), dtype=np.float32
+                ),
+                "boss_blind": spaces.Box(
+                    low=0.0, high=1.0, shape=(BOSS_BLIND_COUNT,), dtype=np.float32
+                ),
+                "deck_type": spaces.Box(
+                    low=0.0, high=1.0, shape=(DECK_TYPE_FEATURES,), dtype=np.float32
+                ),
+                "stake": spaces.Box(
+                    low=0.0, high=1.0, shape=(STAKE_FEATURES,), dtype=np.float32
+                ),
+                "vouchers": spaces.Box(
+                    low=0.0, high=1.0, shape=(VOUCHER_FEATURES,), dtype=np.float32
+                ),
+                "consumables": spaces.Box(
+                    low=0.0, high=1.0, shape=(CONSUMABLE_SLOT_COUNT, CONSUMABLE_FEATURES), dtype=np.float32
+                ),
+                "tags": spaces.Box(
+                    low=0.0, high=1.0, shape=(TAG_FEATURES,), dtype=np.float32
                 ),
             }
         )
@@ -173,7 +267,7 @@ class JokerGymDictEnv(gym.Env):
 
     def action_masks(self) -> np.ndarray:
         if self._last_done:
-            return np.zeros(7 + HAND_SIZE * 2, dtype=bool)
+            return np.zeros(ACTION_TYPE_COUNT + HAND_SIZE * 2, dtype=bool)
         return self._last_action_mask
 
 
@@ -194,7 +288,7 @@ def _split_observation(flat: np.ndarray) -> Dict[str, np.ndarray]:
 
     offset = 0
 
-    # Scalars (12)
+    # Scalars (20)
     scalars = flat[offset : offset + SCALAR_COUNT]
     offset += SCALAR_COUNT
 
@@ -207,7 +301,7 @@ def _split_observation(flat: np.ndarray) -> Dict[str, np.ndarray]:
     hand = hand_flat.reshape((HAND_SIZE, CARD_FEATURES))
     offset += HAND_FEATURES
 
-    # Hand type (10)
+    # Hand type (13)
     hand_type = flat[offset : offset + HAND_TYPE_COUNT]
     offset += HAND_TYPE_COUNT
 
@@ -215,14 +309,39 @@ def _split_observation(flat: np.ndarray) -> Dict[str, np.ndarray]:
     deck = flat[offset : offset + DECK_FEATURES]
     offset += DECK_FEATURES
 
-    # Jokers (5 * 2 = 10)
+    # Jokers (5 * 153 = 765)
     jokers_flat = flat[offset : offset + JOKER_FEATURES]
-    jokers = jokers_flat.reshape((JOKER_SLOTS, 2))
+    jokers = jokers_flat.reshape((JOKER_SLOTS, JOKER_SINGLE_FEATURES))
     offset += JOKER_FEATURES
 
-    # Shop (2 * 2 = 4)
+    # Shop (2 * 151 = 302)
     shop_flat = flat[offset : offset + SHOP_FEATURES]
-    shop = shop_flat.reshape((SHOP_JOKER_COUNT, 2))
+    shop = shop_flat.reshape((SHOP_JOKER_COUNT, SHOP_SINGLE_FEATURES))
+    offset += SHOP_FEATURES
+
+    # Boss Blind one-hot (27)
+    boss_blind = flat[offset : offset + BOSS_BLIND_COUNT]
+    offset += BOSS_BLIND_COUNT
+
+    # Deck type one-hot (12)
+    deck_type = flat[offset : offset + DECK_TYPE_FEATURES]
+    offset += DECK_TYPE_FEATURES
+
+    # Stake one-hot (8)
+    stake = flat[offset : offset + STAKE_FEATURES]
+    offset += STAKE_FEATURES
+
+    # Voucher ownership (32)
+    vouchers = flat[offset : offset + VOUCHER_FEATURES]
+    offset += VOUCHER_FEATURES
+
+    # Consumables (2 * 52 = 104)
+    consumables_flat = flat[offset : offset + CONSUMABLE_SLOT_COUNT * CONSUMABLE_FEATURES]
+    consumables = consumables_flat.reshape((CONSUMABLE_SLOT_COUNT, CONSUMABLE_FEATURES))
+    offset += CONSUMABLE_SLOT_COUNT * CONSUMABLE_FEATURES
+
+    # Tags (22)
+    tags = flat[offset : offset + TAG_FEATURES]
 
     return {
         "scalars": scalars,
@@ -232,6 +351,12 @@ def _split_observation(flat: np.ndarray) -> Dict[str, np.ndarray]:
         "deck": deck,
         "jokers": jokers,
         "shop": shop,
+        "boss_blind": boss_blind,
+        "deck_type": deck_type,
+        "stake": stake,
+        "vouchers": vouchers,
+        "consumables": consumables,
+        "tags": tags,
     }
 
 
@@ -256,7 +381,7 @@ def _parse_action(action) -> tuple[int, int]:
         return 0, 0
 
     action_type = int(action[0])
-    if action_type < 0 or action_type > 6:
+    if action_type < 0 or action_type >= ACTION_TYPE_COUNT:
         action_type = 0
 
     # 構建卡片選擇 mask
@@ -271,7 +396,7 @@ def _parse_action(action) -> tuple[int, int]:
 def _action_mask_from_scalars(scalars: np.ndarray) -> np.ndarray:
     """根據 scalars 構建 action mask"""
     # scalars[3] = stage (0=PreBlind, 1=Blind, 2=PostBlind, 3=Shop, 4=End)
-    stage = scalars[3] * 4.0  # 反正規化
+    stage = scalars[SCALAR_IDX_STAGE] * 4.0  # 反正規化
 
     in_blind = abs(stage - 1.0) < 0.5
     in_pre_blind = stage < 0.5
@@ -280,6 +405,7 @@ def _action_mask_from_scalars(scalars: np.ndarray) -> np.ndarray:
 
     plays_left = scalars[SCALAR_IDX_PLAYS_LEFT] > 0.01
     discards_left = scalars[SCALAR_IDX_DISCARDS_LEFT] > 0.01
+    has_money = scalars[SCALAR_IDX_MONEY] > 0.01
 
     return _build_action_mask(
         in_blind=in_blind,
@@ -288,13 +414,14 @@ def _action_mask_from_scalars(scalars: np.ndarray) -> np.ndarray:
         in_shop=in_shop,
         plays_left=plays_left,
         discards_left=discards_left,
+        has_money=has_money,
     )
 
 
 def _build_action_mask_from_obs(obs: np.ndarray) -> np.ndarray:
     """從扁平化 observation 構建 action mask"""
     if obs is None or len(obs) < SCALAR_COUNT:
-        return np.ones(7 + HAND_SIZE * 2, dtype=bool)
+        return np.ones(ACTION_TYPE_COUNT + HAND_SIZE * 2, dtype=bool)
     scalars = obs[:SCALAR_COUNT]
     return _action_mask_from_scalars(scalars)
 
@@ -306,30 +433,37 @@ def _build_action_mask(
     in_shop: bool,
     plays_left: bool,
     discards_left: bool,
+    has_money: bool = True,
 ) -> np.ndarray:
     """
     構建 MaskablePPO 的 action mask。
 
-    Action Space: MultiDiscrete([7, 2, 2, 2, 2, 2, 2, 2, 2])
-    - 維度 0: action_type (7 種)
+    Action Space: MultiDiscrete([13, 2, 2, 2, 2, 2, 2, 2, 2])
+    - 維度 0: action_type (13 種)
     - 維度 1-8: 每張卡片的選擇 (不選=0, 選=1)
 
-    Mask 結構 (長度 7 + 8*2 = 23):
-    - [0-6]: action_type mask
-    - [7-8]: 卡片 0 的 [不選, 選]
-    - [9-10]: 卡片 1 的 [不選, 選]
+    Mask 結構 (長度 13 + 8*2 = 29):
+    - [0-12]: action_type mask
+    - [13-14]: 卡片 0 的 [不選, 選]
+    - [15-16]: 卡片 1 的 [不選, 選]
     - ...
     """
     mask = []
 
-    # Action type mask (7)
+    # Action type mask (13)
     mask.append(bool(in_blind))  # SELECT
     mask.append(bool(in_blind and plays_left))  # PLAY
     mask.append(bool(in_blind and discards_left))  # DISCARD
     mask.append(bool(in_pre_blind))  # SELECT_BLIND
     mask.append(bool(in_post_blind))  # CASH_OUT
-    mask.append(bool(in_shop))  # BUY_JOKER
+    mask.append(bool(in_shop and has_money))  # BUY_JOKER
     mask.append(bool(in_shop))  # NEXT_ROUND
+    mask.append(bool(in_shop and has_money))  # REROLL
+    mask.append(bool(in_shop))  # SELL_JOKER
+    mask.append(bool(in_pre_blind))  # SKIP_BLIND
+    mask.append(bool(in_blind))  # USE_CONSUMABLE
+    mask.append(bool(in_shop and has_money))  # BUY_VOUCHER
+    mask.append(bool(in_shop and has_money))  # BUY_PACK
 
     # 卡片選擇 mask - 只在 Blind 階段才能選擇
     can_select = in_blind
