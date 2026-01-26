@@ -237,15 +237,13 @@ impl JokerEnv for EnvService {
             state.mult = effective_mult;
             let chip_gain = state.chips - prev_chips;
 
-            reward = reward_from_gain(chip_gain, state.blind_target);
+            // 中間步驟：小獎勵引導學習
+            reward = shaping_reward(chip_gain, state.blind_target);
             state.hands_left -= 1;
             state.discards_left = DISCARDS_PER_ROUND;
             state.selected_mask = ((1 << HAND_SIZE) - 1) as u32;
 
             win = state.chips >= state.blind_target;
-            if win {
-                reward += 50.0;
-            }
 
             if state.hands_left > 0 && !win {
                 let (hand, deck) = deal_new_hand(&mut state.rng);
@@ -257,6 +255,11 @@ impl JokerEnv for EnvService {
         state.episode_step += 1;
 
         let done = win || state.hands_left <= 0 || state.episode_step >= MAX_STEPS;
+
+        // 回合結束時給大獎勵/懲罰
+        if done {
+            reward += terminal_reward(state.chips, state.blind_target, win);
+        }
 
         let observation = Observation {
             features: Some(observation_from_state(&state)),
@@ -540,6 +543,41 @@ fn normalize(value: f32, max_value: f32) -> f32 {
     }
 }
 
+/// 中間步驟的引導獎勵（shaping reward）
+/// 根據這一手得到的分數佔目標的比例給小獎勵
+fn shaping_reward(chip_gain: i64, blind_target: i64) -> f32 {
+    if blind_target <= 0 || chip_gain <= 0 {
+        return 0.0;
+    }
+    // 每手牌根據貢獻比例給 0~2 分
+    let ratio = (chip_gain as f32 / blind_target as f32).min(1.0);
+    ratio * 2.0
+}
+
+/// 回合結束時的獎勵
+/// - 失敗: -10
+/// - 過關: +50
+/// - 超過目標: +50 + 額外獎勵（按超出比例，上限 +50）
+fn terminal_reward(chips: i64, blind_target: i64, is_win: bool) -> f32 {
+    if !is_win {
+        return -10.0; // 失敗懲罰
+    }
+
+    // 過關基礎獎勵
+    let base_reward = 50.0;
+
+    // 超過目標的額外獎勵
+    let overflow = chips - blind_target;
+    if overflow > 0 && blind_target > 0 {
+        let bonus = (overflow as f32 / blind_target as f32) * 20.0;
+        base_reward + bonus.min(50.0) // 上限 100
+    } else {
+        base_reward
+    }
+}
+
+// 保留舊函數供測試使用
+#[allow(dead_code)]
 fn reward_from_gain(chip_gain: i64, blind_target: i64) -> f32 {
     if blind_target <= 0 || chip_gain <= 0 {
         return 0.0;
