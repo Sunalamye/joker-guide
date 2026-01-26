@@ -2,11 +2,12 @@
 //!
 //! 為 RL 訓練提供形狀良好的獎勵信號
 //!
-//! 獎勵範圍設計：
+//! 獎勵範圍設計（v2.0 - 專家分析後調整）：
 //! - 遊戲結束獎勵: -0.5 ~ 1.0
 //! - 過關獎勵: 0.3 ~ 1.0
 //! - 出牌獎勵: 0.0 ~ 0.3
 //! - 購買決策: -0.3 ~ 0.5
+//! - Skip Blind: -0.15 ~ 0.55（頂級 Tag 需要足夠獎勵空間）
 //! - 其他小獎勵: -0.2 ~ 0.3
 
 use super::blinds::{Ante, BlindType, BossBlind, GameEnd};
@@ -186,64 +187,82 @@ pub fn money_reward(money: i64, ante: Ante) -> f32 {
 // 新增獎勵函數
 // ============================================================================
 
-/// Skip Blind 獎勵：考慮 Tag 價值和風險
+/// Skip Blind 獎勵：考慮 Tag 價值、機會成本和風險
+///
+/// 設計原則（來自專家分析）：
+/// 1. Tag 價值是核心，但需考慮 opportunity cost（跳過的金幣獎勵）
+/// 2. 跳過 Big Blind 犧牲更多金幣，風險因子應更低
+/// 3. 後期跳過風險更高（已經累積資源，需要打過關），降低獎勵
+/// 4. 獎勵上限提升至 0.55，讓頂級 Tag 有合理空間
 pub fn skip_blind_reward(tag: TagId, blind_type: BlindType, ante: Ante) -> f32 {
     // Tag 基礎價值
     let tag_value = tag_base_value(tag);
 
-    // 跳過的 Blind 類型影響風險
-    let risk_factor = match blind_type {
-        BlindType::Small => 0.8,  // 跳過 Small 風險較低
-        BlindType::Big => 1.0,    // 中等風險
-        BlindType::Boss => 0.0,   // 不能跳過 Boss
+    // 機會成本：跳過 Blind 放棄的金幣獎勵
+    // Small: $3 base, Big: $5 base（正常情況）
+    let opportunity_cost = match blind_type {
+        BlindType::Small => 0.05,  // 放棄較少金幣
+        BlindType::Big => 0.12,    // 放棄較多金幣 + 可能的 Boss 獎金
+        BlindType::Boss => 1.0,    // 不能跳過 Boss（設為極高懲罰）
     };
 
-    // 階段權重：早期跳過更有價值（可以快速累積資源）
-    let stage_weight = match ante {
-        Ante::One | Ante::Two => 1.2,
-        Ante::Three | Ante::Four => 1.0,
-        Ante::Five | Ante::Six => 0.8,
-        Ante::Seven | Ante::Eight => 0.6, // 後期跳過風險更高
+    // 風險調整：後期跳過更危險
+    // 早期：還有時間累積，跳過問題不大
+    // 後期：需要打過關才能贏，跳過失去練習機會
+    let risk_adjustment = match ante {
+        Ante::One | Ante::Two => 1.0,   // 早期風險低
+        Ante::Three | Ante::Four => 0.9,
+        Ante::Five | Ante::Six => 0.75, // 中後期謹慎
+        Ante::Seven | Ante::Eight => 0.5, // 後期非常謹慎
     };
 
-    let reward = tag_value * risk_factor * stage_weight;
-    reward.clamp(-0.1, 0.4)
+    // 最終計算：Tag 價值 × 風險調整 - 機會成本
+    let reward = (tag_value * risk_adjustment) - opportunity_cost;
+    reward.clamp(-0.15, 0.55)
 }
 
 /// Tag 基礎價值評估
+///
+/// 價值調整依據 Balatro 專家分析：
+/// - NegativeTag: 額外 Joker 槽位是遊戲中最強效果之一
+/// - EtherealTag: Spectral 卡能大幅改變牌組或 Joker
+/// - BuffoonTag: 免費選擇 Joker，比單一 Joker 更有價值
+/// - SpeedTag: +$25 但跳過商店是嚴重懲罰，淨價值低
 fn tag_base_value(tag: TagId) -> f32 {
     match tag {
-        // 高價值 Tags
-        TagId::NegativeTag => 0.4,      // Negative Joker 非常強
-        TagId::PolychromeTag => 0.35,   // Polychrome 版本強
-        TagId::RareTag => 0.3,          // 稀有 Joker
-        TagId::VoucherTag => 0.3,       // 免費 Voucher
+        // 頂級 Tags（改變遊戲狀態）
+        TagId::NegativeTag => 0.52,     // 額外 Joker 槽位極強
+        TagId::PolychromeTag => 0.38,   // x1.5 乘數強效
+        TagId::RareTag => 0.32,         // 稀有 Joker 通常很強
+        TagId::VoucherTag => 0.30,      // 免費 Voucher 永久加成
 
-        // 中等價值
-        TagId::HolographicTag => 0.25,
-        TagId::FoilTag => 0.2,
-        TagId::UncommonTag => 0.2,
-        TagId::InvestmentTag => 0.2,    // +$25
+        // 高價值 Tags
+        TagId::EtherealTag => 0.30,     // Spectral 卡強效（修正：0.15→0.30）
+        TagId::BuffoonTag => 0.27,      // 免費 Joker 選擇（修正：0.15→0.27）
+        TagId::HolographicTag => 0.26,  // +10 Mult 穩定
+        TagId::DoubleTag => 0.25,       // 複製 Tag 價值取決於下一個
+        TagId::CelestialTag => 0.22,    // Planet 升級重要（修正：0.15→0.22）
+
+        // 中等價值 Tags
+        TagId::FoilTag => 0.20,
+        TagId::UncommonTag => 0.20,
+        TagId::OrbitalTag => 0.20,      // 升級牌型（修正：0.15→0.20）
+        TagId::BossTag => 0.20,         // 重抽 Boss 可避開高難度
+        TagId::InvestmentTag => 0.20,   // +$25 回合結束
+        TagId::MeteorTag => 0.18,       // 卡包價值（修正：0.12→0.18）
 
         // 經濟類
-        TagId::EconomyTag => 0.15,      // +$10
-        TagId::SpeedTag => 0.15,        // +$25 但跳過商店
-        TagId::CouponTag => 0.15,       // 50% off
+        TagId::EconomyTag => 0.15,      // +$10 即時
+        TagId::CouponTag => 0.15,       // 50% off（取決於商店物品）
+        TagId::D6Tag => 0.12,           // 免費 Reroll（情境性）
 
-        // 卡包類
-        TagId::BuffoonTag => 0.15,
-        TagId::CelestialTag => 0.15,
-        TagId::EtherealTag => 0.15,
-        TagId::MeteorTag => 0.12,
-        TagId::StandardTag => 0.1,
+        // 低價值 Tags
+        TagId::StandardTag => 0.10,     // 普通卡包
+        TagId::JuggleTag => 0.10,       // +3 手牌大小（情境性）
+        TagId::TopUpTag => 0.10,        // 常見消耗品價值低
 
-        // 工具類
-        TagId::BossTag => 0.2,          // 重抽 Boss
-        TagId::D6Tag => 0.12,           // 免費 Reroll
-        TagId::JuggleTag => 0.1,        // +3 手牌大小
-        TagId::TopUpTag => 0.1,
-        TagId::OrbitalTag => 0.15,      // 升級牌型
-        TagId::DoubleTag => 0.25,       // 複製 Tag
+        // 陷阱類（看似有價值但有嚴重缺點）
+        TagId::SpeedTag => 0.06,        // +$25 但跳過商店是災難（修正：0.15→0.06）
     }
 }
 
