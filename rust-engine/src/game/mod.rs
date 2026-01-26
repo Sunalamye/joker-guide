@@ -1,0 +1,54 @@
+//! 遊戲核心模組
+//!
+//! 包含 Balatro 遊戲的核心定義：
+//! - `constants`: 遊戲常量
+//! - `cards`: 卡牌、增強、封印、版本定義
+//! - `blinds`: Blind、Boss Blind、Ante 定義
+//! - `hand_types`: 牌型定義
+//! - `scoring`: 計分引擎
+//! - `joker`: Joker 系統 (Tiered Architecture)
+//! - `shop`: 商店系統
+//! - `reward`: 獎勵計算系統
+//! - `tags`: Tag 系統（跳過 Blind 獎勵）
+//! - `decks`: 起始牌組系統
+//! - `stakes`: Stake 難度系統
+//! - `vouchers`: Voucher 永久升級系統
+//! - `consumables`: 消耗品系統 (Tarot/Planet/Spectral)
+
+pub mod constants;
+pub mod cards;
+pub mod blinds;
+pub mod hand_types;
+pub mod scoring;
+pub mod joker;
+pub mod shop;
+pub mod reward;
+pub mod tags;
+pub mod decks;
+pub mod stakes;
+pub mod vouchers;
+pub mod consumables;
+
+// Re-export 常用類型
+pub use constants::*;
+pub use cards::{Card, Enhancement, Seal, standard_deck, card_index};
+pub use blinds::{Stage, GameEnd, BlindType, BossBlind, Ante};
+pub use hand_types::{HandId, HandScore};
+pub use scoring::{score_hand, hand_potential};
+pub use joker::{JokerId, JokerSlot, JokerBonus, ScoringContext, compute_joker_bonus, JOKER_COUNT};
+pub use shop::{Shop, ShopItem};
+pub use reward::{
+    combo_score, joker_buy_reward, play_reward, blind_clear_reward,
+    ante_progress_reward, game_end_reward, money_reward,
+    skip_blind_reward, consumable_use_reward, voucher_buy_reward,
+    card_enhancement_reward, reroll_reward, sell_joker_reward,
+};
+pub use tags::{Tag, TagId, TAG_COUNT};
+pub use decks::{DeckType, DeckConfig, DECK_TYPE_COUNT};
+pub use stakes::{Stake, StakeConfig, STAKE_COUNT};
+pub use vouchers::{VoucherId, VoucherEffects, VOUCHER_COUNT};
+pub use consumables::{
+    Consumable, ConsumableType, ConsumableSlots, HandLevels,
+    TarotId, PlanetId, SpectralId,
+    CONSUMABLE_COUNT, TAROT_COUNT, PLANET_COUNT, SPECTRAL_COUNT, CONSUMABLE_SLOTS,
+};

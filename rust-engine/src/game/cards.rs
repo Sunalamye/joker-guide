@@ -1,0 +1,226 @@
+//! 卡牌和增強系統定義
+
+/// 卡片增強類型
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Enhancement {
+    #[default]
+    None,
+    Bonus,    // +30 chips
+    Mult,     // +4 mult
+    Wild,     // 可當任意花色
+    Glass,    // x2 Mult，1/4 機率破碎
+    Steel,    // x1.5 Mult（在手牌中時）
+    Stone,    // +50 chips，不計花色/點數
+    Gold,     // 回合結束時 +$3
+    Lucky,    // 1/5 機率 +20 Mult，1/15 機率 +$20
+}
+
+impl Enhancement {
+    /// 轉換為整數 ID (用於 observation)
+    pub fn to_int(&self) -> u8 {
+        match self {
+            Enhancement::None => 0,
+            Enhancement::Bonus => 1,
+            Enhancement::Mult => 2,
+            Enhancement::Wild => 3,
+            Enhancement::Glass => 4,
+            Enhancement::Steel => 5,
+            Enhancement::Stone => 6,
+            Enhancement::Gold => 7,
+            Enhancement::Lucky => 8,
+        }
+    }
+
+    /// 所有增強類型（用於隨機選擇）
+    pub fn all() -> &'static [Enhancement] {
+        &[
+            Enhancement::Bonus,
+            Enhancement::Mult,
+            Enhancement::Wild,
+            Enhancement::Glass,
+            Enhancement::Steel,
+            Enhancement::Stone,
+            Enhancement::Gold,
+            Enhancement::Lucky,
+        ]
+    }
+}
+
+/// 卡片封印類型
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Seal {
+    #[default]
+    None,
+    Gold,    // 打出時 +$3
+    Red,     // 觸發 2 次
+    Blue,    // 最後一手牌創建 Planet 卡
+    Purple,  // 棄掉時創建 Tarot 卡
+}
+
+impl Seal {
+    /// 轉換為整數 ID (用於 observation)
+    pub fn to_int(&self) -> u8 {
+        match self {
+            Seal::None => 0,
+            Seal::Gold => 1,
+            Seal::Red => 2,
+            Seal::Blue => 3,
+            Seal::Purple => 4,
+        }
+    }
+
+    /// 所有封印類型（用於隨機選擇）
+    pub fn all() -> &'static [Seal] {
+        &[Seal::Gold, Seal::Red, Seal::Blue, Seal::Purple]
+    }
+}
+
+/// 卡片版本類型
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum Edition {
+    #[default]
+    Base,
+    Foil,        // +50 chips
+    Holographic, // +10 mult
+    Polychrome,  // x1.5 mult
+    Negative,    // +1 Joker slot (特殊，通常用於 Joker)
+}
+
+impl Edition {
+    /// 轉換為整數 ID (用於 observation)
+    pub fn to_int(&self) -> u8 {
+        match self {
+            Edition::Base => 0,
+            Edition::Foil => 1,
+            Edition::Holographic => 2,
+            Edition::Polychrome => 3,
+            Edition::Negative => 4,
+        }
+    }
+
+    /// 所有版本類型（用於隨機選擇，不含 Negative）
+    pub fn all_common() -> &'static [Edition] {
+        &[Edition::Foil, Edition::Holographic, Edition::Polychrome]
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Card {
+    pub rank: u8,              // 1..=13 (Ace = 1)
+    pub suit: u8,              // 0..=3
+    pub enhancement: Enhancement,
+    pub seal: Seal,
+    pub edition: Edition,
+    pub face_down: bool,       // 是否面朝下（某些 Boss Blind 效果）
+}
+
+impl Card {
+    pub fn new(rank: u8, suit: u8) -> Self {
+        Self {
+            rank,
+            suit,
+            enhancement: Enhancement::None,
+            seal: Seal::None,
+            edition: Edition::Base,
+            face_down: false,
+        }
+    }
+
+    /// 基礎 chips（不含增強效果）
+    pub fn base_chips(&self) -> i64 {
+        match self.rank {
+            1 => 11,  // Ace
+            11 | 12 | 13 => 10, // J, Q, K
+            n => n as i64,
+        }
+    }
+
+    /// 總 chips（含增強和版本效果）
+    pub fn chips(&self) -> i64 {
+        let base = self.base_chips();
+        let enhancement_bonus = match self.enhancement {
+            Enhancement::Bonus => 30,
+            Enhancement::Stone => 50,
+            _ => 0,
+        };
+        let edition_bonus = match self.edition {
+            Edition::Foil => 50,
+            _ => 0,
+        };
+        base + enhancement_bonus + edition_bonus
+    }
+
+    /// 加法 mult 加成
+    pub fn add_mult(&self) -> i64 {
+        let enhancement_mult = match self.enhancement {
+            Enhancement::Mult => 4,
+            _ => 0,
+        };
+        let edition_mult = match self.edition {
+            Edition::Holographic => 10,
+            _ => 0,
+        };
+        enhancement_mult + edition_mult
+    }
+
+    /// 乘法 mult 加成
+    pub fn x_mult(&self) -> f32 {
+        let mut x = 1.0;
+
+        // Enhancement x mult
+        if self.enhancement == Enhancement::Glass {
+            x *= 2.0;
+        }
+
+        // Edition x mult
+        if self.edition == Edition::Polychrome {
+            x *= 1.5;
+        }
+
+        x
+    }
+
+    /// 是否為面牌 (J, Q, K)
+    pub fn is_face(&self) -> bool {
+        self.rank >= 11 && self.rank <= 13
+    }
+
+    /// Wild 牌是否可匹配指定花色
+    pub fn matches_suit(&self, target_suit: u8) -> bool {
+        if self.enhancement == Enhancement::Wild {
+            true // Wild 可匹配任意花色
+        } else {
+            self.suit == target_suit
+        }
+    }
+
+    /// Stone 牌不參與牌型判定
+    pub fn counts_for_hand(&self) -> bool {
+        self.enhancement != Enhancement::Stone
+    }
+
+    /// 獲取有效花色（用於計分）
+    pub fn effective_suit(&self) -> u8 {
+        if self.enhancement == Enhancement::Stone {
+            255 // 無效花色
+        } else {
+            self.suit
+        }
+    }
+}
+
+/// 創建標準 52 張牌組
+pub fn standard_deck() -> Vec<Card> {
+    let mut deck = Vec::with_capacity(52);
+    for suit in 0..4 {
+        for rank in 1..=13 {
+            deck.push(Card::new(rank, suit));
+        }
+    }
+    deck
+}
+
+/// 獲取卡片在 52 張牌組中的索引
+pub fn card_index(card: Card) -> usize {
+    (card.suit as usize * 13) + (card.rank as usize - 1)
+}

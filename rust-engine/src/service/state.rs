@@ -1,0 +1,468 @@
+//! 遊戲狀態管理
+
+use rand::seq::SliceRandom;
+use rand::{rngs::StdRng, Rng, SeedableRng};
+
+use crate::game::{
+    Ante, BlindType, BossBlind, Card, Enhancement, JokerSlot, Seal, Shop, Stage,
+    Tag, TagId, ConsumableSlots, HandLevels, VoucherEffects, VoucherId,
+    DeckType, DeckConfig, Stake, StakeConfig,
+    DISCARDS_PER_BLIND, HAND_SIZE, INTEREST_RATE, JOKER_SLOTS, MAX_INTEREST,
+    MONEY_PER_REMAINING_HAND, PLAYS_PER_BLIND, SHOP_JOKER_COUNT, STARTING_MONEY,
+    SHOP_PACK_COUNT,
+    standard_deck,
+};
+
+/// 卡包類型
+#[derive(Clone, Debug)]
+pub struct BoosterPack {
+    pub pack_type: BoosterPackType,
+    pub cost: i64,
+}
+
+/// 卡包類型
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BoosterPackType {
+    Arcana,     // 2 Tarot 選 1
+    Celestial,  // 2 Planet 選 1
+    Spectral,   // 2 Spectral 選 1
+    Standard,   // 3 普通牌選 1
+    Buffoon,    // 2 Joker 選 1
+}
+
+impl BoosterPack {
+    pub fn random(rng: &mut StdRng) -> Self {
+        let types = [
+            BoosterPackType::Arcana,
+            BoosterPackType::Celestial,
+            BoosterPackType::Spectral,
+            BoosterPackType::Standard,
+            BoosterPackType::Buffoon,
+        ];
+        let pack_type = *types.choose(rng).unwrap();
+        let cost = match pack_type {
+            BoosterPackType::Arcana => 4,
+            BoosterPackType::Celestial => 4,
+            BoosterPackType::Spectral => 4,
+            BoosterPackType::Standard => 4,
+            BoosterPackType::Buffoon => 6,
+        };
+        Self { pack_type, cost }
+    }
+}
+
+/// 遊戲環境狀態
+pub struct EnvState {
+    pub rng: StdRng,
+
+    // 牌組
+    pub deck: Vec<Card>,
+    pub hand: Vec<Card>,
+    pub discarded: Vec<Card>,
+    pub selected_mask: u32,
+
+    // Joker
+    pub jokers: Vec<JokerSlot>,
+    pub joker_slot_limit: usize,
+
+    // 商店
+    pub shop: Shop,
+
+    // 遊戲進度
+    pub stage: Stage,
+    pub blind_type: Option<BlindType>,
+    pub boss_blind: Option<BossBlind>,
+    pub ante: Ante,
+    pub round: i32,
+
+    // 當前 Blind 狀態
+    pub plays_left: i32,
+    pub discards_left: i32,
+    pub score: i64,
+
+    // Boss Blind 追蹤
+    pub played_hand_types: Vec<usize>,
+    pub first_hand_type: Option<usize>,
+
+    // 經濟
+    pub money: i64,
+    pub reward: i64,
+
+    // Tags（跳過 Blind 獲得的獎勵）
+    pub tags: Vec<Tag>,
+
+    // 無盡模式
+    pub endless_mode: bool,
+    pub endless_ante: i32, // Ante 8 之後的額外等級
+
+    // 消耗品
+    pub consumables: ConsumableSlots,
+    pub hand_levels: HandLevels,
+
+    // Voucher
+    pub voucher_effects: VoucherEffects,
+    pub shop_voucher: Option<VoucherId>,
+
+    // 卡包
+    pub shop_packs: Vec<BoosterPack>,
+
+    // 牌組和難度
+    pub deck_type: DeckType,
+    pub stake: Stake,
+
+    // 統計
+    pub episode_step: i32,
+}
+
+impl EnvState {
+    pub fn new(seed: u64) -> Self {
+        let rng = StdRng::seed_from_u64(seed);
+        let deck = standard_deck();
+
+        Self {
+            rng,
+            deck,
+            hand: Vec::new(),
+            discarded: Vec::new(),
+            selected_mask: 0,
+            jokers: Vec::new(),
+            joker_slot_limit: JOKER_SLOTS,
+            shop: Shop::new(),
+            stage: Stage::PreBlind,
+            blind_type: None,
+            boss_blind: None,
+            ante: Ante::One,
+            round: 1,
+            plays_left: PLAYS_PER_BLIND,
+            discards_left: DISCARDS_PER_BLIND,
+            score: 0,
+            played_hand_types: Vec::new(),
+            first_hand_type: None,
+            money: STARTING_MONEY,
+            reward: 0,
+            tags: Vec::new(),
+            endless_mode: false,
+            endless_ante: 0,
+            consumables: ConsumableSlots::new(),
+            hand_levels: HandLevels::new(),
+            voucher_effects: VoucherEffects::new(),
+            shop_voucher: None,
+            shop_packs: Vec::new(),
+            deck_type: DeckType::Standard,
+            stake: Stake::White,
+            episode_step: 0,
+        }
+    }
+
+    /// 創建指定牌組和難度的遊戲
+    pub fn new_with_config(seed: u64, deck_type: DeckType, stake: Stake) -> Self {
+        let mut rng = StdRng::seed_from_u64(seed);
+        let deck_config = DeckConfig::from_deck_type(deck_type);
+        let stake_config = StakeConfig::from_stake(stake);
+        let deck = deck_type.create_deck(&mut rng);
+
+        Self {
+            rng,
+            deck,
+            hand: Vec::new(),
+            discarded: Vec::new(),
+            selected_mask: 0,
+            jokers: Vec::new(),
+            joker_slot_limit: deck_config.joker_slots,
+            shop: Shop::new(),
+            stage: Stage::PreBlind,
+            blind_type: None,
+            boss_blind: None,
+            ante: Ante::One,
+            round: 1,
+            plays_left: deck_config.plays_per_blind + stake_config.hand_modifier,
+            discards_left: deck_config.discards_per_blind + stake_config.discard_modifier,
+            score: 0,
+            played_hand_types: Vec::new(),
+            first_hand_type: None,
+            money: deck_config.starting_money,
+            reward: 0,
+            tags: Vec::new(),
+            endless_mode: false,
+            endless_ante: 0,
+            consumables: ConsumableSlots::new(),
+            hand_levels: HandLevels::new(),
+            voucher_effects: VoucherEffects::new(),
+            shop_voucher: None,
+            shop_packs: Vec::new(),
+            deck_type,
+            stake,
+            episode_step: 0,
+        }
+    }
+
+    /// 創建無盡模式遊戲
+    pub fn new_endless(seed: u64) -> Self {
+        let mut state = Self::new(seed);
+        state.endless_mode = true;
+        state
+    }
+
+    /// 創建指定配置的無盡模式遊戲
+    pub fn new_endless_with_config(seed: u64, deck_type: DeckType, stake: Stake) -> Self {
+        let mut state = Self::new_with_config(seed, deck_type, stake);
+        state.endless_mode = true;
+        state
+    }
+
+    /// 跳過當前 Blind 並獲得隨機 Tag
+    pub fn skip_blind(&mut self) -> Option<Tag> {
+        // 只能跳過 Small 和 Big Blind
+        match self.blind_type {
+            Some(BlindType::Small) | Some(BlindType::Big) | None => {}
+            Some(BlindType::Boss) => return None,
+        }
+
+        // 獲得隨機 Tag
+        let tag_id = TagId::random(&mut self.rng);
+        let tag = Tag::new(tag_id);
+
+        // 立即獲得金幣獎勵
+        self.money += tag.id.immediate_money();
+
+        self.tags.push(tag.clone());
+
+        // 進入下一個 Blind
+        let next_blind = self.blind_type
+            .and_then(|b| b.next())
+            .unwrap_or(BlindType::Small);
+
+        if next_blind == BlindType::Boss {
+            // 跳到 Boss Blind
+            self.blind_type = Some(BlindType::Boss);
+            self.select_random_boss();
+        } else {
+            self.blind_type = Some(next_blind);
+        }
+
+        // 進入下一輪（跳過的 Blind 不計入 round）
+        self.stage = Stage::PreBlind;
+
+        Some(tag)
+    }
+
+    pub fn required_score(&self) -> i64 {
+        let base = self.ante.base_score();
+        let multiplier = if self.blind_type == Some(BlindType::Boss) {
+            self.boss_blind.map(|b| b.score_multiplier()).unwrap_or(2.0)
+        } else {
+            self.blind_type.map(|b| b.score_multiplier()).unwrap_or(1.0)
+        };
+
+        // 無盡模式的額外倍數（每額外 Ante +50%）
+        let endless_mult = if self.endless_mode && self.endless_ante > 0 {
+            1.5f32.powi(self.endless_ante)
+        } else {
+            1.0
+        };
+
+        (base as f32 * multiplier * endless_mult) as i64
+    }
+
+    /// 進入下一個 Ante（支援無盡模式）
+    pub fn advance_ante(&mut self) -> bool {
+        if let Some(next_ante) = self.ante.next() {
+            self.ante = next_ante;
+            true
+        } else if self.endless_mode {
+            // 無盡模式：保持 Ante 8，但增加 endless_ante
+            self.endless_ante += 1;
+            true
+        } else {
+            // 遊戲勝利
+            false
+        }
+    }
+
+    pub fn deal(&mut self) {
+        self.deck.append(&mut self.hand);
+        self.deck.append(&mut self.discarded);
+        self.deck.shuffle(&mut self.rng);
+        self.hand = self.deck.drain(0..HAND_SIZE.min(self.deck.len())).collect();
+        self.selected_mask = 0;
+    }
+
+    /// 計算完整獎勵金
+    /// 包含：基礎獎勵 + 利息 + 剩餘手牌獎勵 + Gold 卡加成 + Joker 加成
+    pub fn calc_reward(&self) -> i64 {
+        let blind = self.blind_type.unwrap_or(BlindType::Small);
+
+        // 基礎獎勵（根據 Blind 類型）
+        let base = blind.reward();
+
+        // 利息（10%，最高 $5）
+        let interest = ((self.money as f32 * INTEREST_RATE).floor() as i64).min(MAX_INTEREST);
+
+        // 剩餘出牌獎勵
+        let hand_bonus = self.plays_left as i64 * MONEY_PER_REMAINING_HAND;
+
+        // Gold 卡加成（手牌中每張 Gold 卡 +$3）
+        let gold_bonus = self.gold_card_money();
+
+        // Joker 金幣加成（TODO: 實作更多金幣 Joker）
+        let joker_bonus = self.calc_joker_money_bonus();
+
+        base + interest + hand_bonus + gold_bonus + joker_bonus
+    }
+
+    /// 計算 Joker 金幣加成
+    fn calc_joker_money_bonus(&self) -> i64 {
+        use crate::game::JokerId;
+        let mut bonus = 0i64;
+
+        for joker in &self.jokers {
+            if !joker.enabled {
+                continue;
+            }
+            match joker.id {
+                // TODO: 添加更多金幣 Joker
+                // 目前只有基本結構，待擴展
+                JokerId::Banner => {
+                    // Banner: 每剩餘棄牌 +$2
+                    bonus += self.discards_left as i64 * 2;
+                }
+                _ => {}
+            }
+        }
+
+        bonus
+    }
+
+    pub fn refresh_shop(&mut self) {
+        self.shop.refresh(&mut self.rng, SHOP_JOKER_COUNT);
+
+        // 生成 Voucher（如果還有可購買的）
+        self.shop_voucher = VoucherId::random_available(&mut self.rng, &self.voucher_effects.owned);
+
+        // 生成卡包
+        self.shop_packs.clear();
+        for _ in 0..SHOP_PACK_COUNT {
+            self.shop_packs.push(BoosterPack::random(&mut self.rng));
+        }
+    }
+
+    /// Reroll 商店（增加 reroll 計數並刷新 Joker）
+    /// Voucher 和卡包不會被 reroll 影響
+    pub fn reroll_shop(&mut self) {
+        self.shop.reroll_count += 1;
+        self.shop.refresh(&mut self.rng, SHOP_JOKER_COUNT);
+    }
+
+    /// TheHook: 隨機棄 2 張手牌
+    pub fn apply_hook_discard(&mut self) {
+        let discard_count = 2.min(self.hand.len());
+        for _ in 0..discard_count {
+            if self.hand.is_empty() { break; }
+            let idx = self.rng.gen_range(0..self.hand.len());
+            let card = self.hand.remove(idx);
+            self.discarded.push(card);
+        }
+        let draw_count = HAND_SIZE - self.hand.len();
+        for _ in 0..draw_count {
+            if let Some(card) = self.deck.pop() {
+                self.hand.push(card);
+            }
+        }
+    }
+
+    /// TheSerpent: 抽 3 張，棄 3 張
+    pub fn apply_serpent_effect(&mut self) {
+        for _ in 0..3 {
+            if let Some(card) = self.deck.pop() {
+                self.hand.push(card);
+            }
+        }
+        let discard_count = 3.min(self.hand.len());
+        for _ in 0..discard_count {
+            if self.hand.is_empty() { break; }
+            let idx = self.rng.gen_range(0..self.hand.len());
+            let card = self.hand.remove(idx);
+            self.discarded.push(card);
+        }
+    }
+
+    /// 選擇隨機 Boss Blind
+    pub fn select_random_boss(&mut self) {
+        let bosses = if self.ante == Ante::Eight {
+            BossBlind::showdown_bosses()
+        } else {
+            BossBlind::regular_bosses()
+        };
+        self.boss_blind = bosses.choose(&mut self.rng).copied();
+    }
+
+    /// 處理 Glass 牌破碎
+    pub fn break_glass_cards(&mut self, selected_mask: u32, glass_indices: &[usize]) {
+        if glass_indices.is_empty() {
+            return;
+        }
+
+        let mut selected_idx = 0;
+        let mut to_remove = Vec::new();
+
+        for (hand_idx, _) in self.hand.iter().enumerate() {
+            if ((selected_mask >> hand_idx) & 1) == 1 {
+                if glass_indices.contains(&selected_idx) {
+                    to_remove.push(hand_idx);
+                }
+                selected_idx += 1;
+            }
+        }
+
+        to_remove.sort_unstable_by(|a, b| b.cmp(a));
+        for idx in to_remove {
+            self.hand.remove(idx);
+        }
+    }
+
+    /// 處理棄牌（含 Purple Seal 效果）
+    pub fn discard_with_seals(&mut self, mask: u32) -> i32 {
+        let mut purple_count = 0;
+
+        let mut new_hand = Vec::new();
+        for (idx, card) in self.hand.iter().enumerate() {
+            if ((mask >> idx) & 1) == 1 {
+                if card.seal == Seal::Purple {
+                    purple_count += 1;
+                }
+                self.discarded.push(*card);
+            } else {
+                new_hand.push(*card);
+            }
+        }
+
+        let draw_count = HAND_SIZE - new_hand.len();
+        for _ in 0..draw_count {
+            if let Some(card) = self.deck.pop() {
+                new_hand.push(card);
+            }
+        }
+
+        self.hand = new_hand;
+        purple_count
+    }
+
+    /// 計算 Steel 牌的 mult 加成
+    pub fn steel_mult_bonus(&self) -> f32 {
+        let mut x_mult = 1.0;
+        for card in &self.hand {
+            if card.enhancement == Enhancement::Steel {
+                x_mult *= 1.5;
+            }
+        }
+        x_mult
+    }
+
+    /// 計算 Gold 牌的回合結束金幣
+    pub fn gold_card_money(&self) -> i64 {
+        self.hand
+            .iter()
+            .filter(|c| c.enhancement == Enhancement::Gold)
+            .count() as i64 * 3
+    }
+}
