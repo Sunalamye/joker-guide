@@ -531,6 +531,20 @@ impl JokerEnv for EnvService {
 
                     state.stage = Stage::Shop;
                     state.refresh_shop();
+
+                    // Perkeo: 進入商店時，為隨機消耗品生成 Negative 複製
+                    let perkeo_count = state.jokers.iter()
+                        .filter(|j| j.enabled && j.id == JokerId::Perkeo)
+                        .count();
+                    for _ in 0..perkeo_count {
+                        let items_len = state.consumables.items.len();
+                        if items_len > 0 {
+                            let idx = state.rng.gen_range(0..items_len);
+                            let copy = state.consumables.items[idx].clone();
+                            // Negative 複製不受槽位限制，直接添加
+                            state.consumables.items.push(copy);
+                        }
+                    }
                 }
             }
 
