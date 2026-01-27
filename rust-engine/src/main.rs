@@ -587,6 +587,17 @@ impl JokerEnv for EnvService {
                                     }
                                 }
 
+                                // LoyaltyCard: 每手牌 counter +1，達到 6 時觸發 X4 Mult 並重置
+                                for joker in &mut state.jokers {
+                                    if joker.enabled && joker.id == JokerId::LoyaltyCard {
+                                        joker.counter += 1;
+                                        if joker.counter >= 6 {
+                                            // X4 Mult 效果在 compute_joker_effect_with_state 中處理
+                                            joker.counter = 0; // 觸發後重置
+                                        }
+                                    }
+                                }
+
                                 let selected_mask = state.selected_mask;
                                 state.break_glass_cards(selected_mask, &score_result.glass_to_break);
 
