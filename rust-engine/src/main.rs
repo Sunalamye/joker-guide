@@ -319,6 +319,21 @@ impl JokerEnv for EnvService {
                                     }
                                 }
 
+                                // Seance: Straight Flush 或 Royal Flush 時生成 Spectral 卡
+                                // StraightFlush = 8, RoyalFlush = 9
+                                if hand_type_idx == 8 || hand_type_idx == 9 {
+                                    let seance_count = state.jokers.iter()
+                                        .filter(|j| j.enabled && j.id == JokerId::Seance)
+                                        .count();
+                                    for _ in 0..seance_count {
+                                        if !state.consumables.is_full() {
+                                            let all_spectrals = SpectralId::all();
+                                            let idx = state.rng.gen_range(0..all_spectrals.len());
+                                            state.consumables.add(Consumable::Spectral(all_spectrals[idx]));
+                                        }
+                                    }
+                                }
+
                                 let selected_mask = state.selected_mask;
                                 state.break_glass_cards(selected_mask, &score_result.glass_to_break);
 
