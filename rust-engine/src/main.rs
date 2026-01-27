@@ -185,6 +185,7 @@ impl JokerEnv for EnvService {
                         state.first_hand_type = None;
                         state.discards_used_this_blind = 0;
                         state.hands_played_this_blind = 0;
+                        state.pillar_played_cards.clear();
 
                         // Hit The Road: 每 Blind 開始時重置 X Mult
                         for joker in &mut state.jokers {
@@ -496,9 +497,19 @@ impl JokerEnv for EnvService {
 
                     ACTION_TYPE_PLAY => {
                         if state.plays_left > 0 {
-                            let selected = build_selected_hand(&state.hand, state.selected_mask);
+                            let mut selected = build_selected_hand(&state.hand, state.selected_mask);
                             let selected_count = selected.len();
                             cards_played = selected_count as i32;
+
+                            // ThePillar: 已打過的牌不再計分（標記為 face_down）
+                            if state.boss_blind == Some(BossBlind::ThePillar) {
+                                for card in &mut selected {
+                                    let key = (card.rank as u8, card.suit as u8);
+                                    if state.pillar_played_cards.contains(&key) {
+                                        card.face_down = true;
+                                    }
+                                }
+                            }
 
                             let psychic_ok = !state.boss_blind
                                 .map(|b| b.requires_five_cards() && selected_count != 5)
@@ -626,6 +637,16 @@ impl JokerEnv for EnvService {
                                     let ante_hand_idx = (state.ante.to_int() - 1) as usize;
                                     if hand_type_idx == ante_hand_idx {
                                         state.money = (state.money - 1).max(0);
+                                    }
+                                }
+
+                                // ThePillar: 記錄這次打出的牌（只記錄首次打出，非 face_down 的）
+                                if state.boss_blind == Some(BossBlind::ThePillar) {
+                                    for card in &selected {
+                                        if !card.face_down {
+                                            let key = (card.rank as u8, card.suit as u8);
+                                            state.pillar_played_cards.insert(key);
+                                        }
                                     }
                                 }
 
