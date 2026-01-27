@@ -19,6 +19,7 @@ use super::joker::JokerId;
 /// - Splash (#128): 所有牌計入所有牌型（所有牌計分）
 /// - Pareidolia (#172): 所有牌視為人頭牌
 /// - Smeared (#129): 紅黑花色合併（Hearts=Diamonds, Spades=Clubs）
+/// - OopsAll6s (#253): 所有 6 算作每種花色
 #[derive(Clone, Debug, Default)]
 pub struct JokerRules {
     /// FourFingers (#126): 順子/同花只需 4 張牌
@@ -31,6 +32,8 @@ pub struct JokerRules {
     pub pareidolia: bool,
     /// Smeared (#129): 紅黑花色合併
     pub smeared: bool,
+    /// OopsAll6s (#253): 所有 6 算作每種花色
+    pub oops_all_6s: bool,
 }
 
 impl JokerRules {
@@ -48,6 +51,7 @@ impl JokerRules {
                 JokerId::Splash => rules.splash = true,
                 JokerId::Pareidolia => rules.pareidolia = true,
                 JokerId::Smeared => rules.smeared = true,
+                JokerId::OopsAll6s => rules.oops_all_6s = true,
                 _ => {}
             }
         }
@@ -93,7 +97,10 @@ pub fn score_hand_with_rules(hand: &[Card], rules: &JokerRules) -> HandScore {
     for card in &scoring_cards {
         rank_counts[(card.rank - 1) as usize] += 1;
 
-        if card.enhancement == Enhancement::Wild {
+        // OopsAll6s: 所有 6 算作每種花色（如同 Wild）
+        let is_wild_6 = rules.oops_all_6s && card.rank == 6;
+
+        if card.enhancement == Enhancement::Wild || is_wild_6 {
             wild_count += 1;
         } else if rules.smeared {
             // Smeared (#129): 紅黑花色合併
