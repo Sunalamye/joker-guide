@@ -1588,6 +1588,29 @@ impl JokerEnv for EnvService {
                         }
                         // 移除 perishable_rounds <= 0 的 Joker
                         state.jokers.retain(|j| !j.is_perishable || j.perishable_rounds > 0);
+
+                        // Rental: 回合結束時支付 $3 租金，付不起則銷毀
+                        let rental_cost = 3i64;
+                        let rental_count = state.jokers.iter().filter(|j| j.is_rental).count() as i64;
+                        let total_rental_cost = rental_count * rental_cost;
+                        if state.money >= total_rental_cost {
+                            // 付得起全部租金
+                            state.money -= total_rental_cost;
+                        } else {
+                            // 付不起，依次移除 Rental Joker 直到付得起
+                            while state.jokers.iter().filter(|j| j.is_rental).count() > 0 {
+                                let current_rental = state.jokers.iter().filter(|j| j.is_rental).count() as i64;
+                                let current_cost = current_rental * rental_cost;
+                                if state.money >= current_cost {
+                                    state.money -= current_cost;
+                                    break;
+                                }
+                                // 移除第一個 Rental Joker
+                                if let Some(idx) = state.jokers.iter().position(|j| j.is_rental) {
+                                    state.jokers.remove(idx);
+                                }
+                            }
+                        }
                     }
 
                     ACTION_TYPE_REROLL => {
