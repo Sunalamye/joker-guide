@@ -390,6 +390,15 @@ impl EnvState {
     pub fn refresh_shop(&mut self) {
         self.shop.refresh(&mut self.rng, SHOP_JOKER_COUNT);
 
+        // Black Stake 及以上：商店 Joker 有 30% 機率為 Eternal
+        if self.stake.has_eternal_jokers() {
+            for item in &mut self.shop.items {
+                if self.rng.gen_range(0..10) < 3 {
+                    item.joker.is_eternal = true;
+                }
+            }
+        }
+
         // 生成 Voucher（如果還有可購買的）
         self.shop_voucher = VoucherId::random_available(&mut self.rng, &self.voucher_effects.owned);
 
@@ -405,6 +414,15 @@ impl EnvState {
     pub fn reroll_shop(&mut self) {
         self.shop.reroll_count += 1;
         self.shop.refresh(&mut self.rng, SHOP_JOKER_COUNT);
+
+        // Black Stake 及以上：商店 Joker 有 30% 機率為 Eternal
+        if self.stake.has_eternal_jokers() {
+            for item in &mut self.shop.items {
+                if self.rng.gen_range(0..10) < 3 {
+                    item.joker.is_eternal = true;
+                }
+            }
+        }
     }
 
     /// TheHook: 隨機棄 2 張手牌
