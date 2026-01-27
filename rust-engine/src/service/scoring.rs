@@ -29,6 +29,7 @@ pub struct CardScoreResult {
     pub hand_id: HandId,
     pub money_gained: i64,          // 從 Gold Seal / Lucky 獲得的金幣
     pub glass_to_break: Vec<usize>, // 需要破碎的 Glass 牌索引
+    pub selzer_charges_used: i32,   // Selzer 使用的重觸發次數
 }
 
 /// 計算出牌分數（考慮 Boss Blind debuff 和卡片增強）
@@ -43,6 +44,7 @@ pub fn calculate_play_score(
     enhanced_cards_in_deck: i32,
     is_first_hand: bool,
     is_final_hand: bool,
+    selzer_charges: i32,
     rng: &mut StdRng,
 ) -> CardScoreResult {
     // 從 Joker 構建規則（FourFingers, Shortcut, Splash, Smeared 等）
@@ -73,6 +75,8 @@ pub fn calculate_play_score(
     let mut x_mult = bonus.mul_mult;
     let mut money_gained: i64 = 0;
     let mut glass_to_break = Vec::new();
+    let mut selzer_charges_remaining = selzer_charges;
+    let mut selzer_charges_used: i32 = 0;
 
     // 計算每張牌的貢獻（考慮增強、封印、版本效果）
     for (idx, card) in selected.iter().enumerate() {
@@ -100,7 +104,14 @@ pub fn calculate_play_score(
         }
 
         // Red Seal: 效果觸發兩次
-        let trigger_count = if card.seal == Seal::Red { 2 } else { 1 };
+        let mut trigger_count = if card.seal == Seal::Red { 2 } else { 1 };
+
+        // Selzer: 計分牌額外重觸發一次
+        if selzer_charges_remaining > 0 {
+            trigger_count += 1;
+            selzer_charges_remaining -= 1;
+            selzer_charges_used += 1;
+        }
 
         for _ in 0..trigger_count {
             // 加上卡片的 chips（含增強和版本加成）
@@ -152,5 +163,6 @@ pub fn calculate_play_score(
         hand_id: hand_score.id,
         money_gained,
         glass_to_break,
+        selzer_charges_used,
     }
 }

@@ -1065,6 +1065,8 @@ pub struct JokerSlot {
     pub castle_chips: i32,
     /// Hit The Road: X Mult 累積 (起始 1.0, 每棄 Jack +0.5)
     pub hit_the_road_mult: f32,
+    /// Selzer: 剩餘重觸發次數 (起始 10, 用完自毀)
+    pub selzer_charges: i32,
 }
 
 impl JokerSlot {
@@ -1101,6 +1103,7 @@ impl JokerSlot {
             castle_suit: 0,   // Castle: 初始為 Diamonds (0)
             castle_chips: 0,  // Castle: 初始 0 chips
             hit_the_road_mult: 1.0,  // Hit The Road: 初始 X1.0 Mult
+            selzer_charges: if id == JokerId::Selzer { 10 } else { 0 },  // Selzer: 10 張牌重觸發
         }
     }
 

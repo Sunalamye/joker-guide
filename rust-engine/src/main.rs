@@ -304,6 +304,11 @@ impl JokerEnv for EnvService {
                                 // DNA: 是否是第一手牌；DuskJoker/Acrobat: 是否是最後一手牌
                                 let is_first_hand = state.hands_played_this_blind == 0;
                                 let is_final_hand = state.plays_left == 1;
+                                // Selzer: 獲取剩餘重觸發次數
+                                let selzer_charges = state.jokers.iter()
+                                    .find(|j| j.enabled && j.id == JokerId::Selzer)
+                                    .map(|j| j.selzer_charges)
+                                    .unwrap_or(0);
                                 let score_result = calculate_play_score(
                                     &selected,
                                     &jokers_clone,
@@ -315,6 +320,7 @@ impl JokerEnv for EnvService {
                                     enhanced_cards_in_deck,
                                     is_first_hand,
                                     is_final_hand,
+                                    selzer_charges,
                                     &mut state.rng,
                                 );
                                 let score_gained = score_result.score;
@@ -344,6 +350,19 @@ impl JokerEnv for EnvService {
                                 state.plays_left -= 1;
                                 state.hands_played_this_blind += 1; // DNA: 追蹤第一手牌
                                 state.money += score_result.money_gained;
+
+                                // Selzer: 更新 charges 並在用完時銷毀
+                                if score_result.selzer_charges_used > 0 {
+                                    for joker in &mut state.jokers {
+                                        if joker.enabled && joker.id == JokerId::Selzer {
+                                            joker.selzer_charges -= score_result.selzer_charges_used;
+                                            if joker.selzer_charges <= 0 {
+                                                joker.enabled = false; // 用完自毀
+                                            }
+                                            break;
+                                        }
+                                    }
+                                }
 
                                 // SpaceJoker: 1/4 機率升級出過的牌型
                                 let space_joker_count = state.jokers.iter()
