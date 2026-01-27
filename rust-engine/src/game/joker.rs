@@ -1088,6 +1088,8 @@ pub struct JokerSlot {
     pub counter: i32,
     pub is_eternal: bool,
     pub is_negative: bool,
+    pub is_perishable: bool,
+    pub perishable_rounds: i32, // 剩餘回合數，到 0 時銷毀
     pub edition: Edition,
     pub x_mult_accumulated: f32,
     // 觸發/經濟類 Joker 狀態
@@ -1171,6 +1173,8 @@ impl JokerSlot {
             counter: 0,
             is_eternal: false,
             is_negative: false,
+            is_perishable: false,
+            perishable_rounds: 5, // Perishable 預設 5 回合後消失
             edition: Edition::Base,
             x_mult_accumulated: 1.0,
             trading_card_triggered: false,
@@ -1221,6 +1225,12 @@ impl JokerSlot {
 
     pub fn negative(mut self) -> Self {
         self.is_negative = true;
+        self
+    }
+
+    pub fn perishable(mut self) -> Self {
+        self.is_perishable = true;
+        self.perishable_rounds = 5; // 5 回合後消失
         self
     }
 

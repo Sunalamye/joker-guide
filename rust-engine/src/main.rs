@@ -1579,6 +1579,15 @@ impl JokerEnv for EnvService {
                             state.stage = Stage::PreBlind;
                             state.round += 1;
                         }
+
+                        // Perishable: 回合結束時遞減計數器並移除到期的 Joker
+                        for joker in &mut state.jokers {
+                            if joker.is_perishable {
+                                joker.perishable_rounds -= 1;
+                            }
+                        }
+                        // 移除 perishable_rounds <= 0 的 Joker
+                        state.jokers.retain(|j| !j.is_perishable || j.perishable_rounds > 0);
                     }
 
                     ACTION_TYPE_REROLL => {
