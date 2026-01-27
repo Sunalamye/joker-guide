@@ -212,7 +212,7 @@ impl EnvState {
         let stake_config = StakeConfig::from_stake(stake);
         let deck = deck_type.create_deck(&mut rng);
 
-        Self {
+        let mut state = Self {
             rng,
             deck,
             hand: Vec::new(),
@@ -255,7 +255,32 @@ impl EnvState {
             hand_size_modifier: 0,
             last_used_consumable: None,
             planet_used_hand_types: 0,
+        };
+
+        // === Deck 特定初始效果 ===
+        use crate::game::TarotId;
+
+        // ZodiacDeck: 起始擁有 3 個 Voucher (Tarot Merchant, Planet Merchant, Overstock)
+        if deck_type == DeckType::Zodiac {
+            state.voucher_effects.grant(VoucherId::Tarot_Merchant);
+            state.voucher_effects.grant(VoucherId::Planet_Merchant);
+            state.voucher_effects.grant(VoucherId::Overstock);
         }
+
+        // NebulaDeck: 起始擁有 Telescope Voucher，-1 消耗品欄位
+        if deck_type == DeckType::Nebula {
+            state.voucher_effects.grant(VoucherId::Telescope);
+            state.consumables.capacity = state.consumables.capacity.saturating_sub(1);
+        }
+
+        // MagicDeck: 起始擁有 Crystal Ball Voucher 和兩張 Fool Tarot
+        if deck_type == DeckType::Magic {
+            state.voucher_effects.grant(VoucherId::CrystalBall);
+            state.consumables.add(Consumable::Tarot(TarotId::TheFool));
+            state.consumables.add(Consumable::Tarot(TarotId::TheFool));
+        }
+
+        state
     }
 
     /// 創建無盡模式遊戲
@@ -289,7 +314,26 @@ impl EnvState {
         // 立即獲得金幣獎勵
         self.money += tag.id.immediate_money();
 
-        self.tags.push(tag.clone());
+        // DoubleTag: 檢查是否有未使用的 DoubleTag，若有則複製這個 Tag
+        let has_double_tag = self.tags.iter()
+            .any(|t| !t.used && t.id == TagId::DoubleTag);
+
+        if has_double_tag {
+            // 標記 DoubleTag 為已使用
+            for t in &mut self.tags {
+                if !t.used && t.id == TagId::DoubleTag {
+                    t.used = true;
+                    break;
+                }
+            }
+            // 添加兩份新 Tag
+            self.tags.push(tag.clone());
+            self.tags.push(tag.clone());
+            // 第二份也給金幣獎勵
+            self.money += tag.id.immediate_money();
+        } else {
+            self.tags.push(tag.clone());
+        }
 
         // 進入下一個 Blind
         let next_blind = self.blind_type
@@ -458,6 +502,33 @@ impl EnvState {
                         bonus += 2;
                     }
                 }
+                JokerId::GiftCard => {
+                    // GiftCard: 回合結束時每個 Joker 和消耗品 +$1 售價
+                    // 這裡計算即時金幣獎勵（每 Joker +$1）
+                    let joker_count = self.jokers.iter().filter(|j| j.enabled).count() as i64;
+                    let consumable_count = self.consumables.items.len() as i64;
+                    bonus += joker_count + consumable_count;
+                }
+                JokerId::ReservedParking => {
+                    // ReservedParking: 手中人頭牌有 1/2 機率 +$1
+                    // 這裡計算期望值（每人頭牌 0.5 機率）
+                    // 實際上應該在回合結束時按機率計算，但這裡用期望值近似
+                    let face_count = self.hand.iter()
+                        .filter(|c| c.is_face())
+                        .count() as i64;
+                    // 簡化處理：每人頭牌 50% 機率給 $1，這裡不做隨機，留給 calc_reward 外部處理
+                    bonus += face_count / 2; // 近似期望值
+                }
+                JokerId::Golden_Ticket => {
+                    // Golden_Ticket: 手牌和牌組中每張 Gold 卡在回合結束時 +$4
+                    let gold_in_hand = self.hand.iter()
+                        .filter(|c| c.enhancement == Enhancement::Gold)
+                        .count() as i64;
+                    let gold_in_deck = self.deck.iter()
+                        .filter(|c| c.enhancement == Enhancement::Gold)
+                        .count() as i64;
+                    bonus += (gold_in_hand + gold_in_deck) * 4;
+                }
                 _ => {}
             }
         }
@@ -466,7 +537,12 @@ impl EnvState {
     }
 
     pub fn refresh_shop(&mut self) {
-        self.shop.refresh(&mut self.rng, SHOP_JOKER_COUNT);
+        // ChaosTheClown: 商店只顯示 1 個 Joker
+        let has_chaos = self.jokers.iter()
+            .any(|j| j.enabled && j.id == JokerId::ChaosTheClown);
+        let joker_count = if has_chaos { 1 } else { SHOP_JOKER_COUNT };
+
+        self.shop.refresh(&mut self.rng, joker_count);
 
         // Black Stake 及以上：商店 Joker 有 30% 機率為 Eternal
         if self.stake.has_eternal_jokers() {
@@ -501,7 +577,13 @@ impl EnvState {
     /// Voucher 和卡包不會被 reroll 影響
     pub fn reroll_shop(&mut self) {
         self.shop.reroll_count += 1;
-        self.shop.refresh(&mut self.rng, SHOP_JOKER_COUNT);
+
+        // ChaosTheClown: 商店只顯示 1 個 Joker
+        let has_chaos = self.jokers.iter()
+            .any(|j| j.enabled && j.id == JokerId::ChaosTheClown);
+        let joker_count = if has_chaos { 1 } else { SHOP_JOKER_COUNT };
+
+        self.shop.refresh(&mut self.rng, joker_count);
 
         // Black Stake 及以上：商店 Joker 有 30% 機率為 Eternal
         if self.stake.has_eternal_jokers() {

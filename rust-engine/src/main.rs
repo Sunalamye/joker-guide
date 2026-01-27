@@ -24,6 +24,7 @@ use game::{
     Stage, GameEnd, BlindType, BossBlind, JokerId, JokerSlot, Card, Enhancement, Edition, Seal,
     Consumable, TarotId, PlanetId, SpectralId,
     PackContents, PackItem,
+    Tag, TagId, DeckType,
     score_hand,
 };
 
@@ -320,6 +321,13 @@ impl JokerEnv for EnvService {
                             }
                         }
 
+                        // Egg: 每輪 +$3 售價
+                        for joker in &mut state.jokers {
+                            if joker.enabled && joker.id == JokerId::Egg {
+                                joker.sell_value += 3;
+                            }
+                        }
+
                         // Ceremonial: 選擇 Blind 時銷毀最右邊的其他 Joker，獲得 2x 售價 Mult
                         let ceremonial_indices: Vec<usize> = state.jokers.iter()
                             .enumerate()
@@ -375,6 +383,24 @@ impl JokerEnv for EnvService {
                         }
 
                         state.deal();
+
+                        // Certificate: 回合開始時獲得一張帶有隨機封印的隨機牌
+                        let certificate_count = state.jokers.iter()
+                            .filter(|j| j.enabled && j.id == JokerId::Certificate)
+                            .count();
+                        for _ in 0..certificate_count {
+                            let rank = state.rng.gen_range(1..=13) as u8;
+                            let suit = state.rng.gen_range(0..4) as u8;
+                            let seal = match state.rng.gen_range(0..4) {
+                                0 => Seal::Gold,
+                                1 => Seal::Red,
+                                2 => Seal::Blue,
+                                _ => Seal::Purple,
+                            };
+                            let mut card = Card::new(rank, suit);
+                            card.seal = seal;
+                            state.hand.push(card);
+                        }
 
                         // Boss Blind 效果應用
                         if state.boss_blind == Some(BossBlind::TheHook) {
@@ -706,6 +732,18 @@ impl JokerEnv for EnvService {
                                             let idx = state.rng.gen_range(0..all_tarots.len());
                                             state.consumables.add(Consumable::Tarot(all_tarots[idx]));
                                         }
+                                    }
+                                }
+
+                                // Hallucination: 出牌後 1/2 機率生成隨機 Tarot 卡
+                                let hallucination_count = state.jokers.iter()
+                                    .filter(|j| j.enabled && j.id == JokerId::Hallucination)
+                                    .count();
+                                for _ in 0..hallucination_count {
+                                    if state.rng.gen_range(0..2) == 0 && !state.consumables.is_full() {
+                                        let all_tarots = TarotId::all();
+                                        let idx = state.rng.gen_range(0..all_tarots.len());
+                                        state.consumables.add(Consumable::Tarot(all_tarots[idx]));
                                     }
                                 }
 
@@ -1523,6 +1561,113 @@ impl JokerEnv for EnvService {
                     state.stage = Stage::Shop;
                     state.refresh_shop();
 
+                    // === Tag 效果觸發 ===
+
+                    // TopUpTag: 填滿 Common Joker（最多 2 個）
+                    let topup_count = state.tags.iter().filter(|t| !t.used && t.id == TagId::TopUpTag).count();
+                    if topup_count > 0 {
+                        let common_jokers = JokerId::by_rarity(1);
+                        let effective_slots = state.effective_joker_slot_limit();
+                        let mut added = 0;
+                        for _ in 0..topup_count {
+                            for _ in 0..2 {
+                                if state.jokers.len() < effective_slots && !common_jokers.is_empty() && added < 2 {
+                                    let idx = state.rng.gen_range(0..common_jokers.len());
+                                    state.jokers.push(JokerSlot::new(common_jokers[idx]));
+                                    added += 1;
+                                }
+                            }
+                        }
+                        // 標記 TopUpTag 為已使用
+                        for tag in &mut state.tags {
+                            if !tag.used && tag.id == TagId::TopUpTag {
+                                tag.used = true;
+                            }
+                        }
+                    }
+
+                    // CharmTag: 獲得免費 Mega Arcana Pack（產生 2 張 Tarot 卡）
+                    let charm_count = state.tags.iter().filter(|t| !t.used && t.id == TagId::CharmTag).count();
+                    for _ in 0..charm_count {
+                        let all_tarots = TarotId::all();
+                        for _ in 0..2 {
+                            if !state.consumables.is_full() {
+                                let idx = state.rng.gen_range(0..all_tarots.len());
+                                state.consumables.add(Consumable::Tarot(all_tarots[idx]));
+                            }
+                        }
+                    }
+                    for tag in &mut state.tags {
+                        if !tag.used && tag.id == TagId::CharmTag {
+                            tag.used = true;
+                        }
+                    }
+
+                    // MeteorTag: 獲得免費 Mega Celestial Pack（產生 2 張 Planet 卡）
+                    let meteor_count = state.tags.iter().filter(|t| !t.used && t.id == TagId::MeteorTag).count();
+                    for _ in 0..meteor_count {
+                        let all_planets = PlanetId::all();
+                        for _ in 0..2 {
+                            if !state.consumables.is_full() {
+                                let idx = state.rng.gen_range(0..all_planets.len());
+                                state.consumables.add(Consumable::Planet(all_planets[idx]));
+                            }
+                        }
+                    }
+                    for tag in &mut state.tags {
+                        if !tag.used && tag.id == TagId::MeteorTag {
+                            tag.used = true;
+                        }
+                    }
+
+                    // EtherealTag: 獲得免費 Spectral Pack（產生 1 張 Spectral 卡）
+                    let ethereal_count = state.tags.iter().filter(|t| !t.used && t.id == TagId::EtherealTag).count();
+                    for _ in 0..ethereal_count {
+                        if !state.consumables.is_full() {
+                            let all_spectrals = SpectralId::all();
+                            let idx = state.rng.gen_range(0..all_spectrals.len());
+                            state.consumables.add(Consumable::Spectral(all_spectrals[idx]));
+                        }
+                    }
+                    for tag in &mut state.tags {
+                        if !tag.used && tag.id == TagId::EtherealTag {
+                            tag.used = true;
+                        }
+                    }
+
+                    // BuffoonTag: 獲得免費 Mega Buffoon Pack（產生 1 個 Joker）
+                    let buffoon_count = state.tags.iter().filter(|t| !t.used && t.id == TagId::BuffoonTag).count();
+                    for _ in 0..buffoon_count {
+                        let effective_slots = state.effective_joker_slot_limit();
+                        if state.jokers.len() < effective_slots {
+                            let all_jokers = JokerId::all_available();
+                            let idx = state.rng.gen_range(0..all_jokers.len());
+                            state.jokers.push(JokerSlot::new(all_jokers[idx]));
+                        }
+                    }
+                    for tag in &mut state.tags {
+                        if !tag.used && tag.id == TagId::BuffoonTag {
+                            tag.used = true;
+                        }
+                    }
+
+                    // StandardTag: 獲得免費 Mega Standard Pack（將 3 張牌加入牌組）
+                    let standard_count = state.tags.iter().filter(|t| !t.used && t.id == TagId::StandardTag).count();
+                    for _ in 0..standard_count {
+                        for _ in 0..3 {
+                            let rank = state.rng.gen_range(1..=13) as u8;
+                            let suit = state.rng.gen_range(0..4) as u8;
+                            state.deck.push(Card::new(rank, suit));
+                        }
+                    }
+                    for tag in &mut state.tags {
+                        if !tag.used && tag.id == TagId::StandardTag {
+                            tag.used = true;
+                        }
+                    }
+
+                    // === End Tag Effects ===
+
                     // Perkeo: 進入商店時，為隨機消耗品生成 Negative 複製
                     let perkeo_count = state.jokers.iter()
                         .filter(|j| j.enabled && j.id == JokerId::Perkeo)
@@ -1575,6 +1720,11 @@ impl JokerEnv for EnvService {
                                 state.blind_type = None;
                                 state.stage = Stage::PreBlind;
                                 state.round += 1;
+
+                                // AnaglyphDeck: 打敗 Boss Blind 後獲得 Double Tag
+                                if state.deck_type == DeckType::Anaglyph {
+                                    state.tags.push(Tag::new(TagId::DoubleTag));
+                                }
 
                                 // Rocket: 過 Boss Blind 後，每回合獎勵 +$1
                                 for joker in state.jokers.iter_mut() {
@@ -1677,9 +1827,9 @@ impl JokerEnv for EnvService {
                             let sold_joker = state.jokers.remove(index);
                             let mut sell_value = sold_joker.sell_value;
 
-                            // DietCola: 賣出時 +$100
+                            // DietCola: 賣出時獲得免費 Double Tag
                             if sold_joker.id == JokerId::DietCola {
-                                sell_value += 100;
+                                state.tags.push(Tag::new(TagId::DoubleTag));
                             }
 
                             // InvisibleJoker: counter >= 2 時賣出可複製隨機 Joker

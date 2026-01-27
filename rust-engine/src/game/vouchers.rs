@@ -510,6 +510,14 @@ impl VoucherEffects {
     pub fn has(&self, voucher: VoucherId) -> bool {
         self.owned.contains(&voucher)
     }
+
+    /// 直接授予 Voucher（不檢查先決條件，用於初始化）
+    pub fn grant(&mut self, voucher: VoucherId) {
+        if !self.owned.contains(&voucher) {
+            self.apply_effect(voucher);
+            self.owned.push(voucher);
+        }
+    }
 }
 
 // ============================================================================
