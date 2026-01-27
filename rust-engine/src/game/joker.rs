@@ -723,6 +723,15 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
             }
         }
 
+        // ====== Walkie Talkie ======
+        JokerId::Walkie => {
+            // +10 Mult if hand contains a 10 or 4
+            let has_10_or_4 = ctx.played_cards.iter().any(|c| c.rank == 10 || c.rank == 4);
+            if has_10_or_4 {
+                bonus.add_mult += 10;
+            }
+        }
+
         // ====== The X 系列 ======
         JokerId::The_Duo => {
             if matches!(ctx.hand_id, HandId::Pair | HandId::TwoPair | HandId::FullHouse |
@@ -1229,6 +1238,30 @@ mod tests {
         let ctx = ScoringContext::new(&cards, HandId::HighCard);
         let bonus = compute_core_joker_effect(JokerId::Fibonacci, &ctx, 0);
         assert_eq!(bonus.add_mult, 40); // 5 cards * 8
+    }
+
+    #[test]
+    fn test_walkie_with_10() {
+        let cards = make_cards(&[(10, 0), (5, 1)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Walkie, &ctx, 0);
+        assert_eq!(bonus.add_mult, 10);
+    }
+
+    #[test]
+    fn test_walkie_with_4() {
+        let cards = make_cards(&[(4, 0), (7, 1)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Walkie, &ctx, 0);
+        assert_eq!(bonus.add_mult, 10);
+    }
+
+    #[test]
+    fn test_walkie_without_10_or_4() {
+        let cards = make_cards(&[(5, 0), (6, 1), (7, 2)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Walkie, &ctx, 0);
+        assert_eq!(bonus.add_mult, 0);
     }
 
     #[test]
