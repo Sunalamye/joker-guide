@@ -253,7 +253,7 @@ pub fn combo_score(jokers: &[JokerSlot]) -> f32 {
 
             // 預留/未使用
             JokerId::BluePrint | JokerId::Perkeo_2 | JokerId::Stuntman_2 |
-            JokerId::Cloud9 | JokerId::Rough_Gem_2 => chip_power += 10.0,
+            JokerId::Rough_Gem_2 => chip_power += 10.0,
 
             // 真正的默認（應該很少觸發）
             #[allow(unreachable_patterns)]
