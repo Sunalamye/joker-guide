@@ -828,7 +828,13 @@ impl JokerEnv for EnvService {
                         let index = action_id as usize;
                         if index < state.jokers.len() {
                             let sold_joker = state.jokers.remove(index);
-                            let sell_value = sold_joker.sell_value;
+                            let mut sell_value = sold_joker.sell_value;
+
+                            // DietCola: 賣出時 +$100
+                            if sold_joker.id == JokerId::DietCola {
+                                sell_value += 100;
+                            }
+
                             state.money += sell_value;
                         }
                     }

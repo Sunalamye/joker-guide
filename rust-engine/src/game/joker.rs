@@ -13,7 +13,7 @@ use super::hand_types::HandId;
 // ============================================================================
 
 /// Joker 總數
-pub const JOKER_COUNT: usize = 161;
+pub const JOKER_COUNT: usize = 162;
 
 /// Joker 唯一識別碼
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -199,6 +199,7 @@ pub enum JokerId {
     OopsAll6s = 158,     // 所有 6 算作每種花色（用於 Flush）
     TheIdol = 159,       // 特定牌（每回合隨機選擇）X2 Mult
     SquareJoker = 160,   // 牌組正好 52 張時，每張打出的牌 +4 Mult
+    DietCola = 161,      // 賣出時 +$100（實際獲得售價 + $100）
 }
 
 impl JokerId {
