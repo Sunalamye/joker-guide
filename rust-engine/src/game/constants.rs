@@ -20,7 +20,7 @@ pub const MAX_STEPS: i32 = 200;          // 最大步數
 // Observation 常量
 // ============================================================================
 
-pub const SCALAR_COUNT: usize = 20;      // 標量特徵數（增加 money, score, plays, discards 等）
+pub const SCALAR_COUNT: usize = 32;      // 標量特徵數（包含 13 個牌型等級）
 pub const SELECTION_FEATURES: usize = HAND_SIZE;
 pub const CARD_BASE_FEATURES: usize = 17;    // 13 rank + 4 suit
 pub const CARD_ENHANCE_FEATURES: usize = 4;  // enhancement, seal, edition, face_down

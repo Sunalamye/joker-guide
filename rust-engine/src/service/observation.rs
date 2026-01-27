@@ -35,7 +35,7 @@ pub fn observation_from_state(state: &EnvState) -> Tensor {
     let required = state.required_score().max(1) as f32;
 
     // ============================================================================
-    // Scalars (20)
+    // Scalars (32)
     // ============================================================================
     data.push(state.score as f32 / required);                           // 0: 分數進度
     data.push(state.ante.to_int() as f32 / 8.0);                        // 1: Ante 進度
@@ -58,11 +58,14 @@ pub fn observation_from_state(state: &EnvState) -> Tensor {
     data.push(state.boss_blind.map(|b| b.to_int() as f32 / BOSS_BLIND_COUNT as f32).unwrap_or(-0.1)); // 12: Boss Blind
     data.push(state.consumables.items.len() as f32 / state.consumables.capacity as f32); // 13: 消耗品使用率
     data.push(state.voucher_effects.owned.len() as f32 / VOUCHER_FEATURES as f32); // 14: Voucher 進度
-    data.push(state.hand_levels.get(0) as f32 / 10.0);                  // 15: High Card 等級
-    data.push(state.tags.len() as f32 / 10.0);                          // 16: Tag 數量
-    data.push(if state.endless_mode { 1.0 } else { 0.0 });              // 17: 無盡模式
-    data.push(state.endless_ante as f32 / 10.0);                        // 18: 無盡模式額外 Ante
-    data.push(state.shop.current_reroll_cost() as f32 / 20.0);          // 19: 當前 Reroll 費用
+    // 15-27: 13 種牌型等級
+    for hand_type in 0..HAND_TYPE_COUNT {
+        data.push(state.hand_levels.get(hand_type) as f32 / 10.0);
+    }
+    data.push(state.tags.len() as f32 / 10.0);                          // 28: Tag 數量
+    data.push(if state.endless_mode { 1.0 } else { 0.0 });              // 29: 無盡模式
+    data.push(state.endless_ante as f32 / 10.0);                        // 30: 無盡模式額外 Ante
+    data.push(state.shop.current_reroll_cost() as f32 / 20.0);          // 31: 當前 Reroll 費用
 
     assert_eq!(data.len(), SCALAR_COUNT, "Scalar count mismatch");
 
