@@ -213,6 +213,20 @@ impl JokerState {
             _ => 0,
         }
     }
+
+    /// 增加目標值
+    pub fn add_target_value(&mut self, amount: i32) {
+        if let Self::Target { value, .. } = self {
+            *value += amount;
+        }
+    }
+
+    /// 設置目標值
+    pub fn set_target_value(&mut self, new_value: i32) {
+        if let Self::Target { value, .. } = self {
+            *value = new_value;
+        }
+    }
 }
 
 // ============================================================================

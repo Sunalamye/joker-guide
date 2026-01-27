@@ -1397,6 +1397,11 @@ impl JokerSlot {
                     rank: 0,
                     value: 0,
                 },
+                JokerId::Castle => JokerState::Target {
+                    suit: 0,  // 初始花色 Diamonds，每回合隨機變化
+                    rank: 0,
+                    value: 0, // 累積的 chips
+                },
                 _ => JokerState::None,
             },
             trading_card_triggered: false,
@@ -1556,14 +1561,25 @@ impl JokerSlot {
     /// Castle: 設置當前花色 (每回合開始時隨機調用)
     pub fn set_castle_suit(&mut self, suit: u8) {
         if self.id == JokerId::Castle {
-            self.castle_suit = suit % 4; // 確保在 0-3 範圍內
+            let normalized_suit = suit % 4; // 確保在 0-3 範圍內
+            // 更新新的統一狀態
+            self.state.set_target_suit(normalized_suit);
+            // 暫時同步更新舊欄位（遷移完成後刪除）
+            self.castle_suit = normalized_suit;
         }
     }
 
     /// Castle: 棄牌時調用 (如果花色匹配，+3 Chips)
     pub fn update_castle_on_discard(&mut self, discarded_suit: u8) {
-        if self.id == JokerId::Castle && discarded_suit == self.castle_suit {
-            self.castle_chips += 3;
+        if self.id == JokerId::Castle {
+            // 使用新的統一狀態檢查花色
+            let target_suit = self.state.get_target_suit();
+            if discarded_suit == target_suit {
+                // 更新新的統一狀態
+                self.state.add_target_value(3);
+                // 暫時同步更新舊欄位（遷移完成後刪除）
+                self.castle_chips += 3;
+            }
         }
     }
 
@@ -1721,8 +1737,9 @@ pub fn compute_joker_effect_with_state(
             }
         }
         JokerId::Castle => {
-            // Castle: 使用累積的 castle_chips (每棄特定花色牌 +3)
-            bonus.chip_bonus = joker.castle_chips as i64;
+            // Castle: 使用累積的 chips (每棄特定花色牌 +3)
+            // 優先使用新的統一狀態系統
+            bonus.chip_bonus = joker.state.get_target_value() as i64;
         }
         JokerId::LoyaltyCard => {
             // LoyaltyCard: 每 6 手牌打出給 X4 Mult
