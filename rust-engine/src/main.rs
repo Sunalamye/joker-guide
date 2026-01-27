@@ -406,6 +406,19 @@ impl JokerEnv for EnvService {
                             }
                         }
 
+                        // Cerulean: 強制使用第一張消耗品
+                        if state.boss_blind == Some(BossBlind::Cerulean) {
+                            if let Some(consumable) = state.consumables.use_item(0) {
+                                // 自動使用的消耗品只處理 Planet 升級
+                                if let Consumable::Planet(planet_id) = &consumable {
+                                    let hand_type_idx = planet_id.hand_type_index();
+                                    state.hand_levels.upgrade(hand_type_idx);
+                                    state.planets_used_this_run += 1;
+                                }
+                                state.last_used_consumable = Some(consumable);
+                            }
+                        }
+
                         // TheMark: 所有 Face Card 面朝下
                         if state.boss_blind == Some(BossBlind::TheMark) {
                             for card in &mut state.hand {
