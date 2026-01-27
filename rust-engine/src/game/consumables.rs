@@ -270,6 +270,25 @@ impl PlanetId {
         }
     }
 
+    /// 從牌型索引創建 Planet（反向 hand_type_index）
+    pub fn from_hand_type_index(idx: usize) -> Option<PlanetId> {
+        match idx {
+            0 => Some(PlanetId::Pluto),      // High Card
+            1 => Some(PlanetId::Mercury),    // Pair
+            2 => Some(PlanetId::Uranus),     // Two Pair
+            3 => Some(PlanetId::Venus),      // Three of a Kind
+            4 => Some(PlanetId::Saturn),     // Straight
+            5 => Some(PlanetId::Jupiter),    // Flush
+            6 => Some(PlanetId::Earth),      // Full House
+            7 => Some(PlanetId::Mars),       // Four of a Kind
+            8 => Some(PlanetId::Neptune),    // Straight Flush
+            9 => Some(PlanetId::PlanetX),    // Five of a Kind
+            10 => Some(PlanetId::Ceres),     // Flush House
+            11 => Some(PlanetId::Eris),      // Flush Five
+            _ => None,
+        }
+    }
+
     /// 轉換為索引
     pub fn to_index(&self) -> usize {
         match self {

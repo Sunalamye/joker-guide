@@ -1124,6 +1124,23 @@ impl JokerEnv for EnvService {
                         state.money += delayed_count * 2;
                     }
 
+                    // Blue Seal: 手中持有 Blue Seal 牌時，生成對應最後打出牌型的 Planet 卡
+                    let blue_seal_count = state.hand.iter()
+                        .filter(|c| c.seal == Seal::Blue)
+                        .count();
+                    if blue_seal_count > 0 {
+                        // 使用最後打出的牌型（如果有）
+                        if let Some(&last_hand_type) = state.played_hand_types.last() {
+                            if let Some(planet_id) = PlanetId::from_hand_type_index(last_hand_type) {
+                                for _ in 0..blue_seal_count {
+                                    if !state.consumables.is_full() {
+                                        state.consumables.add(Consumable::Planet(planet_id));
+                                    }
+                                }
+                            }
+                        }
+                    }
+
                     // Gros_Michel: 每輪結束有 1/15 機率自毀
                     let gros_michel_rng: u32 = state.rng.gen_range(0..15);
                     for joker in &mut state.jokers {
