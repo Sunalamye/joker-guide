@@ -215,6 +215,7 @@ impl JokerEnv for EnvService {
                                 seal: Seal::None,
                                 edition: Edition::Base,
                                 face_down: false,
+                                bonus_chips: 0,
                             };
                             state.deck.push(stone_card);
                         }
@@ -472,6 +473,19 @@ impl JokerEnv for EnvService {
                                     for (idx, card) in state.hand.iter_mut().enumerate() {
                                         if ((selected_mask >> idx) & 1) == 1 && card.is_face() {
                                             card.enhancement = Enhancement::Gold;
+                                        }
+                                    }
+                                }
+
+                                // Hiker: 打出的牌永久 +2 Chips
+                                let hiker_count = state.jokers.iter()
+                                    .filter(|j| j.enabled && j.id == JokerId::Hiker)
+                                    .count() as i64;
+                                if hiker_count > 0 {
+                                    let selected_mask = state.selected_mask;
+                                    for (idx, card) in state.hand.iter_mut().enumerate() {
+                                        if ((selected_mask >> idx) & 1) == 1 {
+                                            card.bonus_chips += 2 * hiker_count; // 多個 Hiker 疊加
                                         }
                                     }
                                 }

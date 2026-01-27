@@ -112,6 +112,7 @@ pub struct Card {
     pub seal: Seal,
     pub edition: Edition,
     pub face_down: bool,       // 是否面朝下（某些 Boss Blind 效果）
+    pub bonus_chips: i64,      // Hiker 等效果的永久 Chips 加成
 }
 
 impl Card {
@@ -123,6 +124,7 @@ impl Card {
             seal: Seal::None,
             edition: Edition::Base,
             face_down: false,
+            bonus_chips: 0,
         }
     }
 
@@ -135,7 +137,7 @@ impl Card {
         }
     }
 
-    /// 總 chips（含增強和版本效果）
+    /// 總 chips（含增強、版本效果和永久加成）
     pub fn chips(&self) -> i64 {
         let base = self.base_chips();
         let enhancement_bonus = match self.enhancement {
@@ -147,7 +149,7 @@ impl Card {
             Edition::Foil => 50,
             _ => 0,
         };
-        base + enhancement_bonus + edition_bonus
+        base + enhancement_bonus + edition_bonus + self.bonus_chips
     }
 
     /// 加法 mult 加成
