@@ -30,6 +30,7 @@ pub struct CardScoreResult {
     pub money_gained: i64,          // 從 Gold Seal / Lucky 獲得的金幣
     pub glass_to_break: Vec<usize>, // 需要破碎的 Glass 牌索引
     pub selzer_charges_used: i32,   // Selzer 使用的重觸發次數
+    pub lucky_triggers: i32,        // Lucky 牌觸發次數 (for Lucky_Cat)
 }
 
 /// 計算出牌分數（考慮 Boss Blind debuff 和卡片增強）
@@ -79,6 +80,7 @@ pub fn calculate_play_score(
     let mut glass_to_break = Vec::new();
     let mut selzer_charges_remaining = selzer_charges;
     let mut selzer_charges_used: i32 = 0;
+    let mut lucky_triggers: i32 = 0;
 
     // 計算每張牌的貢獻（考慮增強、封印、版本效果）
     for (idx, card) in selected.iter().enumerate() {
@@ -130,10 +132,12 @@ pub fn calculate_play_score(
                 // 1/5 機率 +20 Mult
                 if rng.gen_range(0..5) == 0 {
                     total_mult += 20;
+                    lucky_triggers += 1;
                 }
                 // 1/15 機率 +$20
                 if rng.gen_range(0..15) == 0 {
                     money_gained += 20;
+                    lucky_triggers += 1;
                 }
             }
 
@@ -166,5 +170,6 @@ pub fn calculate_play_score(
         money_gained,
         glass_to_break,
         selzer_charges_used,
+        lucky_triggers,
     }
 }

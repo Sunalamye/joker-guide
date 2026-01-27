@@ -467,6 +467,15 @@ impl JokerEnv for EnvService {
                                     }
                                 }
 
+                                // Lucky_Cat: 更新 Lucky 觸發累積的 X Mult
+                                if score_result.lucky_triggers > 0 {
+                                    for joker in &mut state.jokers {
+                                        if joker.enabled && joker.id == JokerId::Lucky_Cat {
+                                            joker.update_lucky_cat_on_trigger(score_result.lucky_triggers);
+                                        }
+                                    }
+                                }
+
                                 // SpaceJoker: 1/4 機率升級出過的牌型
                                 let space_joker_count = state.jokers.iter()
                                     .filter(|j| j.enabled && j.id == JokerId::SpaceJoker)
