@@ -5,6 +5,10 @@
 use rand::prelude::*;
 use rand::rngs::StdRng;
 
+use super::consumables::{TarotId, PlanetId, SpectralId};
+use super::joker::JokerId;
+use super::cards::{Card, Enhancement, Seal, Edition};
+
 /// 卡包類型
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PackType {
@@ -280,6 +284,188 @@ impl PackOpeningState {
 
 /// 卡包類型總數
 pub const PACK_TYPE_COUNT: usize = 12;
+
+// ============================================================================
+// 卡包內容生成
+// ============================================================================
+
+/// 卡包內容項目
+#[derive(Clone, Debug)]
+pub enum PackItem {
+    Tarot(TarotId),
+    Planet(PlanetId),
+    Spectral(SpectralId),
+    Joker(JokerId, Edition),
+    PlayingCard(Card),
+}
+
+/// 卡包內容
+#[derive(Clone, Debug)]
+pub struct PackContents {
+    pub pack_type: PackType,
+    pub items: Vec<PackItem>,
+}
+
+impl PackContents {
+    /// 生成卡包內容
+    pub fn generate(pack_type: PackType, rng: &mut StdRng) -> Self {
+        let count = pack_type.card_count();
+        let items = match pack_type.content_type() {
+            PackContentType::Tarot => Self::generate_tarots(count, rng),
+            PackContentType::Planet => Self::generate_planets(count, rng),
+            PackContentType::Spectral => Self::generate_spectrals(count, rng),
+            PackContentType::Joker => Self::generate_jokers(count, rng),
+            PackContentType::PlayingCard => Self::generate_playing_cards(count, rng),
+        };
+
+        Self { pack_type, items }
+    }
+
+    /// 生成 Tarot 卡
+    fn generate_tarots(count: usize, rng: &mut StdRng) -> Vec<PackItem> {
+        let all_tarots = TarotId::all();
+        let mut result = Vec::with_capacity(count);
+        let mut used = std::collections::HashSet::new();
+
+        while result.len() < count && used.len() < all_tarots.len() {
+            let idx = rng.gen_range(0..all_tarots.len());
+            if !used.contains(&idx) {
+                used.insert(idx);
+                result.push(PackItem::Tarot(all_tarots[idx]));
+            }
+        }
+
+        result
+    }
+
+    /// 生成 Planet 卡
+    fn generate_planets(count: usize, rng: &mut StdRng) -> Vec<PackItem> {
+        let all_planets = PlanetId::all();
+        let mut result = Vec::with_capacity(count);
+        let mut used = std::collections::HashSet::new();
+
+        while result.len() < count && used.len() < all_planets.len() {
+            let idx = rng.gen_range(0..all_planets.len());
+            if !used.contains(&idx) {
+                used.insert(idx);
+                result.push(PackItem::Planet(all_planets[idx]));
+            }
+        }
+
+        result
+    }
+
+    /// 生成 Spectral 卡
+    fn generate_spectrals(count: usize, rng: &mut StdRng) -> Vec<PackItem> {
+        let all_spectrals = SpectralId::all();
+        let mut result = Vec::with_capacity(count);
+        let mut used = std::collections::HashSet::new();
+
+        while result.len() < count && used.len() < all_spectrals.len() {
+            let idx = rng.gen_range(0..all_spectrals.len());
+            if !used.contains(&idx) {
+                used.insert(idx);
+                result.push(PackItem::Spectral(all_spectrals[idx]));
+            }
+        }
+
+        result
+    }
+
+    /// 生成 Joker
+    fn generate_jokers(count: usize, rng: &mut StdRng) -> Vec<PackItem> {
+        let mut result = Vec::with_capacity(count);
+
+        for _ in 0..count {
+            // 隨機稀有度: Common (60%), Uncommon (30%), Rare (10%)
+            let joker_id = {
+                let roll = rng.gen_range(0..100);
+                if roll < 60 {
+                    JokerId::random_common(rng)
+                } else if roll < 90 {
+                    // Uncommon - 使用 by_rarity(2) 並隨機選擇
+                    let uncommon = JokerId::by_rarity(2);
+                    if uncommon.is_empty() {
+                        JokerId::random_common(rng)
+                    } else {
+                        uncommon[rng.gen_range(0..uncommon.len())]
+                    }
+                } else {
+                    JokerId::random_rare(rng)
+                }
+            };
+
+            // 隨機版本: Base (85%), Foil (7%), Holo (5%), Poly (3%)
+            let edition = {
+                let roll = rng.gen_range(0..100);
+                if roll < 85 {
+                    Edition::Base
+                } else if roll < 92 {
+                    Edition::Foil
+                } else if roll < 97 {
+                    Edition::Holographic
+                } else {
+                    Edition::Polychrome
+                }
+            };
+
+            result.push(PackItem::Joker(joker_id, edition));
+        }
+
+        result
+    }
+
+    /// 生成撲克牌
+    fn generate_playing_cards(count: usize, rng: &mut StdRng) -> Vec<PackItem> {
+        let mut result = Vec::with_capacity(count);
+
+        for _ in 0..count {
+            let rank = rng.gen_range(1..=13);
+            let suit = rng.gen_range(0..4);
+            let mut card = Card::new(rank, suit);
+
+            // 隨機增強: None (70%), 其他 (30%)
+            if rng.gen_range(0..100) >= 70 {
+                card.enhancement = match rng.gen_range(0..8) {
+                    0 => Enhancement::Bonus,
+                    1 => Enhancement::Mult,
+                    2 => Enhancement::Wild,
+                    3 => Enhancement::Glass,
+                    4 => Enhancement::Steel,
+                    5 => Enhancement::Stone,
+                    6 => Enhancement::Gold,
+                    7 => Enhancement::Lucky,
+                    _ => Enhancement::None,
+                };
+            }
+
+            // 隨機封印: None (85%), 其他 (15%)
+            if rng.gen_range(0..100) >= 85 {
+                card.seal = match rng.gen_range(0..4) {
+                    0 => Seal::Gold,
+                    1 => Seal::Red,
+                    2 => Seal::Blue,
+                    3 => Seal::Purple,
+                    _ => Seal::None,
+                };
+            }
+
+            // 隨機版本: None (90%), 其他 (10%)
+            if rng.gen_range(0..100) >= 90 {
+                card.edition = match rng.gen_range(0..3) {
+                    0 => Edition::Foil,
+                    1 => Edition::Holographic,
+                    2 => Edition::Polychrome,
+                    _ => Edition::Base,
+                };
+            }
+
+            result.push(PackItem::PlayingCard(card));
+        }
+
+        result
+    }
+}
 
 // ============================================================================
 // 單元測試

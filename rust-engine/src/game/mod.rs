@@ -57,4 +57,4 @@ pub use consumables::{
     TarotId, PlanetId, SpectralId,
     CONSUMABLE_COUNT, TAROT_COUNT, PLANET_COUNT, SPECTRAL_COUNT, CONSUMABLE_SLOTS,
 };
-pub use packs::{PackType, PackContentType, PackOpeningState, PACK_TYPE_COUNT};
+pub use packs::{PackType, PackContentType, PackOpeningState, PackItem, PackContents, PACK_TYPE_COUNT};
