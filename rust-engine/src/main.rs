@@ -1695,6 +1695,13 @@ impl JokerEnv for EnvService {
                                 }
                             }
 
+                            // Luchador: 賣出時禁用當前 Boss Blind 效果
+                            if sold_joker.id == JokerId::Luchador {
+                                // 清除 Boss Blind（等同於 Chicot 效果但只持續到回合結束）
+                                // 實作方式：暫時清除 boss_blind
+                                state.boss_blind = None;
+                            }
+
                             state.money += sell_value;
 
                             // Campfire: 每賣一張卡 +0.25 X Mult

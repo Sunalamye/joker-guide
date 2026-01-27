@@ -388,7 +388,17 @@ impl EnvState {
         base + interest + hand_bonus + gold_bonus + joker_bonus
     }
 
-    /// 計算 Joker 金幣加成
+    /// 計算 Joker 金幣加成（回合結束時）
+    ///
+    /// 包含所有在回合結束時給予金幣的 Joker：
+    /// - Banner: 每剩餘棄牌 +$2
+    /// - GoldenJoker: +$4
+    /// - ToTheMoon: 持有 $5+ 時 +$1
+    /// - CloudNine: 牌組中每張 9 +$1
+    /// - Rocket: +$1（會隨時間縮放）
+    /// - Satellite: 每使用過的 Planet +$1
+    /// - Delayed: 此 Blind 沒有棄牌時 +$2
+    /// - Golden_Ticket: 手牌中每張 Gold 卡 +$3（已在 gold_card_money 中）
     fn calc_joker_money_bonus(&self) -> i64 {
         use crate::game::JokerId;
         let mut bonus = 0i64;
@@ -398,11 +408,41 @@ impl EnvState {
                 continue;
             }
             match joker.id {
-                // TODO: 添加更多金幣 Joker
-                // 目前只有基本結構，待擴展
                 JokerId::Banner => {
                     // Banner: 每剩餘棄牌 +$2
                     bonus += self.discards_left as i64 * 2;
+                }
+                JokerId::GoldenJoker => {
+                    // GoldenJoker: 回合結束 +$4
+                    bonus += 4;
+                }
+                JokerId::ToTheMoon => {
+                    // ToTheMoon: 回合結束持有 $5+ 時 +$1
+                    if self.money >= 5 {
+                        bonus += 1;
+                    }
+                }
+                JokerId::CloudNine | JokerId::Cloud9 => {
+                    // CloudNine: 牌組中每張 9 +$1
+                    let nine_count = self.deck.iter()
+                        .filter(|c| c.rank == 9)
+                        .count() as i64;
+                    bonus += nine_count;
+                }
+                JokerId::Rocket => {
+                    // Rocket: 回合結束 +$1（基礎值，實際會隨 Boss 過關縮放）
+                    // 這裡使用 joker.counter 追蹤累積的額外金幣
+                    bonus += 1 + joker.counter as i64;
+                }
+                JokerId::Satellite => {
+                    // Satellite: 每使用過的 Planet +$1
+                    bonus += self.planets_used_this_run as i64;
+                }
+                JokerId::Delayed => {
+                    // Delayed: 此 Blind 沒有棄牌時 +$2
+                    if self.discards_used_this_blind == 0 {
+                        bonus += 2;
+                    }
                 }
                 _ => {}
             }
