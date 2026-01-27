@@ -601,6 +601,14 @@ impl HandLevels {
         }
     }
 
+    /// 降級牌型（TheArm Boss Blind 效果）
+    /// 等級最低為 1
+    pub fn downgrade(&mut self, hand_type: usize) {
+        if let Some(level) = self.levels.get_mut(hand_type) {
+            *level = (*level).saturating_sub(1).max(1);
+        }
+    }
+
     /// 獲取等級加成（每級 +chips 和 +mult）
     pub fn bonus(&self, hand_type: usize) -> (i64, i64) {
         let level = self.get(hand_type);

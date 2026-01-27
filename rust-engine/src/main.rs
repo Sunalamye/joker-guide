@@ -615,6 +615,11 @@ impl JokerEnv for EnvService {
                                     }
                                 }
 
+                                // TheArm (Boss Blind): 降低出過的牌型等級
+                                if state.boss_blind == Some(BossBlind::TheArm) {
+                                    state.hand_levels.downgrade(hand_type_idx);
+                                }
+
                                 // Vagabond: 出 ≤4 張牌時生成隨機 Tarot 卡
                                 if selected_count <= 4 {
                                     let vagabond_count = state.jokers.iter()
