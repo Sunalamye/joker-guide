@@ -373,8 +373,71 @@ impl JokerEnv for EnvService {
 
                         state.deal();
 
+                        // Boss Blind 效果應用
                         if state.boss_blind == Some(BossBlind::TheHook) {
                             state.apply_hook_discard();
+                        }
+
+                        // TheWheel: 1/7 的牌面朝下
+                        if state.boss_blind == Some(BossBlind::TheWheel) {
+                            let hand_len = state.hand.len();
+                            let face_down_flags: Vec<bool> = (0..hand_len)
+                                .map(|_| state.rng.gen_range(0..7) == 0)
+                                .collect();
+                            for (card, face_down) in state.hand.iter_mut().zip(face_down_flags.iter()) {
+                                if *face_down {
+                                    card.face_down = true;
+                                }
+                            }
+                        }
+
+                        // TheHouse: 第一手全部面朝下（在 deal() 後設置）
+                        if state.boss_blind == Some(BossBlind::TheHouse) {
+                            for card in &mut state.hand {
+                                card.face_down = true;
+                            }
+                        }
+
+                        // TheMark: 所有 Face Card 面朝下
+                        if state.boss_blind == Some(BossBlind::TheMark) {
+                            for card in &mut state.hand {
+                                if card.is_face() {
+                                    card.face_down = true;
+                                }
+                            }
+                        }
+
+                        // TheManacle: 手牌上限 -1（已在 deal() 中處理，這裡記錄效果）
+                        // Note: 實際效果需要在抽牌邏輯中處理
+
+                        // TheFish: 面朝下的牌打亂順序（已經面朝下的牌互換位置）
+                        if state.boss_blind == Some(BossBlind::TheFish) {
+                            // 找出所有面朝下牌的索引
+                            let face_down_indices: Vec<usize> = state.hand.iter()
+                                .enumerate()
+                                .filter(|(_, c)| c.face_down)
+                                .map(|(i, _)| i)
+                                .collect();
+
+                            // 打亂這些牌的位置
+                            if face_down_indices.len() > 1 {
+                                let mut shuffled = face_down_indices.clone();
+                                // 先生成所有隨機值
+                                let shuffle_indices: Vec<usize> = (1..shuffled.len())
+                                    .rev()
+                                    .map(|i| state.rng.gen_range(0..=i))
+                                    .collect();
+                                // Fisher-Yates shuffle
+                                for (idx, j) in (1..shuffled.len()).rev().zip(shuffle_indices.iter()) {
+                                    shuffled.swap(idx, *j);
+                                }
+                                // 交換牌
+                                for (old_idx, new_idx) in face_down_indices.iter().zip(shuffled.iter()) {
+                                    if old_idx != new_idx {
+                                        state.hand.swap(*old_idx, *new_idx);
+                                    }
+                                }
+                            }
                         }
                     }
 
