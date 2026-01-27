@@ -1375,7 +1375,7 @@ impl JokerSlot {
                 JokerId::Vampire | JokerId::Canio | JokerId::Lucky_Cat |
                 JokerId::Hologram | JokerId::Constellation |
                 JokerId::Yorick | JokerId::GlassJoker | JokerId::Hit_The_Road |
-                JokerId::Campfire | JokerId::Wee => JokerState::Accumulator {
+                JokerId::Campfire | JokerId::Wee | JokerId::Merry => JokerState::Accumulator {
                     chips: 0,
                     mult: 0,
                     x_mult: 1.0,
@@ -1634,6 +1634,16 @@ impl JokerSlot {
             self.wee_chips += 8;
         }
     }
+
+    /// Merry: 每輪開始時增加 mult (+3 Mult per round)
+    pub fn update_merry_on_round(&mut self) {
+        if self.id == JokerId::Merry {
+            // 更新新的統一狀態
+            self.state.add_mult(3);
+            // 暫時同步更新舊欄位（遷移完成後刪除）
+            self.merry_mult += 3;
+        }
+    }
 }
 
 /// 計算所有 Joker 的總加成
@@ -1820,7 +1830,8 @@ pub fn compute_joker_effect_with_state(
         }
         JokerId::Merry => {
             // Merry: 使用累積的 mult (每輪 +3, 在 main.rs 更新)
-            bonus.add_mult += joker.merry_mult as i64;
+            // 優先使用新的統一狀態系統
+            bonus.add_mult += joker.state.get_mult() as i64;
         }
         JokerId::SteakJoker => {
             // SteakJoker: X2 Mult (每輪售價 -$1, 售價在 main.rs 更新)

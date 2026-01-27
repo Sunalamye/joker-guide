@@ -304,7 +304,7 @@ impl JokerEnv for EnvService {
                         // Merry: 每輪 +3 Mult
                         for joker in &mut state.jokers {
                             if joker.enabled && joker.id == JokerId::Merry {
-                                joker.merry_mult += 3;
+                                joker.update_merry_on_round();
                             }
                         }
 
