@@ -6,7 +6,7 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum Stake {
     #[default]
-    White = 0,  // 預設，無修正
+    White = 0, // 預設，無修正
     Red = 1,    // Small Blind 無獎勵
     Green = 2,  // 基礎分數要求 +25%
     Black = 3,  // 商店可能出現永恆 Joker（不能出售）
@@ -48,8 +48,12 @@ impl Stake {
     /// 分數倍數（Green Stake +25%）
     pub fn score_multiplier(&self) -> f32 {
         match self {
-            Stake::Green | Stake::Black | Stake::Blue |
-            Stake::Purple | Stake::Orange | Stake::Gold => 1.25,
+            Stake::Green
+            | Stake::Black
+            | Stake::Blue
+            | Stake::Purple
+            | Stake::Orange
+            | Stake::Gold => 1.25,
             _ => 1.0,
         }
     }
@@ -93,8 +97,10 @@ impl Stake {
 
     /// 商店是否有永恆 Joker（Black Stake 及以上）
     pub fn has_eternal_jokers(&self) -> bool {
-        matches!(self, Stake::Black | Stake::Blue | Stake::Purple |
-                      Stake::Orange | Stake::Gold)
+        matches!(
+            self,
+            Stake::Black | Stake::Blue | Stake::Purple | Stake::Orange | Stake::Gold
+        )
     }
 
     /// 商店是否有易腐 Joker（Orange Stake 及以上）

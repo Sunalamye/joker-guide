@@ -46,50 +46,50 @@ pub enum JokerId {
     // ========================================================================
     // Tier 1: Multiplier Jokers (索引 20-39)
     // ========================================================================
-    RideTheBus = 20,     // +1 Mult per consecutive non-face hand
-    SteelJoker = 21,     // X0.2 Mult per Steel card in full hand
-    GlassJoker = 22,     // X0.75 Mult per Glass card broken
-    Hologram = 23,       // X0.25 Mult per card added to deck
-    FourFingers = 24,    // Straights/Flushes can be made with 4 cards
-    Shortcut = 25,       // Straights can skip 1 rank
-    Splash = 26,         // Every card counts in every hand type
-    Photograph = 27,     // X2 Mult for first Face card played
-    GreenJoker = 28,     // +1 Mult per hand played (resets per round)
-    SuperPosition = 29,  // Creates X2 Mult when hand is both Straight & Flush
-    DuskJoker = 30,      // X2 Mult on last hand of round
-    Fibonacci = 31,      // Ace/2/3/5/8 played give +8 Mult
-    ScaryFace = 32,      // Face cards give +30 Chips
-    EvenSteven = 33,     // Even cards give +4 Mult
-    OddTodd = 34,        // Odd cards give +31 Chips
-    Scholar = 35,        // Aces give +20 Chips and +4 Mult
-    BusinessCard = 36,   // Face cards have 1/2 chance +$2
-    Supernova = 37,      // +Mult equal to times hand played this run
-    Erosion = 38,        // +4 Mult for each card below 52 in deck
-    ToTheMoon = 39,      // +$1 per $5 held (replaces interest)
+    RideTheBus = 20,    // +1 Mult per consecutive non-face hand
+    SteelJoker = 21,    // X0.2 Mult per Steel card in full hand
+    GlassJoker = 22,    // X0.75 Mult per Glass card broken
+    Hologram = 23,      // X0.25 Mult per card added to deck
+    FourFingers = 24,   // Straights/Flushes can be made with 4 cards
+    Shortcut = 25,      // Straights can skip 1 rank
+    Splash = 26,        // Every card counts in every hand type
+    Photograph = 27,    // X2 Mult for first Face card played
+    GreenJoker = 28,    // +1 Mult per hand played (resets per round)
+    SuperPosition = 29, // Creates X2 Mult when hand is both Straight & Flush
+    DuskJoker = 30,     // X2 Mult on last hand of round
+    Fibonacci = 31,     // Ace/2/3/5/8 played give +8 Mult
+    ScaryFace = 32,     // Face cards give +30 Chips
+    EvenSteven = 33,    // Even cards give +4 Mult
+    OddTodd = 34,       // Odd cards give +31 Chips
+    Scholar = 35,       // Aces give +20 Chips and +4 Mult
+    BusinessCard = 36,  // Face cards have 1/2 chance +$2
+    Supernova = 37,     // +Mult equal to times hand played this run
+    Erosion = 38,       // +4 Mult for each card below 52 in deck
+    ToTheMoon = 39,     // +$1 per $5 held (replaces interest)
 
     // ========================================================================
     // Tier 1: Economy Jokers (索引 40-59)
     // ========================================================================
-    GoldenJoker = 40,    // +$4 at end of round
-    Bull = 41,           // +2 Chips for each $1 held
-    Egg = 42,            // +$3 sell value per round
-    Cartomancer = 43,    // Creates Tarot on Blind skip
-    Astronomer = 44,     // Creates Planet on Blind skip
-    Rocket = 45,         // +$1 at end of round (scaling)
-    FortuneTeller = 46,  // +1 Mult per Tarot used this run
-    Faceless = 47,       // +$5 if 3+ Face cards discarded
-    SpaceJoker = 48,     // 1/4 chance to upgrade hand level
-    Vagabond = 49,       // Creates Tarot if hand played with <=4 cards
-    Stuntman = 50,       // +250 Chips, -2 hand size
-    Brainstorm = 51,     // Copies leftmost Joker ability
-    Satellite = 52,      // +$1 per unique Planet used this run
-    ShootTheMoon = 53,   // +13 Mult per Queen in hand
-    Bloodstone = 54,     // 1/2 chance X1.5 Mult for Hearts scored
-    Arrowhead = 55,      // Spades give +50 Chips
-    Onyx = 56,           // Clubs give +80 Mult
-    Opal = 57,           // Diamonds give +1.5 X Mult
-    Drunkard = 58,       // +1 discard each round
-    SteakJoker = 59,     // X2 Mult, loses $1 sell per round
+    GoldenJoker = 40,   // +$4 at end of round
+    Bull = 41,          // +2 Chips for each $1 held
+    Egg = 42,           // +$3 sell value per round
+    Cartomancer = 43,   // Creates Tarot on Blind skip
+    Astronomer = 44,    // Creates Planet on Blind skip
+    Rocket = 45,        // +$1 at end of round (scaling)
+    FortuneTeller = 46, // +1 Mult per Tarot used this run
+    Faceless = 47,      // +$5 if 3+ Face cards discarded
+    SpaceJoker = 48,    // 1/4 chance to upgrade hand level
+    Vagabond = 49,      // Creates Tarot if hand played with <=4 cards
+    Stuntman = 50,      // +250 Chips, -2 hand size
+    Brainstorm = 51,    // Copies leftmost Joker ability
+    Satellite = 52,     // +$1 per unique Planet used this run
+    ShootTheMoon = 53,  // +13 Mult per Queen in hand
+    Bloodstone = 54,    // 1/2 chance X1.5 Mult for Hearts scored
+    Arrowhead = 55,     // Spades give +50 Chips
+    Onyx = 56,          // Clubs give +80 Mult
+    Opal = 57,          // Diamonds give +1.5 X Mult
+    Drunkard = 58,      // +1 discard each round
+    SteakJoker = 59,    // X2 Mult, loses $1 sell per round
 
     // ========================================================================
     // Tier 2: Conditional/Complex Jokers (索引 60-99)
@@ -138,70 +138,70 @@ pub enum JokerId {
     // ========================================================================
     // Tier 2: More Complex Jokers (索引 100-149)
     // ========================================================================
-    Cavendish = 100,     // X3 Mult, 1/1000 chance to self-destruct
-    Card_Sharp = 101,    // X3 Mult if hand already played this round
-    Delayed = 102,       // +$2 per round if no discards used
-    Hack = 103,          // Retrigger 2/3/4/5 cards
-    Pareidolia = 104,    // All cards count as Face cards
-    Gros_Michel = 105,   // +15 Mult, 1/15 chance to self-destruct
-    Even_Steven = 106,   // X2 Mult if hand only contains evens
-    Odd_Todd_2 = 107,    // X2 Mult if hand only contains odds
-    Juggler = 108,       // +1 hand size
-    DriversLicense = 109, // X3 Mult if you have 16+ enhanced cards
-    Hit_The_Road = 110,  // X0.5 Mult, gains X0.5 for each Jack discarded
-    The_Duo = 111,       // X2 Mult if hand contains Pair
-    The_Trio = 112,      // X3 Mult if hand contains Three of a Kind
-    The_Family = 113,    // X4 Mult if hand contains Four of a Kind
-    The_Order = 114,     // X3 Mult if hand contains Straight
-    The_Tribe = 115,     // X2 Mult if hand contains Flush
-    Stencil = 116,       // X1 Mult for each empty Joker slot
-    Perkeo = 117,        // Creates Negative copy of 1 consumable at end of shop
-    Flower_Pot = 118,    // X3 Mult if hand has Diamond/Club/Heart/Spade
-    BluePrint = 119,     // Reserved
-    Canio = 120,         // X1 Mult, gains X1 for every face card destroyed
-    Triboulet = 121,     // Kings and Queens give X2 Mult
-    Yorick = 122,        // X1 Mult, gains X1 for every 23 cards discarded
-    Chicot = 123,        // Disables Boss Blind effects
-    Perkeo_2 = 124,      // Reserved
-    Seeing_Double = 125, // X2 Mult if hand has Club AND another suit
-    Matador = 126,       // +$8 when Boss Blind ability triggers
-    Stuntman_2 = 127,    // Reserved
-    Stone = 128,         // +25 Chips for each Stone card in deck
-    Lucky_Cat = 129,     // X0.25 Mult for each Lucky card triggered
-    Obelisk = 130,       // X0.2 Mult per consecutive hand without most played type
-    Runner = 131,        // +15 Chips if hand is Straight
-    Courier = 132,       // +25 Chips per card below Ace in hand
-    Cloud9 = 133,        // Reserved
-    Spare_Trousers = 134, // +2 Mult if hand has Two Pair
-    Ring_Master = 135,   // Jokers can appear multiple times
-    Golden_Ticket = 136, // Gold cards give +$3 at round end
-    Rough_Gem_2 = 137,   // Reserved
-    Bootstraps = 138,    // +2 Mult for each $5 above $0
-    Caino = 139,         // X1 Mult, gains X0.1 for every face card destroyed
-    Flash = 140,         // +2 Mult per reroll used
-    Trousers = 141,      // +4 Mult if hand has Two Pair
-    LoyaltyCard = 142,   // 每 6 手 X4 Mult
-    Blackboard = 143,    // 全黑牌 X3 Mult
-    TurtleBean = 144,    // +5 手牌大小，每輪 -1
-    Burglar = 145,       // 選 Blind +3 hands, 無 discards
-    GiftCard = 146,      // 回合結束 Joker +$1 售價
-    Luchador = 147,      // Sell to disable current Boss Blind effect
+    Cavendish = 100,       // X3 Mult, 1/1000 chance to self-destruct
+    Card_Sharp = 101,      // X3 Mult if hand already played this round
+    Delayed = 102,         // +$2 per round if no discards used
+    Hack = 103,            // Retrigger 2/3/4/5 cards
+    Pareidolia = 104,      // All cards count as Face cards
+    Gros_Michel = 105,     // +15 Mult, 1/15 chance to self-destruct
+    Even_Steven = 106,     // X2 Mult if hand only contains evens
+    Odd_Todd_2 = 107,      // X2 Mult if hand only contains odds
+    Juggler = 108,         // +1 hand size
+    DriversLicense = 109,  // X3 Mult if you have 16+ enhanced cards
+    Hit_The_Road = 110,    // X0.5 Mult, gains X0.5 for each Jack discarded
+    The_Duo = 111,         // X2 Mult if hand contains Pair
+    The_Trio = 112,        // X3 Mult if hand contains Three of a Kind
+    The_Family = 113,      // X4 Mult if hand contains Four of a Kind
+    The_Order = 114,       // X3 Mult if hand contains Straight
+    The_Tribe = 115,       // X2 Mult if hand contains Flush
+    Stencil = 116,         // X1 Mult for each empty Joker slot
+    Perkeo = 117,          // Creates Negative copy of 1 consumable at end of shop
+    Flower_Pot = 118,      // X3 Mult if hand has Diamond/Club/Heart/Spade
+    BluePrint = 119,       // Reserved
+    Canio = 120,           // X1 Mult, gains X1 for every face card destroyed
+    Triboulet = 121,       // Kings and Queens give X2 Mult
+    Yorick = 122,          // X1 Mult, gains X1 for every 23 cards discarded
+    Chicot = 123,          // Disables Boss Blind effects
+    Perkeo_2 = 124,        // Reserved
+    Seeing_Double = 125,   // X2 Mult if hand has Club AND another suit
+    Matador = 126,         // +$8 when Boss Blind ability triggers
+    Stuntman_2 = 127,      // Reserved
+    Stone = 128,           // +25 Chips for each Stone card in deck
+    Lucky_Cat = 129,       // X0.25 Mult for each Lucky card triggered
+    Obelisk = 130,         // X0.2 Mult per consecutive hand without most played type
+    Runner = 131,          // +15 Chips if hand is Straight
+    Courier = 132,         // +25 Chips per card below Ace in hand
+    Cloud9 = 133,          // Reserved
+    Spare_Trousers = 134,  // +2 Mult if hand has Two Pair
+    Ring_Master = 135,     // Jokers can appear multiple times
+    Golden_Ticket = 136,   // Gold cards give +$3 at round end
+    Rough_Gem_2 = 137,     // Reserved
+    Bootstraps = 138,      // +2 Mult for each $5 above $0
+    Caino = 139,           // X1 Mult, gains X0.1 for every face card destroyed
+    Flash = 140,           // +2 Mult per reroll used
+    Trousers = 141,        // +4 Mult if hand has Two Pair
+    LoyaltyCard = 142,     // 每 6 手 X4 Mult
+    Blackboard = 143,      // 全黑牌 X3 Mult
+    TurtleBean = 144,      // +5 手牌大小，每輪 -1
+    Burglar = 145,         // 選 Blind +3 hands, 無 discards
+    GiftCard = 146,        // 回合結束 Joker +$1 售價
+    Luchador = 147,        // Sell to disable current Boss Blind effect
     ReservedParking = 148, // 手中人頭牌 1/2 機率 +$1 (回合結束)
-    TradingCard = 149,   // 首次棄人頭牌時創建 Tarot
-    MarbleJoker = 150,   // 選擇 Blind 時加 Stone 卡到牌組
-    MailInRebate = 151,  // 棄 K 時 +$5
-    BaseballCard = 152,  // X1.5 Mult for each Uncommon Joker held
-    RaisedFist = 153,    // Lowest held card gives 2X its rank as Mult
-    EightBall = 154,     // 打出 8 時創建 Tarot
-    ToDoList = 155,      // 打出特定牌型時 +$4
-    BurntJoker = 156,    // 棄牌時升級棄掉牌型的等級
-    MidasMask = 157,     // 打出人頭牌時變為 Gold 增強
-    OopsAll6s = 158,     // 所有 6 算作每種花色（用於 Flush）
-    TheIdol = 159,       // 特定牌（每回合隨機選擇）X2 Mult
-    SquareJoker = 160,   // 牌組正好 52 張時，每張打出的牌 +4 Mult
-    DietCola = 161,      // 賣出時 +$100（實際獲得售價 + $100）
-    ChaosTheClown = 162, // 每回合 1 次免費 reroll
-    Hallucination = 163, // 開包時有機率生成 Tarot 卡
+    TradingCard = 149,     // 首次棄人頭牌時創建 Tarot
+    MarbleJoker = 150,     // 選擇 Blind 時加 Stone 卡到牌組
+    MailInRebate = 151,    // 棄 K 時 +$5
+    BaseballCard = 152,    // X1.5 Mult for each Uncommon Joker held
+    RaisedFist = 153,      // Lowest held card gives 2X its rank as Mult
+    EightBall = 154,       // 打出 8 時創建 Tarot
+    ToDoList = 155,        // 打出特定牌型時 +$4
+    BurntJoker = 156,      // 棄牌時升級棄掉牌型的等級
+    MidasMask = 157,       // 打出人頭牌時變為 Gold 增強
+    OopsAll6s = 158,       // 所有 6 算作每種花色（用於 Flush）
+    TheIdol = 159,         // 特定牌（每回合隨機選擇）X2 Mult
+    SquareJoker = 160,     // 牌組正好 52 張時，每張打出的牌 +4 Mult
+    DietCola = 161,        // 賣出時 +$100（實際獲得售價 + $100）
+    ChaosTheClown = 162,   // 每回合 1 次免費 reroll
+    Hallucination = 163,   // 開包時有機率生成 Tarot 卡
 }
 
 impl JokerId {
@@ -210,8 +210,10 @@ impl JokerId {
         match self {
             // Common jokers (rarity 1): 2-5
             JokerId::Joker => 2,
-            JokerId::GreedyJoker | JokerId::LustyJoker |
-            JokerId::WrathfulJoker | JokerId::GluttonousJoker => 5,
+            JokerId::GreedyJoker
+            | JokerId::LustyJoker
+            | JokerId::WrathfulJoker
+            | JokerId::GluttonousJoker => 5,
             JokerId::JollyJoker | JokerId::SlyJoker => 4,
             JokerId::ZanyJoker | JokerId::WilyJoker => 5,
             JokerId::MadJoker | JokerId::CleverJoker => 5,
@@ -282,61 +284,110 @@ impl JokerId {
     pub fn rarity(&self) -> u8 {
         match self {
             // Common (1)
-            JokerId::Joker | JokerId::Misprint |
-            JokerId::GreedyJoker | JokerId::LustyJoker |
-            JokerId::WrathfulJoker | JokerId::GluttonousJoker |
-            JokerId::JollyJoker | JokerId::ZanyJoker |
-            JokerId::MadJoker | JokerId::CrazyJoker |
-            JokerId::DrollJoker | JokerId::SlyJoker |
-            JokerId::WilyJoker | JokerId::CleverJoker |
-            JokerId::DeviousJoker | JokerId::CraftyJoker |
-            JokerId::HalfJoker | JokerId::Banner |
-            JokerId::ScaryFace | JokerId::EvenSteven |
-            JokerId::OddTodd | JokerId::Scholar |
-            JokerId::Egg | JokerId::Drunkard |
-            JokerId::GreenJoker | JokerId::Fibonacci => 1,
+            JokerId::Joker
+            | JokerId::Misprint
+            | JokerId::GreedyJoker
+            | JokerId::LustyJoker
+            | JokerId::WrathfulJoker
+            | JokerId::GluttonousJoker
+            | JokerId::JollyJoker
+            | JokerId::ZanyJoker
+            | JokerId::MadJoker
+            | JokerId::CrazyJoker
+            | JokerId::DrollJoker
+            | JokerId::SlyJoker
+            | JokerId::WilyJoker
+            | JokerId::CleverJoker
+            | JokerId::DeviousJoker
+            | JokerId::CraftyJoker
+            | JokerId::HalfJoker
+            | JokerId::Banner
+            | JokerId::ScaryFace
+            | JokerId::EvenSteven
+            | JokerId::OddTodd
+            | JokerId::Scholar
+            | JokerId::Egg
+            | JokerId::Drunkard
+            | JokerId::GreenJoker
+            | JokerId::Fibonacci => 1,
 
             // Uncommon (2)
-            JokerId::MysticSummit | JokerId::AbstractJoker |
-            JokerId::RideTheBus | JokerId::Hologram |
-            JokerId::BlueJoker | JokerId::SuperPosition |
-            JokerId::DuskJoker | JokerId::BusinessCard |
-            JokerId::Supernova | JokerId::GoldenJoker |
-            JokerId::Bull | JokerId::Rocket |
-            JokerId::FortuneTeller | JokerId::SpaceJoker |
-            JokerId::Erosion | JokerId::ToTheMoon |
-            JokerId::IceCream | JokerId::Constellation |
-            JokerId::Hiker | JokerId::CloudNine |
-            JokerId::Popcorn | JokerId::AncientJoker |
-            JokerId::Ramen | JokerId::Walkie |
-            JokerId::Selzer | JokerId::Castle |
-            JokerId::Smiley | JokerId::Campfire => 2,
+            JokerId::MysticSummit
+            | JokerId::AbstractJoker
+            | JokerId::RideTheBus
+            | JokerId::Hologram
+            | JokerId::BlueJoker
+            | JokerId::SuperPosition
+            | JokerId::DuskJoker
+            | JokerId::BusinessCard
+            | JokerId::Supernova
+            | JokerId::GoldenJoker
+            | JokerId::Bull
+            | JokerId::Rocket
+            | JokerId::FortuneTeller
+            | JokerId::SpaceJoker
+            | JokerId::Erosion
+            | JokerId::ToTheMoon
+            | JokerId::IceCream
+            | JokerId::Constellation
+            | JokerId::Hiker
+            | JokerId::CloudNine
+            | JokerId::Popcorn
+            | JokerId::AncientJoker
+            | JokerId::Ramen
+            | JokerId::Walkie
+            | JokerId::Selzer
+            | JokerId::Castle
+            | JokerId::Smiley
+            | JokerId::Campfire => 2,
 
             // Rare (3)
-            JokerId::SteelJoker | JokerId::GlassJoker |
-            JokerId::FourFingers | JokerId::Shortcut |
-            JokerId::Splash | JokerId::Photograph |
-            JokerId::Bloodstone | JokerId::Arrowhead |
-            JokerId::Onyx | JokerId::Opal |
-            JokerId::SteakJoker | JokerId::DNA |
-            JokerId::Sixth | JokerId::Ticket |
-            JokerId::MrBones | JokerId::Acrobat |
-            JokerId::SockAndBuskin | JokerId::Swashbuckler |
-            JokerId::Troubadour | JokerId::Certificate |
-            JokerId::Smeared | JokerId::Throwback |
-            JokerId::HangingChad | JokerId::RoughGem |
-            JokerId::Mime | JokerId::CreditCard |
-            JokerId::Blueprint | JokerId::Brainstorm |
-            JokerId::Baron | JokerId::Vampire |
-            JokerId::Cavendish | JokerId::Card_Sharp |
-            JokerId::The_Duo | JokerId::The_Trio |
-            JokerId::The_Family | JokerId::The_Order |
-            JokerId::The_Tribe | JokerId::Stencil => 3,
+            JokerId::SteelJoker
+            | JokerId::GlassJoker
+            | JokerId::FourFingers
+            | JokerId::Shortcut
+            | JokerId::Splash
+            | JokerId::Photograph
+            | JokerId::Bloodstone
+            | JokerId::Arrowhead
+            | JokerId::Onyx
+            | JokerId::Opal
+            | JokerId::SteakJoker
+            | JokerId::DNA
+            | JokerId::Sixth
+            | JokerId::Ticket
+            | JokerId::MrBones
+            | JokerId::Acrobat
+            | JokerId::SockAndBuskin
+            | JokerId::Swashbuckler
+            | JokerId::Troubadour
+            | JokerId::Certificate
+            | JokerId::Smeared
+            | JokerId::Throwback
+            | JokerId::HangingChad
+            | JokerId::RoughGem
+            | JokerId::Mime
+            | JokerId::CreditCard
+            | JokerId::Blueprint
+            | JokerId::Brainstorm
+            | JokerId::Baron
+            | JokerId::Vampire
+            | JokerId::Cavendish
+            | JokerId::Card_Sharp
+            | JokerId::The_Duo
+            | JokerId::The_Trio
+            | JokerId::The_Family
+            | JokerId::The_Order
+            | JokerId::The_Tribe
+            | JokerId::Stencil => 3,
 
             // Legendary (4)
-            JokerId::Canio | JokerId::Triboulet |
-            JokerId::Yorick | JokerId::Chicot |
-            JokerId::Perkeo | JokerId::Caino => 4,
+            JokerId::Canio
+            | JokerId::Triboulet
+            | JokerId::Yorick
+            | JokerId::Chicot
+            | JokerId::Perkeo
+            | JokerId::Caino => 4,
 
             // Default to common
             _ => 1,
@@ -362,11 +413,17 @@ impl JokerId {
     pub fn all_available() -> Vec<JokerId> {
         (0..JOKER_COUNT)
             .filter_map(|i| JokerId::from_index(i))
-            .filter(|j| !matches!(j,
-                // 保留位：這些是用於內部測試或尚未實現的 Joker
-                JokerId::BluePrint | JokerId::Perkeo_2 | JokerId::Stuntman_2 |
-                JokerId::Cloud9 | JokerId::Rough_Gem_2
-            ))
+            .filter(|j| {
+                !matches!(
+                    j,
+                    // 保留位：這些是用於內部測試或尚未實現的 Joker
+                    JokerId::BluePrint
+                        | JokerId::Perkeo_2
+                        | JokerId::Stuntman_2
+                        | JokerId::Cloud9
+                        | JokerId::Rough_Gem_2
+                )
+            })
             .collect()
     }
 
@@ -398,19 +455,32 @@ impl JokerId {
     /// 隨機生成 Common Joker
     pub fn random_common<R: rand::Rng>(rng: &mut R) -> Self {
         const COMMON_JOKERS: &[JokerId] = &[
-            JokerId::Joker, JokerId::Misprint,
-            JokerId::GreedyJoker, JokerId::LustyJoker,
-            JokerId::WrathfulJoker, JokerId::GluttonousJoker,
-            JokerId::JollyJoker, JokerId::ZanyJoker,
-            JokerId::MadJoker, JokerId::CrazyJoker,
-            JokerId::DrollJoker, JokerId::SlyJoker,
-            JokerId::WilyJoker, JokerId::CleverJoker,
-            JokerId::DeviousJoker, JokerId::CraftyJoker,
-            JokerId::HalfJoker, JokerId::Banner,
-            JokerId::ScaryFace, JokerId::EvenSteven,
-            JokerId::OddTodd, JokerId::Scholar,
-            JokerId::Egg, JokerId::Drunkard,
-            JokerId::GreenJoker, JokerId::Fibonacci,
+            JokerId::Joker,
+            JokerId::Misprint,
+            JokerId::GreedyJoker,
+            JokerId::LustyJoker,
+            JokerId::WrathfulJoker,
+            JokerId::GluttonousJoker,
+            JokerId::JollyJoker,
+            JokerId::ZanyJoker,
+            JokerId::MadJoker,
+            JokerId::CrazyJoker,
+            JokerId::DrollJoker,
+            JokerId::SlyJoker,
+            JokerId::WilyJoker,
+            JokerId::CleverJoker,
+            JokerId::DeviousJoker,
+            JokerId::CraftyJoker,
+            JokerId::HalfJoker,
+            JokerId::Banner,
+            JokerId::ScaryFace,
+            JokerId::EvenSteven,
+            JokerId::OddTodd,
+            JokerId::Scholar,
+            JokerId::Egg,
+            JokerId::Drunkard,
+            JokerId::GreenJoker,
+            JokerId::Fibonacci,
         ];
         COMMON_JOKERS[rng.gen_range(0..COMMON_JOKERS.len())]
     }
@@ -418,10 +488,18 @@ impl JokerId {
     /// 隨機生成 Rare Joker
     pub fn random_rare<R: rand::Rng>(rng: &mut R) -> Self {
         const RARE_JOKERS: &[JokerId] = &[
-            JokerId::DNA, JokerId::Selzer, JokerId::Mime,
-            JokerId::Triboulet, JokerId::DriversLicense, JokerId::Hit_The_Road,
-            JokerId::Vampire, JokerId::Lucky_Cat, JokerId::Canio,
-            JokerId::Caino, JokerId::Yorick, JokerId::Madness,
+            JokerId::DNA,
+            JokerId::Selzer,
+            JokerId::Mime,
+            JokerId::Triboulet,
+            JokerId::DriversLicense,
+            JokerId::Hit_The_Road,
+            JokerId::Vampire,
+            JokerId::Lucky_Cat,
+            JokerId::Canio,
+            JokerId::Caino,
+            JokerId::Yorick,
+            JokerId::Madness,
         ];
         RARE_JOKERS[rng.gen_range(0..RARE_JOKERS.len())]
     }
@@ -429,7 +507,8 @@ impl JokerId {
     /// 隨機生成 Legendary Joker
     pub fn random_legendary<R: rand::Rng>(rng: &mut R) -> Self {
         const LEGENDARY_JOKERS: &[JokerId] = &[
-            JokerId::Canio, JokerId::Triboulet,
+            JokerId::Canio,
+            JokerId::Triboulet,
             // 可以添加更多 Legendary Joker
         ];
         LEGENDARY_JOKERS[rng.gen_range(0..LEGENDARY_JOKERS.len())]
@@ -584,14 +663,18 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
         // ====== Pair 牌型加成 ======
         JokerId::JollyJoker => {
             // 包含 Pair 的牌型: Pair, TwoPair, FullHouse, FlushHouse
-            if matches!(ctx.hand_id, HandId::Pair | HandId::TwoPair |
-                       HandId::FullHouse | HandId::FlushHouse) {
+            if matches!(
+                ctx.hand_id,
+                HandId::Pair | HandId::TwoPair | HandId::FullHouse | HandId::FlushHouse
+            ) {
                 bonus.add_mult += 8;
             }
         }
         JokerId::SlyJoker => {
-            if matches!(ctx.hand_id, HandId::Pair | HandId::TwoPair |
-                       HandId::FullHouse | HandId::FlushHouse) {
+            if matches!(
+                ctx.hand_id,
+                HandId::Pair | HandId::TwoPair | HandId::FullHouse | HandId::FlushHouse
+            ) {
                 bonus.chip_bonus += 50;
             }
         }
@@ -599,14 +682,28 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
         // ====== Three of a Kind 加成 ======
         JokerId::ZanyJoker => {
             // 包含 Three of a Kind 的牌型: ThreeKind, FullHouse, FourKind, FiveKind, FlushHouse, FlushFive
-            if matches!(ctx.hand_id, HandId::ThreeKind | HandId::FullHouse |
-                       HandId::FourKind | HandId::FiveKind | HandId::FlushHouse | HandId::FlushFive) {
+            if matches!(
+                ctx.hand_id,
+                HandId::ThreeKind
+                    | HandId::FullHouse
+                    | HandId::FourKind
+                    | HandId::FiveKind
+                    | HandId::FlushHouse
+                    | HandId::FlushFive
+            ) {
                 bonus.add_mult += 12;
             }
         }
         JokerId::WilyJoker => {
-            if matches!(ctx.hand_id, HandId::ThreeKind | HandId::FullHouse |
-                       HandId::FourKind | HandId::FiveKind | HandId::FlushHouse | HandId::FlushFive) {
+            if matches!(
+                ctx.hand_id,
+                HandId::ThreeKind
+                    | HandId::FullHouse
+                    | HandId::FourKind
+                    | HandId::FiveKind
+                    | HandId::FlushHouse
+                    | HandId::FlushFive
+            ) {
                 bonus.chip_bonus += 100;
             }
         }
@@ -625,12 +722,18 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
 
         // ====== Straight 加成 ======
         JokerId::CrazyJoker => {
-            if matches!(ctx.hand_id, HandId::Straight | HandId::StraightFlush | HandId::RoyalFlush) {
+            if matches!(
+                ctx.hand_id,
+                HandId::Straight | HandId::StraightFlush | HandId::RoyalFlush
+            ) {
                 bonus.add_mult += 12;
             }
         }
         JokerId::DeviousJoker => {
-            if matches!(ctx.hand_id, HandId::Straight | HandId::StraightFlush | HandId::RoyalFlush) {
+            if matches!(
+                ctx.hand_id,
+                HandId::Straight | HandId::StraightFlush | HandId::RoyalFlush
+            ) {
                 bonus.chip_bonus += 100;
             }
         }
@@ -638,14 +741,26 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
         // ====== Flush 加成 ======
         JokerId::DrollJoker => {
             // 包含 Flush 的牌型: Flush, StraightFlush, RoyalFlush, FlushHouse, FlushFive
-            if matches!(ctx.hand_id, HandId::Flush | HandId::StraightFlush | HandId::RoyalFlush |
-                       HandId::FlushHouse | HandId::FlushFive) {
+            if matches!(
+                ctx.hand_id,
+                HandId::Flush
+                    | HandId::StraightFlush
+                    | HandId::RoyalFlush
+                    | HandId::FlushHouse
+                    | HandId::FlushFive
+            ) {
                 bonus.add_mult += 10;
             }
         }
         JokerId::CraftyJoker => {
-            if matches!(ctx.hand_id, HandId::Flush | HandId::StraightFlush | HandId::RoyalFlush |
-                       HandId::FlushHouse | HandId::FlushFive) {
+            if matches!(
+                ctx.hand_id,
+                HandId::Flush
+                    | HandId::StraightFlush
+                    | HandId::RoyalFlush
+                    | HandId::FlushHouse
+                    | HandId::FlushFive
+            ) {
                 bonus.chip_bonus += 80;
             }
         }
@@ -720,47 +835,61 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
             bonus.chip_bonus += ctx.deck_size as i64 * 2;
         }
         JokerId::Fibonacci => {
-            let fib_cards = ctx.played_cards.iter()
+            let fib_cards = ctx
+                .played_cards
+                .iter()
                 .filter(|c| matches!(c.rank, 1 | 2 | 3 | 5 | 8))
                 .count();
             bonus.add_mult += fib_cards as i64 * 8;
         }
         JokerId::ScaryFace => {
-            let face_count = ctx.played_cards.iter()
+            let face_count = ctx
+                .played_cards
+                .iter()
                 .filter(|c| c.rank >= 11 && c.rank <= 13)
                 .count();
             bonus.chip_bonus += face_count as i64 * 30;
         }
         JokerId::EvenSteven => {
             // 偶數牌: 2, 4, 6, 8, 10 (不包含 J=11, Q=12, K=13)
-            let even_count = ctx.played_cards.iter()
+            let even_count = ctx
+                .played_cards
+                .iter()
                 .filter(|c| c.rank <= 10 && c.rank % 2 == 0)
                 .count();
             bonus.add_mult += even_count as i64 * 4;
         }
         JokerId::OddTodd => {
             // 奇數牌: A(1), 3, 5, 7, 9 (不包含 J=11, K=13)
-            let odd_count = ctx.played_cards.iter()
+            let odd_count = ctx
+                .played_cards
+                .iter()
                 .filter(|c| c.rank == 1 || (c.rank <= 9 && c.rank % 2 == 1))
                 .count();
             bonus.chip_bonus += odd_count as i64 * 31;
         }
         JokerId::Scholar => {
-            let ace_count = ctx.played_cards.iter()
+            let ace_count = ctx
+                .played_cards
+                .iter()
                 .filter(|c| c.rank == 1 || c.rank == 14)
                 .count();
             bonus.chip_bonus += ace_count as i64 * 20;
             bonus.add_mult += ace_count as i64 * 4;
         }
         JokerId::Smiley => {
-            let face_count = ctx.played_cards.iter()
+            let face_count = ctx
+                .played_cards
+                .iter()
                 .filter(|c| c.rank >= 11 && c.rank <= 13)
                 .count();
             bonus.add_mult += face_count as i64 * 5;
         }
         JokerId::BusinessCard => {
             // 1/2 chance +$2 per face card played
-            let face_count = ctx.played_cards.iter()
+            let face_count = ctx
+                .played_cards
+                .iter()
                 .filter(|c| c.rank >= 11 && c.rank <= 13)
                 .count();
             // Use rng_value for 50% chance per face card
@@ -789,7 +918,11 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
             }
         }
         JokerId::Photograph => {
-            if ctx.played_cards.iter().any(|c| c.rank >= 11 && c.rank <= 13) {
+            if ctx
+                .played_cards
+                .iter()
+                .any(|c| c.rank >= 11 && c.rank <= 13)
+            {
                 bonus.mul_mult *= 2.0;
             }
         }
@@ -820,7 +953,9 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
         }
         JokerId::Ticket => {
             // +$1 per Gold enhancement card played
-            let gold_cards = ctx.played_cards.iter()
+            let gold_cards = ctx
+                .played_cards
+                .iter()
                 .filter(|c| c.enhancement == Enhancement::Gold)
                 .count();
             bonus.money_bonus += gold_cards as i64;
@@ -837,14 +972,23 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
 
         // ====== The X 系列 ======
         JokerId::The_Duo => {
-            if matches!(ctx.hand_id, HandId::Pair | HandId::TwoPair | HandId::FullHouse |
-                       HandId::ThreeKind | HandId::FourKind | HandId::FiveKind) {
+            if matches!(
+                ctx.hand_id,
+                HandId::Pair
+                    | HandId::TwoPair
+                    | HandId::FullHouse
+                    | HandId::ThreeKind
+                    | HandId::FourKind
+                    | HandId::FiveKind
+            ) {
                 bonus.mul_mult *= 2.0;
             }
         }
         JokerId::The_Trio => {
-            if matches!(ctx.hand_id, HandId::ThreeKind | HandId::FullHouse |
-                       HandId::FourKind | HandId::FiveKind) {
+            if matches!(
+                ctx.hand_id,
+                HandId::ThreeKind | HandId::FullHouse | HandId::FourKind | HandId::FiveKind
+            ) {
                 bonus.mul_mult *= 3.0;
             }
         }
@@ -854,13 +998,22 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
             }
         }
         JokerId::The_Order => {
-            if matches!(ctx.hand_id, HandId::Straight | HandId::StraightFlush | HandId::RoyalFlush) {
+            if matches!(
+                ctx.hand_id,
+                HandId::Straight | HandId::StraightFlush | HandId::RoyalFlush
+            ) {
                 bonus.mul_mult *= 3.0;
             }
         }
         JokerId::The_Tribe => {
-            if matches!(ctx.hand_id, HandId::Flush | HandId::StraightFlush | HandId::RoyalFlush |
-                       HandId::FlushHouse | HandId::FlushFive) {
+            if matches!(
+                ctx.hand_id,
+                HandId::Flush
+                    | HandId::StraightFlush
+                    | HandId::RoyalFlush
+                    | HandId::FlushHouse
+                    | HandId::FlushFive
+            ) {
                 bonus.mul_mult *= 2.0;
             }
         }
@@ -881,7 +1034,9 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
 
         // ====== 重觸發類 ======
         JokerId::SockAndBuskin => {
-            let face_count = ctx.played_cards.iter()
+            let face_count = ctx
+                .played_cards
+                .iter()
                 .filter(|c| c.rank >= 11 && c.rank <= 13)
                 .count();
             bonus.retriggers += face_count as i32;
@@ -892,7 +1047,9 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
             }
         }
         JokerId::Hack => {
-            let low_cards = ctx.played_cards.iter()
+            let low_cards = ctx
+                .played_cards
+                .iter()
                 .filter(|c| matches!(c.rank, 2 | 3 | 4 | 5))
                 .count();
             bonus.retriggers += low_cards as i32;
@@ -928,7 +1085,11 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
         }
         JokerId::Swashbuckler => {
             // Each card below 8 held in hand gives +2 Mult (ranks 2-7)
-            let below_8_count = ctx.hand.iter().filter(|c| c.rank >= 2 && c.rank <= 7).count();
+            let below_8_count = ctx
+                .hand
+                .iter()
+                .filter(|c| c.rank >= 2 && c.rank <= 7)
+                .count();
             bonus.add_mult += below_8_count as i64 * 2;
         }
         JokerId::RaisedFist => {
@@ -962,7 +1123,10 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
             }
         }
         JokerId::Runner => {
-            if matches!(ctx.hand_id, HandId::Straight | HandId::StraightFlush | HandId::RoyalFlush) {
+            if matches!(
+                ctx.hand_id,
+                HandId::Straight | HandId::StraightFlush | HandId::RoyalFlush
+            ) {
                 bonus.chip_bonus += 15;
             }
         }
@@ -977,15 +1141,21 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
         }
 
         // 規則修改類（不直接加分，影響其他系統）
-        JokerId::FourFingers | JokerId::Shortcut | JokerId::Splash |
-        JokerId::Smeared | JokerId::Pareidolia | JokerId::Chicot => {
+        JokerId::FourFingers
+        | JokerId::Shortcut
+        | JokerId::Splash
+        | JokerId::Smeared
+        | JokerId::Pareidolia
+        | JokerId::Chicot => {
             // 這些會影響計分規則，不在這裡處理
         }
 
         // ====== 條件觸發類 (X2 Mult) ======
         JokerId::Even_Steven => {
             // X2 Mult if ALL scoring cards are even (2, 4, 6, 8, 10)
-            let all_even = ctx.played_cards.iter()
+            let all_even = ctx
+                .played_cards
+                .iter()
                 .all(|c| c.rank <= 10 && c.rank % 2 == 0);
             if all_even && !ctx.played_cards.is_empty() {
                 bonus.mul_mult *= 2.0;
@@ -993,7 +1163,9 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
         }
         JokerId::Odd_Todd_2 => {
             // X2 Mult if ALL scoring cards are odd (A, 3, 5, 7, 9)
-            let all_odd = ctx.played_cards.iter()
+            let all_odd = ctx
+                .played_cards
+                .iter()
                 .all(|c| c.rank == 1 || (c.rank <= 9 && c.rank % 2 == 1));
             if all_odd && !ctx.played_cards.is_empty() {
                 bonus.mul_mult *= 2.0;
@@ -1009,7 +1181,8 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
         }
         JokerId::Flower_Pot => {
             // X3 Mult if hand contains all 4 suits (Diamond, Club, Heart, Spade)
-            let suits: std::collections::HashSet<u8> = ctx.played_cards.iter().map(|c| c.suit).collect();
+            let suits: std::collections::HashSet<u8> =
+                ctx.played_cards.iter().map(|c| c.suit).collect();
             if suits.len() >= 4 {
                 bonus.mul_mult *= 3.0;
             }
@@ -1033,7 +1206,9 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
         }
         JokerId::Triboulet => {
             // Kings and Queens each give X2 Mult
-            let kq_count = ctx.played_cards.iter()
+            let kq_count = ctx
+                .played_cards
+                .iter()
                 .filter(|c| c.rank == 13 || c.rank == 12)
                 .count();
             if kq_count > 0 {
@@ -1103,9 +1278,9 @@ pub struct JokerSlot {
     pub edition: Edition,
     pub x_mult_accumulated: f32,
     // 觸發/經濟類 Joker 狀態
-    pub trading_card_triggered: bool,  // TradingCard: 是否已觸發
-    pub flash_card_mult: i32,          // Flash: 累積 Mult (+2 per reroll)
-    pub red_card_mult: i32,            // RedCard: 累積 Mult (+3 per skip blind)
+    pub trading_card_triggered: bool, // TradingCard: 是否已觸發
+    pub flash_card_mult: i32,         // Flash: 累積 Mult (+2 per reroll)
+    pub red_card_mult: i32,           // RedCard: 累積 Mult (+3 per skip blind)
 
     // ====== X Mult 狀態追蹤字段 ======
     /// Vampire: X Mult 累積 (起始 1.0, 每吸收增強 +0.1)
@@ -1172,10 +1347,10 @@ impl JokerSlot {
     pub fn new(id: JokerId) -> Self {
         // 根據 Joker 類型設置初始值
         let madness_mult = match id {
-            JokerId::Madness => 0.5,  // Madness 起始 X0.5 Mult
+            JokerId::Madness => 0.5, // Madness 起始 X0.5 Mult
             _ => 1.0,
         };
-        
+
         Self {
             id,
             enabled: true,
@@ -1201,25 +1376,25 @@ impl JokerSlot {
             yorick_discards: 0,
             yorick_mult: 1.0,
             glass_mult: 1.0,
-            rocket_money: 1,  // Rocket: 初始每回合 +$1
-            ancient_suit: 0,  // AncientJoker: 初始為 Diamonds (0)
-            castle_suit: 0,   // Castle: 初始為 Diamonds (0)
-            castle_chips: 0,  // Castle: 初始 0 chips
-            hit_the_road_mult: 1.0,  // Hit The Road: 初始 X1.0 Mult
-            selzer_charges: if id == JokerId::Selzer { 10 } else { 0 },  // Selzer: 10 張牌重觸發
-            obelisk_streak: 0,  // Obelisk: 連續非最常打牌型次數
-            turtle_hand_mod: if id == JokerId::TurtleBean { 5 } else { 0 },  // TurtleBean: +5 手牌大小
-            todo_hand_type: 0,  // ToDoList: 在購買時隨機初始化
-            idol_rank: 1,       // TheIdol: 初始點數 (1=Ace, 在購買時隨機初始化)
-            idol_suit: 0,       // TheIdol: 初始花色 (0-3, 在購買時隨機初始化)
+            rocket_money: 1,        // Rocket: 初始每回合 +$1
+            ancient_suit: 0,        // AncientJoker: 初始為 Diamonds (0)
+            castle_suit: 0,         // Castle: 初始為 Diamonds (0)
+            castle_chips: 0,        // Castle: 初始 0 chips
+            hit_the_road_mult: 1.0, // Hit The Road: 初始 X1.0 Mult
+            selzer_charges: if id == JokerId::Selzer { 10 } else { 0 }, // Selzer: 10 張牌重觸發
+            obelisk_streak: 0,      // Obelisk: 連續非最常打牌型次數
+            turtle_hand_mod: if id == JokerId::TurtleBean { 5 } else { 0 }, // TurtleBean: +5 手牌大小
+            todo_hand_type: 0,             // ToDoList: 在購買時隨機初始化
+            idol_rank: 1,                  // TheIdol: 初始點數 (1=Ace, 在購買時隨機初始化)
+            idol_suit: 0,                  // TheIdol: 初始花色 (0-3, 在購買時隨機初始化)
             chaos_free_reroll_used: false, // ChaosTheClown: 每回合重置
             ice_cream_chips: if id == JokerId::IceCream { 100 } else { 0 }, // IceCream: 起始 100 Chips
             popcorn_mult: if id == JokerId::Popcorn { 20 } else { 0 },      // Popcorn: 起始 20 Mult
             ramen_mult: if id == JokerId::Ramen { 2.0 } else { 1.0 },       // Ramen: 起始 X2 Mult
-            campfire_mult: 1.0,  // Campfire: 起始 X1.0 Mult
-            wee_chips: 0,        // Wee: 起始 0 Chips (每輪 +8)
-            merry_mult: 0,       // Merry: 起始 0 Mult (每輪 +3)
-            green_mult: 0,       // GreenJoker: 起始 0 Mult (每手 +1, 每輪重置)
+            campfire_mult: 1.0,   // Campfire: 起始 X1.0 Mult
+            wee_chips: 0,         // Wee: 起始 0 Chips (每輪 +8)
+            merry_mult: 0,        // Merry: 起始 0 Mult (每輪 +3)
+            green_mult: 0,        // GreenJoker: 起始 0 Mult (每手 +1, 每輪重置)
             ride_the_bus_mult: 0, // RideTheBus: 起始 0 Mult (每連續非人頭牌手 +1)
         }
     }
@@ -1251,49 +1426,49 @@ impl JokerSlot {
     }
 
     // ====== X Mult 狀態更新方法 ======
-    
+
     /// Vampire: 吸收增強時調用 (+0.1 X Mult per enhancement)
     pub fn update_vampire_on_enhancement(&mut self, enhancements_absorbed: i32) {
         if self.id == JokerId::Vampire {
             self.vampire_mult += enhancements_absorbed as f32 * 0.1;
         }
     }
-    
+
     /// Canio: 銷毀人頭牌時調用 (+1.0 X Mult per face card)
     pub fn update_canio_on_face_destroyed(&mut self, face_cards_destroyed: i32) {
         if self.id == JokerId::Canio {
             self.canio_mult += face_cards_destroyed as f32 * 1.0;
         }
     }
-    
+
     /// Lucky Cat: Lucky 牌觸發時調用 (+0.25 X Mult per trigger)
     pub fn update_lucky_cat_on_trigger(&mut self, triggers: i32) {
         if self.id == JokerId::Lucky_Cat {
             self.lucky_cat_mult += triggers as f32 * 0.25;
         }
     }
-    
+
     /// Hologram: 加牌到牌組時調用 (+0.25 X Mult per card)
     pub fn update_hologram_on_card_added(&mut self, cards_added: i32) {
         if self.id == JokerId::Hologram {
             self.hologram_mult += cards_added as f32 * 0.25;
         }
     }
-    
+
     /// Constellation: 使用行星牌時調用 (+0.1 X Mult per planet)
     pub fn update_constellation_on_planet_used(&mut self) {
         if self.id == JokerId::Constellation {
             self.constellation_mult += 0.1;
         }
     }
-    
+
     /// Madness: 銷毀 Joker 時調用 (+0.5 X Mult per Joker destroyed)
     pub fn update_madness_on_joker_destroyed(&mut self, jokers_destroyed: i32) {
         if self.id == JokerId::Madness {
             self.madness_mult += jokers_destroyed as f32 * 0.5;
         }
     }
-    
+
     /// Yorick: 棄牌時調用 (每 23 張 +1.0 X Mult)
     pub fn update_yorick_on_discard(&mut self, cards_discarded: i32) {
         if self.id == JokerId::Yorick {
@@ -1304,7 +1479,7 @@ impl JokerSlot {
             }
         }
     }
-    
+
     /// Glass Joker: Glass 牌碎裂時調用 (+0.75 X Mult per glass broken)
     pub fn update_glass_on_break(&mut self, glass_broken: i32) {
         if self.id == JokerId::GlassJoker {
@@ -1315,14 +1490,14 @@ impl JokerSlot {
     /// AncientJoker: 設置當前花色 (每回合開始時隨機調用)
     pub fn set_ancient_suit(&mut self, suit: u8) {
         if self.id == JokerId::AncientJoker {
-            self.ancient_suit = suit % 4;  // 確保在 0-3 範圍內
+            self.ancient_suit = suit % 4; // 確保在 0-3 範圍內
         }
     }
 
     /// Castle: 設置當前花色 (每回合開始時隨機調用)
     pub fn set_castle_suit(&mut self, suit: u8) {
         if self.id == JokerId::Castle {
-            self.castle_suit = suit % 4;  // 確保在 0-3 範圍內
+            self.castle_suit = suit % 4; // 確保在 0-3 範圍內
         }
     }
 
@@ -1358,11 +1533,16 @@ impl JokerSlot {
 }
 
 /// 計算所有 Joker 的總加成
-pub fn compute_joker_bonus(jokers: &[JokerSlot], ctx: &ScoringContext, rng_values: &[u8]) -> JokerBonus {
+pub fn compute_joker_bonus(
+    jokers: &[JokerSlot],
+    ctx: &ScoringContext,
+    rng_values: &[u8],
+) -> JokerBonus {
     let mut total = JokerBonus::new();
 
     // 收集所有 enabled 的 Joker 及其原始索引
-    let enabled_jokers: Vec<(usize, &JokerSlot)> = jokers.iter()
+    let enabled_jokers: Vec<(usize, &JokerSlot)> = jokers
+        .iter()
         .enumerate()
         .filter(|(_, j)| j.enabled)
         .collect();
@@ -1422,9 +1602,13 @@ fn is_copy_joker(id: JokerId) -> bool {
 }
 
 /// 計算單個 Joker 效果（使用 JokerSlot 狀態）
-pub fn compute_joker_effect_with_state(joker: &JokerSlot, ctx: &ScoringContext, rng_value: u8) -> JokerBonus {
+pub fn compute_joker_effect_with_state(
+    joker: &JokerSlot,
+    ctx: &ScoringContext,
+    rng_value: u8,
+) -> JokerBonus {
     let mut bonus = compute_core_joker_effect(joker.id, ctx, rng_value);
-    
+
     // 對於有狀態追蹤的 X Mult Jokers，使用 JokerSlot 中的狀態值
     match joker.id {
         JokerId::Vampire => {
@@ -1468,7 +1652,10 @@ pub fn compute_joker_effect_with_state(joker: &JokerSlot, ctx: &ScoringContext, 
         }
         JokerId::AncientJoker => {
             // AncientJoker: 如果手牌包含指定花色，X1.5 Mult
-            let has_suit = ctx.played_cards.iter().any(|c| c.suit == joker.ancient_suit);
+            let has_suit = ctx
+                .played_cards
+                .iter()
+                .any(|c| c.suit == joker.ancient_suit);
             if has_suit {
                 bonus.mul_mult = 1.5;
             }
@@ -1496,7 +1683,9 @@ pub fn compute_joker_effect_with_state(joker: &JokerSlot, ctx: &ScoringContext, 
         }
         JokerId::TheIdol => {
             // TheIdol: 打出特定牌（rank + suit）時 X2 Mult
-            let has_idol_card = ctx.played_cards.iter()
+            let has_idol_card = ctx
+                .played_cards
+                .iter()
                 .any(|c| c.rank == joker.idol_rank && c.suit == joker.idol_suit);
             if has_idol_card {
                 bonus.mul_mult = 2.0;
@@ -1540,7 +1729,7 @@ pub fn compute_joker_effect_with_state(joker: &JokerSlot, ctx: &ScoringContext, 
         }
         _ => {}
     }
-    
+
     bonus
 }
 
@@ -1766,17 +1955,17 @@ mod tests {
         let mut joker = JokerSlot::new(JokerId::Yorick);
         assert_eq!(joker.yorick_mult, 1.0);
         assert_eq!(joker.yorick_discards, 0);
-        
+
         // 棄 22 張 (不觸發)
         joker.update_yorick_on_discard(22);
         assert_eq!(joker.yorick_mult, 1.0);
         assert_eq!(joker.yorick_discards, 22);
-        
+
         // 再棄 1 張 (觸發第一次)
         joker.update_yorick_on_discard(1);
         assert_eq!(joker.yorick_mult, 2.0);
         assert_eq!(joker.yorick_discards, 0);
-        
+
         // 棄 46 張 (觸發兩次)
         joker.update_yorick_on_discard(46);
         assert_eq!(joker.yorick_mult, 4.0);
@@ -1794,10 +1983,10 @@ mod tests {
     fn test_compute_joker_effect_with_state_vampire() {
         let cards = make_cards(&[(5, 0)]);
         let ctx = ScoringContext::new(&cards, HandId::HighCard);
-        
+
         let mut joker = JokerSlot::new(JokerId::Vampire);
         joker.update_vampire_on_enhancement(5); // 1.5 X Mult
-        
+
         let bonus = compute_joker_effect_with_state(&joker, &ctx, 0);
         assert!((bonus.mul_mult - 1.5).abs() < 0.001);
     }
@@ -1806,11 +1995,11 @@ mod tests {
     fn test_compute_joker_effect_with_state_madness() {
         let cards = make_cards(&[(5, 0)]);
         let ctx = ScoringContext::new(&cards, HandId::HighCard);
-        
+
         let mut joker = JokerSlot::new(JokerId::Madness);
         // 起始 0.5, 銷毀 3 個 Joker 後: 0.5 + 1.5 = 2.0
         joker.update_madness_on_joker_destroyed(3);
-        
+
         let bonus = compute_joker_effect_with_state(&joker, &ctx, 0);
         assert!((bonus.mul_mult - 2.0).abs() < 0.001);
     }
@@ -1819,10 +2008,10 @@ mod tests {
     fn test_compute_joker_effect_with_state_yorick() {
         let cards = make_cards(&[(5, 0)]);
         let ctx = ScoringContext::new(&cards, HandId::HighCard);
-        
+
         let mut joker = JokerSlot::new(JokerId::Yorick);
         joker.update_yorick_on_discard(69); // 觸發 3 次
-        
+
         let bonus = compute_joker_effect_with_state(&joker, &ctx, 0);
         assert!((bonus.mul_mult - 4.0).abs() < 0.001); // 1.0 + 3.0
     }
@@ -1942,14 +2131,14 @@ mod tests {
     #[test]
     fn test_special_joker_rarity() {
         // Verify these special jokers have correct rarity (based on actual rarity() fn)
-        assert_eq!(JokerId::MrBones.rarity(), 3);      // Rare
-        assert_eq!(JokerId::Matador.rarity(), 1);      // Common (default)
-        assert_eq!(JokerId::Luchador.rarity(), 1);     // Common (default)
-        assert_eq!(JokerId::Chicot.rarity(), 4);       // Legendary
-        assert_eq!(JokerId::Ceremonial.rarity(), 1);   // Common (default)
+        assert_eq!(JokerId::MrBones.rarity(), 3); // Rare
+        assert_eq!(JokerId::Matador.rarity(), 1); // Common (default)
+        assert_eq!(JokerId::Luchador.rarity(), 1); // Common (default)
+        assert_eq!(JokerId::Chicot.rarity(), 4); // Legendary
+        assert_eq!(JokerId::Ceremonial.rarity(), 1); // Common (default)
         assert_eq!(JokerId::InvisibleJoker.rarity(), 1); // Common (default)
-        assert_eq!(JokerId::Cavendish.rarity(), 3);    // Rare
-        assert_eq!(JokerId::Gros_Michel.rarity(), 1);  // Common
+        assert_eq!(JokerId::Cavendish.rarity(), 3); // Rare
+        assert_eq!(JokerId::Gros_Michel.rarity(), 1); // Common
     }
 
     #[test]

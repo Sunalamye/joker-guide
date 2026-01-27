@@ -280,7 +280,7 @@ pub fn is_royal(rank_counts: &[u8; 13]) -> bool {
         && rank_counts[9] > 0   // 10
         && rank_counts[10] > 0  // J
         && rank_counts[11] > 0  // Q
-        && rank_counts[12] > 0  // K
+        && rank_counts[12] > 0 // K
 }
 
 /// 計算手牌潛力分數（用於 observation）

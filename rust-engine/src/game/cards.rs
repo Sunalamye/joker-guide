@@ -5,14 +5,14 @@
 pub enum Enhancement {
     #[default]
     None,
-    Bonus,    // +30 chips
-    Mult,     // +4 mult
-    Wild,     // 可當任意花色
-    Glass,    // x2 Mult，1/4 機率破碎
-    Steel,    // x1.5 Mult（在手牌中時）
-    Stone,    // +50 chips，不計花色/點數
-    Gold,     // 回合結束時 +$3
-    Lucky,    // 1/5 機率 +20 Mult，1/15 機率 +$20
+    Bonus, // +30 chips
+    Mult,  // +4 mult
+    Wild,  // 可當任意花色
+    Glass, // x2 Mult，1/4 機率破碎
+    Steel, // x1.5 Mult（在手牌中時）
+    Stone, // +50 chips，不計花色/點數
+    Gold,  // 回合結束時 +$3
+    Lucky, // 1/5 機率 +20 Mult，1/15 機率 +$20
 }
 
 impl Enhancement {
@@ -51,10 +51,10 @@ impl Enhancement {
 pub enum Seal {
     #[default]
     None,
-    Gold,    // 打出時 +$3
-    Red,     // 觸發 2 次
-    Blue,    // 最後一手牌創建 Planet 卡
-    Purple,  // 棄掉時創建 Tarot 卡
+    Gold,   // 打出時 +$3
+    Red,    // 觸發 2 次
+    Blue,   // 最後一手牌創建 Planet 卡
+    Purple, // 棄掉時創建 Tarot 卡
 }
 
 impl Seal {
@@ -106,13 +106,13 @@ impl Edition {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Card {
-    pub rank: u8,              // 1..=13 (Ace = 1)
-    pub suit: u8,              // 0..=3
+    pub rank: u8, // 1..=13 (Ace = 1)
+    pub suit: u8, // 0..=3
     pub enhancement: Enhancement,
     pub seal: Seal,
     pub edition: Edition,
-    pub face_down: bool,       // 是否面朝下（某些 Boss Blind 效果）
-    pub bonus_chips: i64,      // Hiker 等效果的永久 Chips 加成
+    pub face_down: bool,  // 是否面朝下（某些 Boss Blind 效果）
+    pub bonus_chips: i64, // Hiker 等效果的永久 Chips 加成
 }
 
 impl Card {
@@ -131,7 +131,7 @@ impl Card {
     /// 基礎 chips（不含增強效果）
     pub fn base_chips(&self) -> i64 {
         match self.rank {
-            1 => 11,  // Ace
+            1 => 11,            // Ace
             11 | 12 | 13 => 10, // J, Q, K
             n => n as i64,
         }

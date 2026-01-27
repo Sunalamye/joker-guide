@@ -17,16 +17,15 @@
 
 use joker_env::proto::Tensor;
 
-use crate::game::{
-    card_index, score_hand, HandId, Stage,
-    BOSS_BLIND_COUNT, CARD_FEATURES, DECK_FEATURES, DISCARDS_PER_BLIND,
-    HAND_SIZE, HAND_TYPE_COUNT, JOKER_SLOTS, JOKER_ID_SIZE, JOKER_SINGLE_FEATURES,
-    MAX_STEPS, OBS_SIZE, PLAYS_PER_BLIND, SHOP_JOKER_COUNT, SCALAR_COUNT,
-    DECK_TYPE_FEATURES, STAKE_FEATURES, VOUCHER_FEATURES, CONSUMABLE_FEATURES,
-    TAG_FEATURES, CONSUMABLE_SLOT_COUNT,
-};
-use super::state::EnvState;
 use super::scoring::build_selected_hand;
+use super::state::EnvState;
+use crate::game::{
+    card_index, score_hand, HandId, Stage, BOSS_BLIND_COUNT, CARD_FEATURES, CONSUMABLE_FEATURES,
+    CONSUMABLE_SLOT_COUNT, DECK_FEATURES, DECK_TYPE_FEATURES, DISCARDS_PER_BLIND, HAND_SIZE,
+    HAND_TYPE_COUNT, JOKER_ID_SIZE, JOKER_SINGLE_FEATURES, JOKER_SLOTS, MAX_STEPS, OBS_SIZE,
+    PLAYS_PER_BLIND, SCALAR_COUNT, SHOP_JOKER_COUNT, STAKE_FEATURES, TAG_FEATURES,
+    VOUCHER_FEATURES,
+};
 
 /// 從遊戲狀態構建 observation tensor
 pub fn observation_from_state(state: &EnvState) -> Tensor {
@@ -37,35 +36,43 @@ pub fn observation_from_state(state: &EnvState) -> Tensor {
     // ============================================================================
     // Scalars (32)
     // ============================================================================
-    data.push(state.score as f32 / required);                           // 0: 分數進度
-    data.push(state.ante.to_int() as f32 / 8.0);                        // 1: Ante 進度
+    data.push(state.score as f32 / required); // 0: 分數進度
+    data.push(state.ante.to_int() as f32 / 8.0); // 1: Ante 進度
     data.push(state.blind_type.map(|b| b.to_int()).unwrap_or(-1) as f32 / 2.0); // 2: Blind 類型
-    data.push(match state.stage {                                        // 3: 遊戲階段
-        Stage::PreBlind => 0.0,
-        Stage::Blind => 1.0,
-        Stage::PostBlind => 2.0,
-        Stage::Shop => 3.0,
-        Stage::End(_) => 4.0,
-    } / 4.0);
-    data.push(state.plays_left as f32 / PLAYS_PER_BLIND as f32);        // 4: 剩餘出牌
-    data.push(state.discards_left as f32 / DISCARDS_PER_BLIND as f32);  // 5: 剩餘棄牌
-    data.push(state.money as f32 / 100.0);                              // 6: 金幣
-    data.push(state.reward as f32 / 20.0);                              // 7: 待領獎勵
-    data.push(state.deck.len() as f32 / 52.0);                          // 8: 牌組剩餘比例
+    data.push(
+        match state.stage {
+            // 3: 遊戲階段
+            Stage::PreBlind => 0.0,
+            Stage::Blind => 1.0,
+            Stage::PostBlind => 2.0,
+            Stage::Shop => 3.0,
+            Stage::End(_) => 4.0,
+        } / 4.0,
+    );
+    data.push(state.plays_left as f32 / PLAYS_PER_BLIND as f32); // 4: 剩餘出牌
+    data.push(state.discards_left as f32 / DISCARDS_PER_BLIND as f32); // 5: 剩餘棄牌
+    data.push(state.money as f32 / 100.0); // 6: 金幣
+    data.push(state.reward as f32 / 20.0); // 7: 待領獎勵
+    data.push(state.deck.len() as f32 / 52.0); // 8: 牌組剩餘比例
     data.push(state.jokers.len() as f32 / state.joker_slot_limit as f32); // 9: Joker 使用率
-    data.push(state.round as f32 / 24.0);                               // 10: 回合進度
-    data.push(state.episode_step as f32 / MAX_STEPS as f32);            // 11: 步數進度
-    data.push(state.boss_blind.map(|b| b.to_int() as f32 / BOSS_BLIND_COUNT as f32).unwrap_or(-0.1)); // 12: Boss Blind
+    data.push(state.round as f32 / 24.0); // 10: 回合進度
+    data.push(state.episode_step as f32 / MAX_STEPS as f32); // 11: 步數進度
+    data.push(
+        state
+            .boss_blind
+            .map(|b| b.to_int() as f32 / BOSS_BLIND_COUNT as f32)
+            .unwrap_or(-0.1),
+    ); // 12: Boss Blind
     data.push(state.consumables.items.len() as f32 / state.consumables.capacity as f32); // 13: 消耗品使用率
     data.push(state.voucher_effects.owned.len() as f32 / VOUCHER_FEATURES as f32); // 14: Voucher 進度
-    // 15-27: 13 種牌型等級
+                                                                                   // 15-27: 13 種牌型等級
     for hand_type in 0..HAND_TYPE_COUNT {
         data.push(state.hand_levels.get(hand_type) as f32 / 10.0);
     }
-    data.push(state.tags.len() as f32 / 10.0);                          // 28: Tag 數量
-    data.push(if state.endless_mode { 1.0 } else { 0.0 });              // 29: 無盡模式
-    data.push(state.endless_ante as f32 / 10.0);                        // 30: 無盡模式額外 Ante
-    data.push(state.shop.current_reroll_cost() as f32 / 20.0);          // 31: 當前 Reroll 費用
+    data.push(state.tags.len() as f32 / 10.0); // 28: Tag 數量
+    data.push(if state.endless_mode { 1.0 } else { 0.0 }); // 29: 無盡模式
+    data.push(state.endless_ante as f32 / 10.0); // 30: 無盡模式額外 Ante
+    data.push(state.shop.current_reroll_cost() as f32 / 20.0); // 31: 當前 Reroll 費用
 
     assert_eq!(data.len(), SCALAR_COUNT, "Scalar count mismatch");
 
@@ -84,7 +91,11 @@ pub fn observation_from_state(state: &EnvState) -> Tensor {
         if let Some(card) = state.hand.get(idx) {
             // Rank one-hot (13)
             for r in 0..13 {
-                data.push(if r == (card.rank - 1) as usize { 1.0 } else { 0.0 });
+                data.push(if r == (card.rank - 1) as usize {
+                    1.0
+                } else {
+                    0.0
+                });
             }
             // Suit one-hot (4)
             for s in 0..4 {
@@ -198,7 +209,11 @@ pub fn observation_from_state(state: &EnvState) -> Tensor {
     // Voucher ownership flags (32)
     // ============================================================================
     for i in 0..VOUCHER_FEATURES {
-        let owned = state.voucher_effects.owned.iter().any(|v| v.to_index() == i);
+        let owned = state
+            .voucher_effects
+            .owned
+            .iter()
+            .any(|v| v.to_index() == i);
         data.push(if owned { 1.0 } else { 0.0 });
     }
 

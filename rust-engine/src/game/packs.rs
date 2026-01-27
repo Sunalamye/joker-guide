@@ -5,9 +5,9 @@
 use rand::prelude::*;
 use rand::rngs::StdRng;
 
-use super::consumables::{TarotId, PlanetId, SpectralId};
+use super::cards::{Card, Edition, Enhancement, Seal};
+use super::consumables::{PlanetId, SpectralId, TarotId};
 use super::joker::JokerId;
-use super::cards::{Card, Enhancement, Seal, Edition};
 
 /// 卡包類型
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

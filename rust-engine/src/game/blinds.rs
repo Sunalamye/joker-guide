@@ -65,36 +65,36 @@ impl BlindType {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BossBlind {
     // 分數修改類
-    TheHook,      // 每手開始時隨機棄 2 張
-    TheWall,      // 需要 4x 分數 (而非 2x)
-    TheWheel,     // 1/7 的牌面朝下
-    TheArm,       // 降低出過的牌型等級
-    TheFlint,     // 基礎 chips 和 mult 減半
+    TheHook,  // 每手開始時隨機棄 2 張
+    TheWall,  // 需要 4x 分數 (而非 2x)
+    TheWheel, // 1/7 的牌面朝下
+    TheArm,   // 降低出過的牌型等級
+    TheFlint, // 基礎 chips 和 mult 減半
 
     // 花色禁用類
-    TheClub,      // 梅花牌不計分
-    TheDiamond,   // 方塊牌不計分 (又名 The Window)
-    TheHeart,     // 紅心牌不計分
-    TheSpade,     // 黑桃牌不計分 (又名 The Goad - 只有 Spade 計分的反面)
+    TheClub,    // 梅花牌不計分
+    TheDiamond, // 方塊牌不計分 (又名 The Window)
+    TheHeart,   // 紅心牌不計分
+    TheSpade,   // 黑桃牌不計分 (又名 The Goad - 只有 Spade 計分的反面)
 
     // 強制行為類
-    ThePsychic,   // 必須出 5 張牌
-    TheMouth,     // 只能出一種牌型
-    TheEye,       // 不能重複出同一種牌型
-    ThePlant,     // Face Card 不計分
-    TheSerpent,   // 每次出牌後抽 3 棄 3
+    ThePsychic, // 必須出 5 張牌
+    TheMouth,   // 只能出一種牌型
+    TheEye,     // 不能重複出同一種牌型
+    ThePlant,   // Face Card 不計分
+    TheSerpent, // 每次出牌後抽 3 棄 3
 
     // 經濟懲罰類
-    TheOx,        // 出 #(當前ante) 牌型時失去 $1
-    TheHouse,     // 第一手是面朝下的
-    TheMark,      // 所有 Face Card 面朝下
-    TheFish,      // 開始時面朝下的牌打亂順序
+    TheOx,    // 出 #(當前ante) 牌型時失去 $1
+    TheHouse, // 第一手是面朝下的
+    TheMark,  // 所有 Face Card 面朝下
+    TheFish,  // 開始時面朝下的牌打亂順序
 
     // 特殊類
-    TheManacle,   // 手牌上限 -1
-    ThePillar,    // 已打過的牌不再計分
-    TheNeedle,    // 只有 1 次出牌機會
-    TheHead,      // 紅心牌只能在第一手出
+    TheManacle, // 手牌上限 -1
+    ThePillar,  // 已打過的牌不再計分
+    TheNeedle,  // 只有 1 次出牌機會
+    TheHead,    // 紅心牌只能在第一手出
 
     // Ante 8 專屬
     VioletVessel, // 需要 6x 分數

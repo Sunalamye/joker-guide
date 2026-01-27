@@ -4,13 +4,11 @@ use rand::seq::SliceRandom;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::game::{
-    Ante, BlindType, BossBlind, Card, Consumable, Enhancement, JokerId, JokerSlot, Seal, Shop, Stage,
-    Tag, TagId, ConsumableSlots, HandLevels, VoucherEffects, VoucherId,
-    DeckType, DeckConfig, Stake, StakeConfig,
-    DISCARDS_PER_BLIND, HAND_SIZE, INTEREST_RATE, JOKER_SLOTS, MAX_INTEREST,
-    MONEY_PER_REMAINING_HAND, PLAYS_PER_BLIND, SHOP_JOKER_COUNT, STARTING_MONEY,
-    SHOP_PACK_COUNT,
-    standard_deck,
+    standard_deck, Ante, BlindType, BossBlind, Card, Consumable, ConsumableSlots, DeckConfig,
+    DeckType, Enhancement, HandLevels, JokerId, JokerSlot, Seal, Shop, Stage, Stake, StakeConfig,
+    Tag, TagId, VoucherEffects, VoucherId, DISCARDS_PER_BLIND, HAND_SIZE, INTEREST_RATE,
+    JOKER_SLOTS, MAX_INTEREST, MONEY_PER_REMAINING_HAND, PLAYS_PER_BLIND, SHOP_JOKER_COUNT,
+    SHOP_PACK_COUNT, STARTING_MONEY,
 };
 
 /// 卡包類型
@@ -23,11 +21,11 @@ pub struct BoosterPack {
 /// 卡包類型
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BoosterPackType {
-    Arcana,     // 2 Tarot 選 1
-    Celestial,  // 2 Planet 選 1
-    Spectral,   // 2 Spectral 選 1
-    Standard,   // 3 普通牌選 1
-    Buffoon,    // 2 Joker 選 1
+    Arcana,    // 2 Tarot 選 1
+    Celestial, // 2 Planet 選 1
+    Spectral,  // 2 Spectral 選 1
+    Standard,  // 3 普通牌選 1
+    Buffoon,   // 2 Joker 選 1
 }
 
 impl BoosterPackType {
@@ -128,8 +126,8 @@ pub struct EnvState {
     pub episode_step: i32,
 
     // Run 追蹤（用於 Joker 效果計算）
-    pub rerolls_this_run: i32,    // Flash Joker: +2 Mult per reroll
-    pub blinds_skipped: i32,      // RedCard: +3 Mult per skip
+    pub rerolls_this_run: i32,      // Flash Joker: +2 Mult per reroll
+    pub blinds_skipped: i32,        // RedCard: +3 Mult per skip
     pub planets_used_this_run: i32, // Satellite: +$1 per unique Planet used
     pub tarots_used_this_run: i32,  // Fortune_Teller: +1 Mult per Tarot used
 
@@ -315,7 +313,9 @@ impl EnvState {
         self.money += tag.id.immediate_money();
 
         // DoubleTag: 檢查是否有未使用的 DoubleTag，若有則複製這個 Tag
-        let has_double_tag = self.tags.iter()
+        let has_double_tag = self
+            .tags
+            .iter()
             .any(|t| !t.used && t.id == TagId::DoubleTag);
 
         if has_double_tag {
@@ -336,7 +336,8 @@ impl EnvState {
         }
 
         // 進入下一個 Blind
-        let next_blind = self.blind_type
+        let next_blind = self
+            .blind_type
             .and_then(|b| b.next())
             .unwrap_or(BlindType::Small);
 
@@ -482,9 +483,7 @@ impl EnvState {
                 }
                 JokerId::CloudNine | JokerId::Cloud9 => {
                     // CloudNine: 牌組中每張 9 +$1
-                    let nine_count = self.deck.iter()
-                        .filter(|c| c.rank == 9)
-                        .count() as i64;
+                    let nine_count = self.deck.iter().filter(|c| c.rank == 9).count() as i64;
                     bonus += nine_count;
                 }
                 JokerId::Rocket => {
@@ -513,18 +512,20 @@ impl EnvState {
                     // ReservedParking: 手中人頭牌有 1/2 機率 +$1
                     // 這裡計算期望值（每人頭牌 0.5 機率）
                     // 實際上應該在回合結束時按機率計算，但這裡用期望值近似
-                    let face_count = self.hand.iter()
-                        .filter(|c| c.is_face())
-                        .count() as i64;
+                    let face_count = self.hand.iter().filter(|c| c.is_face()).count() as i64;
                     // 簡化處理：每人頭牌 50% 機率給 $1，這裡不做隨機，留給 calc_reward 外部處理
                     bonus += face_count / 2; // 近似期望值
                 }
                 JokerId::Golden_Ticket => {
                     // Golden_Ticket: 手牌和牌組中每張 Gold 卡在回合結束時 +$4
-                    let gold_in_hand = self.hand.iter()
+                    let gold_in_hand = self
+                        .hand
+                        .iter()
                         .filter(|c| c.enhancement == Enhancement::Gold)
                         .count() as i64;
-                    let gold_in_deck = self.deck.iter()
+                    let gold_in_deck = self
+                        .deck
+                        .iter()
                         .filter(|c| c.enhancement == Enhancement::Gold)
                         .count() as i64;
                     bonus += (gold_in_hand + gold_in_deck) * 4;
@@ -538,7 +539,9 @@ impl EnvState {
 
     pub fn refresh_shop(&mut self) {
         // ChaosTheClown: 商店只顯示 1 個 Joker
-        let has_chaos = self.jokers.iter()
+        let has_chaos = self
+            .jokers
+            .iter()
             .any(|j| j.enabled && j.id == JokerId::ChaosTheClown);
         let joker_count = if has_chaos { 1 } else { SHOP_JOKER_COUNT };
 
@@ -579,7 +582,9 @@ impl EnvState {
         self.shop.reroll_count += 1;
 
         // ChaosTheClown: 商店只顯示 1 個 Joker
-        let has_chaos = self.jokers.iter()
+        let has_chaos = self
+            .jokers
+            .iter()
             .any(|j| j.enabled && j.id == JokerId::ChaosTheClown);
         let joker_count = if has_chaos { 1 } else { SHOP_JOKER_COUNT };
 
@@ -609,7 +614,9 @@ impl EnvState {
     pub fn apply_hook_discard(&mut self) {
         let discard_count = 2.min(self.hand.len());
         for _ in 0..discard_count {
-            if self.hand.is_empty() { break; }
+            if self.hand.is_empty() {
+                break;
+            }
             let idx = self.rng.gen_range(0..self.hand.len());
             let card = self.hand.remove(idx);
             self.discarded.push(card);
@@ -632,7 +639,9 @@ impl EnvState {
         }
         let discard_count = 3.min(self.hand.len());
         for _ in 0..discard_count {
-            if self.hand.is_empty() { break; }
+            if self.hand.is_empty() {
+                break;
+            }
             let idx = self.rng.gen_range(0..self.hand.len());
             let card = self.hand.remove(idx);
             self.discarded.push(card);
@@ -718,7 +727,8 @@ impl EnvState {
         self.hand
             .iter()
             .filter(|c| c.enhancement == Enhancement::Gold)
-            .count() as i64 * 3
+            .count() as i64
+            * 3
     }
 
     /// 計算有效手牌大小（考慮 Joker 修正）
@@ -731,9 +741,7 @@ impl EnvState {
     pub fn effective_joker_slot_limit(&self) -> usize {
         let base = self.joker_slot_limit;
         let voucher_bonus = self.voucher_effects.joker_slot_bonus as usize;
-        let negative_count = self.jokers.iter()
-            .filter(|j| j.is_negative)
-            .count();
+        let negative_count = self.jokers.iter().filter(|j| j.is_negative).count();
         base + voucher_bonus + negative_count
     }
 
@@ -916,7 +924,8 @@ impl EnvState {
     /// 用於 Spectral - Cryptid
     /// 觸發 Hologram 效果
     pub fn copy_cards_to_deck(&mut self, indices: &[usize]) -> usize {
-        let cards_to_copy: Vec<Card> = indices.iter()
+        let cards_to_copy: Vec<Card> = indices
+            .iter()
             .filter_map(|&idx| self.hand.get(idx).copied())
             .collect();
 

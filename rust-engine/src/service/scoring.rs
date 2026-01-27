@@ -4,8 +4,8 @@ use rand::rngs::StdRng;
 use rand::Rng;
 
 use crate::game::{
-    BossBlind, Card, Enhancement, HandId, HandLevels, JokerId, JokerSlot, Seal,
-    ScoringContext, compute_joker_bonus, score_hand_with_rules, JokerRules,
+    compute_joker_bonus, score_hand_with_rules, BossBlind, Card, Enhancement, HandId, HandLevels,
+    JokerId, JokerRules, JokerSlot, ScoringContext, Seal,
 };
 
 /// 從手牌中構建選中的牌
@@ -177,13 +177,14 @@ pub fn calculate_play_score(
 
     // Observatory: 如果擁有並且打出的牌型曾用過對應 Planet，每張計分牌 X Mult
     // 這裡簡化為整體 X Mult（而非每張牌）
-    let observatory_bonus = if observatory_x_mult > 1.0 && (planet_used_hand_types & (1 << hand_type_idx)) != 0 {
-        // 計分牌數量 (未被禁用的牌)
-        let scoring_cards = selected.iter().filter(|c| !c.face_down).count();
-        observatory_x_mult.powi(scoring_cards as i32)
-    } else {
-        1.0
-    };
+    let observatory_bonus =
+        if observatory_x_mult > 1.0 && (planet_used_hand_types & (1 << hand_type_idx)) != 0 {
+            // 計分牌數量 (未被禁用的牌)
+            let scoring_cards = selected.iter().filter(|c| !c.face_down).count();
+            observatory_x_mult.powi(scoring_cards as i32)
+        } else {
+            1.0
+        };
 
     let final_mult = ((total_mult as f32) * x_mult * observatory_bonus).max(1.0) as i64;
 

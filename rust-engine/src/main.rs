@@ -15,23 +15,19 @@ mod service;
 
 // 從 game 模組導入常量和類型
 use game::{
-    PLAYS_PER_BLIND, DISCARDS_PER_BLIND, MAX_SELECTED, HAND_SIZE, MAX_STEPS,
-    OBS_SIZE, ACTION_MASK_SIZE,
-    ACTION_TYPE_SELECT, ACTION_TYPE_PLAY, ACTION_TYPE_DISCARD, ACTION_TYPE_SELECT_BLIND,
-    ACTION_TYPE_CASH_OUT, ACTION_TYPE_BUY_JOKER, ACTION_TYPE_NEXT_ROUND,
-    ACTION_TYPE_REROLL, ACTION_TYPE_SELL_JOKER, ACTION_TYPE_SKIP_BLIND,
-    ACTION_TYPE_USE_CONSUMABLE, ACTION_TYPE_BUY_VOUCHER, ACTION_TYPE_BUY_PACK,
-    Stage, GameEnd, BlindType, BossBlind, JokerId, JokerSlot, Card, Enhancement, Edition, Seal,
-    Consumable, TarotId, PlanetId, SpectralId,
-    PackContents, PackItem,
-    Tag, TagId, DeckType,
-    score_hand,
+    score_hand, BlindType, BossBlind, Card, Consumable, DeckType, Edition, Enhancement, GameEnd,
+    JokerId, JokerSlot, PackContents, PackItem, PlanetId, Seal, SpectralId, Stage, Tag, TagId,
+    TarotId, ACTION_MASK_SIZE, ACTION_TYPE_BUY_JOKER, ACTION_TYPE_BUY_PACK,
+    ACTION_TYPE_BUY_VOUCHER, ACTION_TYPE_CASH_OUT, ACTION_TYPE_DISCARD, ACTION_TYPE_NEXT_ROUND,
+    ACTION_TYPE_PLAY, ACTION_TYPE_REROLL, ACTION_TYPE_SELECT, ACTION_TYPE_SELECT_BLIND,
+    ACTION_TYPE_SELL_JOKER, ACTION_TYPE_SKIP_BLIND, ACTION_TYPE_USE_CONSUMABLE, DISCARDS_PER_BLIND,
+    HAND_SIZE, MAX_SELECTED, MAX_STEPS, OBS_SIZE, PLAYS_PER_BLIND,
 };
 
 // 從 service 模組導入
 use service::{
-    EnvState, observation_from_state, action_mask_from_state,
-    build_selected_hand, calculate_play_score,
+    action_mask_from_state, build_selected_hand, calculate_play_score, observation_from_state,
+    EnvState,
 };
 
 // ============================================================================
@@ -78,8 +74,8 @@ impl JokerEnv for EnvService {
 
             // 擴展狀態
             ante: state.ante.to_int(),
-            stage: 0,  // PreBlind
-            blind_type: -1,  // None
+            stage: 0,       // PreBlind
+            blind_type: -1, // None
             plays_left: state.plays_left as i32,
             discards_left: state.discards_left as i32,
             money: state.money as i32,
@@ -130,7 +126,7 @@ impl JokerEnv for EnvService {
         let score_before = state.score;
         let money_before = state.money;
 
-        let reward = 0.0;  // 獎勵由 Python 端計算
+        let reward = 0.0; // 獎勵由 Python 端計算
         let mut done = false;
         let mut action_cost = 0i64;
         let mut blind_cleared = false;
@@ -151,7 +147,8 @@ impl JokerEnv for EnvService {
 
                         if next_blind == BlindType::Boss {
                             state.select_random_boss();
-                            state.plays_left = state.boss_blind
+                            state.plays_left = state
+                                .boss_blind
                                 .and_then(|b| b.max_plays())
                                 .unwrap_or(PLAYS_PER_BLIND);
                         } else {
@@ -162,19 +159,25 @@ impl JokerEnv for EnvService {
                         state.discards_left = DISCARDS_PER_BLIND;
 
                         // Drunkard: +1 棄牌次數每輪
-                        let drunkard_count = state.jokers.iter()
+                        let drunkard_count = state
+                            .jokers
+                            .iter()
                             .filter(|j| j.enabled && j.id == JokerId::Drunkard)
                             .count() as i32;
                         state.discards_left += drunkard_count;
 
                         // Troubadour: -1 出牌次數每輪
-                        let troubadour_count = state.jokers.iter()
+                        let troubadour_count = state
+                            .jokers
+                            .iter()
                             .filter(|j| j.enabled && j.id == JokerId::Troubadour)
                             .count() as i32;
                         state.plays_left = (state.plays_left - troubadour_count).max(1);
 
                         // Burglar: +3 出牌次數，無法棄牌
-                        let burglar_count = state.jokers.iter()
+                        let burglar_count = state
+                            .jokers
+                            .iter()
                             .filter(|j| j.enabled && j.id == JokerId::Burglar)
                             .count() as i32;
                         if burglar_count > 0 {
@@ -201,13 +204,15 @@ impl JokerEnv for EnvService {
                             if joker.enabled && joker.id == JokerId::TurtleBean {
                                 joker.turtle_hand_mod -= 1;
                                 if joker.turtle_hand_mod <= 0 {
-                                    joker.enabled = false;  // 自毀
+                                    joker.enabled = false; // 自毀
                                 }
                             }
                         }
 
                         // MarbleJoker: 選擇 Blind 時加 Stone 卡到牌組
-                        let marble_joker_count = state.jokers.iter()
+                        let marble_joker_count = state
+                            .jokers
+                            .iter()
                             .filter(|j| j.enabled && j.id == JokerId::MarbleJoker)
                             .count();
                         for _ in 0..marble_joker_count {
@@ -233,14 +238,17 @@ impl JokerEnv for EnvService {
                         }
 
                         // RiffRaff: 選擇 Blind 時生成 2 個 Common Joker
-                        let riff_raff_count = state.jokers.iter()
+                        let riff_raff_count = state
+                            .jokers
+                            .iter()
                             .filter(|j| j.enabled && j.id == JokerId::RiffRaff)
                             .count();
                         let common_jokers = JokerId::by_rarity(1);
                         let effective_slots = state.effective_joker_slot_limit();
                         for _ in 0..riff_raff_count {
                             for _ in 0..2 {
-                                if state.jokers.len() < effective_slots && !common_jokers.is_empty() {
+                                if state.jokers.len() < effective_slots && !common_jokers.is_empty()
+                                {
                                     let idx = state.rng.gen_range(0..common_jokers.len());
                                     state.jokers.push(JokerSlot::new(common_jokers[idx]));
                                 }
@@ -329,7 +337,9 @@ impl JokerEnv for EnvService {
                         }
 
                         // Ceremonial: 選擇 Blind 時銷毀最右邊的其他 Joker，獲得 2x 售價 Mult
-                        let ceremonial_indices: Vec<usize> = state.jokers.iter()
+                        let ceremonial_indices: Vec<usize> = state
+                            .jokers
+                            .iter()
                             .enumerate()
                             .filter(|(_, j)| j.enabled && j.id == JokerId::Ceremonial)
                             .map(|(i, _)| i)
@@ -337,10 +347,10 @@ impl JokerEnv for EnvService {
                         let mut jokers_destroyed_by_ceremonial = 0;
                         for ceremonial_idx in ceremonial_indices {
                             // 找最右邊的非 Ceremonial 且 enabled 的 Joker
-                            let rightmost_target = state.jokers.iter()
-                                .enumerate()
-                                .rev()
-                                .find(|(i, j)| *i != ceremonial_idx && j.enabled && j.id != JokerId::Ceremonial);
+                            let rightmost_target =
+                                state.jokers.iter().enumerate().rev().find(|(i, j)| {
+                                    *i != ceremonial_idx && j.enabled && j.id != JokerId::Ceremonial
+                                });
                             if let Some((target_idx, target_joker)) = rightmost_target {
                                 let sell_value = target_joker.sell_value;
                                 // 用 counter 存儲累積的 Mult (2x 售價)
@@ -351,15 +361,20 @@ impl JokerEnv for EnvService {
                         }
 
                         // Madness: 選擇 Small/Big Blind 時銷毀隨機非 Madness Joker
-                        let is_small_or_big_blind = next_blind == BlindType::Small || next_blind == BlindType::Big;
-                        let madness_count = state.jokers.iter()
+                        let is_small_or_big_blind =
+                            next_blind == BlindType::Small || next_blind == BlindType::Big;
+                        let madness_count = state
+                            .jokers
+                            .iter()
                             .filter(|j| j.enabled && j.id == JokerId::Madness)
                             .count();
                         let mut jokers_destroyed_by_madness = 0;
                         if is_small_or_big_blind && madness_count > 0 {
                             for _ in 0..madness_count {
                                 // 找所有非 Madness 且 enabled 的 Joker
-                                let targets: Vec<usize> = state.jokers.iter()
+                                let targets: Vec<usize> = state
+                                    .jokers
+                                    .iter()
                                     .enumerate()
                                     .filter(|(_, j)| j.enabled && j.id != JokerId::Madness)
                                     .map(|(i, _)| i)
@@ -373,7 +388,8 @@ impl JokerEnv for EnvService {
                         }
 
                         // Madness: 每銷毀 Joker +0.5 X Mult
-                        let total_jokers_destroyed = jokers_destroyed_by_ceremonial + jokers_destroyed_by_madness;
+                        let total_jokers_destroyed =
+                            jokers_destroyed_by_ceremonial + jokers_destroyed_by_madness;
                         if total_jokers_destroyed > 0 {
                             for joker in &mut state.jokers {
                                 if joker.enabled && joker.id == JokerId::Madness {
@@ -385,7 +401,9 @@ impl JokerEnv for EnvService {
                         state.deal();
 
                         // Certificate: 回合開始時獲得一張帶有隨機封印的隨機牌
-                        let certificate_count = state.jokers.iter()
+                        let certificate_count = state
+                            .jokers
+                            .iter()
                             .filter(|j| j.enabled && j.id == JokerId::Certificate)
                             .count();
                         for _ in 0..certificate_count {
@@ -413,7 +431,9 @@ impl JokerEnv for EnvService {
                             let face_down_flags: Vec<bool> = (0..hand_len)
                                 .map(|_| state.rng.gen_range(0..7) == 0)
                                 .collect();
-                            for (card, face_down) in state.hand.iter_mut().zip(face_down_flags.iter()) {
+                            for (card, face_down) in
+                                state.hand.iter_mut().zip(face_down_flags.iter())
+                            {
                                 if *face_down {
                                     card.face_down = true;
                                 }
@@ -462,7 +482,9 @@ impl JokerEnv for EnvService {
                         // TheFish: 面朝下的牌打亂順序（已經面朝下的牌互換位置）
                         if state.boss_blind == Some(BossBlind::TheFish) {
                             // 找出所有面朝下牌的索引
-                            let face_down_indices: Vec<usize> = state.hand.iter()
+                            let face_down_indices: Vec<usize> = state
+                                .hand
+                                .iter()
                                 .enumerate()
                                 .filter(|(_, c)| c.face_down)
                                 .map(|(i, _)| i)
@@ -477,11 +499,15 @@ impl JokerEnv for EnvService {
                                     .map(|i| state.rng.gen_range(0..=i))
                                     .collect();
                                 // Fisher-Yates shuffle
-                                for (idx, j) in (1..shuffled.len()).rev().zip(shuffle_indices.iter()) {
+                                for (idx, j) in
+                                    (1..shuffled.len()).rev().zip(shuffle_indices.iter())
+                                {
                                     shuffled.swap(idx, *j);
                                 }
                                 // 交換牌
-                                for (old_idx, new_idx) in face_down_indices.iter().zip(shuffled.iter()) {
+                                for (old_idx, new_idx) in
+                                    face_down_indices.iter().zip(shuffled.iter())
+                                {
                                     if old_idx != new_idx {
                                         state.hand.swap(*old_idx, *new_idx);
                                     }
@@ -505,7 +531,9 @@ impl JokerEnv for EnvService {
                         }
 
                         // Cartomancer: 跳過 Blind 時生成隨機 Tarot 卡
-                        let cartomancer_count = state.jokers.iter()
+                        let cartomancer_count = state
+                            .jokers
+                            .iter()
                             .filter(|j| j.enabled && j.id == JokerId::Cartomancer)
                             .count();
                         for _ in 0..cartomancer_count {
@@ -517,7 +545,9 @@ impl JokerEnv for EnvService {
                         }
 
                         // Astronomer: 跳過 Blind 時生成隨機 Planet 卡
-                        let astronomer_count = state.jokers.iter()
+                        let astronomer_count = state
+                            .jokers
+                            .iter()
                             .filter(|j| j.enabled && j.id == JokerId::Astronomer)
                             .count();
                         for _ in 0..astronomer_count {
@@ -545,7 +575,8 @@ impl JokerEnv for EnvService {
 
                     ACTION_TYPE_PLAY => {
                         if state.plays_left > 0 {
-                            let mut selected = build_selected_hand(&state.hand, state.selected_mask);
+                            let mut selected =
+                                build_selected_hand(&state.hand, state.selected_mask);
                             let selected_count = selected.len();
                             cards_played = selected_count as i32;
 
@@ -559,7 +590,8 @@ impl JokerEnv for EnvService {
                                 }
                             }
 
-                            let psychic_ok = !state.boss_blind
+                            let psychic_ok = !state
+                                .boss_blind
                                 .map(|b| b.requires_five_cards() && selected_count != 5)
                                 .unwrap_or(false);
 
@@ -568,14 +600,19 @@ impl JokerEnv for EnvService {
                                 let boss_blind = state.boss_blind;
                                 let discards_remaining = state.discards_left;
                                 // 計算增強牌數量 (DriversLicense)
-                                let enhanced_cards_in_deck = state.deck.iter()
+                                let enhanced_cards_in_deck = state
+                                    .deck
+                                    .iter()
                                     .filter(|c| c.enhancement != Enhancement::None)
-                                    .count() as i32;
+                                    .count()
+                                    as i32;
                                 // DNA: 是否是第一手牌；DuskJoker/Acrobat: 是否是最後一手牌
                                 let is_first_hand = state.hands_played_this_blind == 0;
                                 let is_final_hand = state.plays_left == 1;
                                 // Selzer: 獲取剩餘重觸發次數
-                                let selzer_charges = state.jokers.iter()
+                                let selzer_charges = state
+                                    .jokers
+                                    .iter()
                                     .find(|j| j.enabled && j.id == JokerId::Selzer)
                                     .map(|j| j.selzer_charges)
                                     .unwrap_or(0);
@@ -609,14 +646,21 @@ impl JokerEnv for EnvService {
                                 let hand_type_idx = hand_id.to_index();
                                 hand_type_id = hand_type_idx as i32;
 
-                                let eye_ok = !state.boss_blind
-                                    .map(|b| matches!(b, BossBlind::TheEye) && state.played_hand_types.contains(&hand_type_idx))
+                                let eye_ok = !state
+                                    .boss_blind
+                                    .map(|b| {
+                                        matches!(b, BossBlind::TheEye)
+                                            && state.played_hand_types.contains(&hand_type_idx)
+                                    })
                                     .unwrap_or(false);
 
-                                let mouth_ok = !state.boss_blind
-                                    .map(|b| matches!(b, BossBlind::TheMouth) &&
-                                         state.first_hand_type.is_some() &&
-                                         state.first_hand_type != Some(hand_type_idx))
+                                let mouth_ok = !state
+                                    .boss_blind
+                                    .map(|b| {
+                                        matches!(b, BossBlind::TheMouth)
+                                            && state.first_hand_type.is_some()
+                                            && state.first_hand_type != Some(hand_type_idx)
+                                    })
                                     .unwrap_or(false);
 
                                 // Boss Blind 限制檢查（Python 端計算獎勵懲罰）
@@ -630,7 +674,9 @@ impl JokerEnv for EnvService {
                                 // Obelisk: 更新牌型計數和連續非最常打牌型 streak
                                 state.hand_type_counts[hand_type_idx] += 1;
                                 let max_count = *state.hand_type_counts.iter().max().unwrap_or(&0);
-                                let most_played_idx = state.hand_type_counts.iter()
+                                let most_played_idx = state
+                                    .hand_type_counts
+                                    .iter()
                                     .position(|&c| c == max_count)
                                     .unwrap_or(0);
                                 let is_most_played = hand_type_idx == most_played_idx;
@@ -638,9 +684,9 @@ impl JokerEnv for EnvService {
                                 for joker in &mut state.jokers {
                                     if joker.enabled && joker.id == JokerId::Obelisk {
                                         if is_most_played {
-                                            joker.obelisk_streak = 0;  // 打了最常打的，重置
+                                            joker.obelisk_streak = 0; // 打了最常打的，重置
                                         } else {
-                                            joker.obelisk_streak += 1;  // 連續非最常打 +1
+                                            joker.obelisk_streak += 1; // 連續非最常打 +1
                                         }
                                     }
                                 }
@@ -654,7 +700,8 @@ impl JokerEnv for EnvService {
                                 if score_result.selzer_charges_used > 0 {
                                     for joker in &mut state.jokers {
                                         if joker.enabled && joker.id == JokerId::Selzer {
-                                            joker.selzer_charges -= score_result.selzer_charges_used;
+                                            joker.selzer_charges -=
+                                                score_result.selzer_charges_used;
                                             if joker.selzer_charges <= 0 {
                                                 joker.enabled = false; // 用完自毀
                                             }
@@ -667,13 +714,17 @@ impl JokerEnv for EnvService {
                                 if score_result.lucky_triggers > 0 {
                                     for joker in &mut state.jokers {
                                         if joker.enabled && joker.id == JokerId::Lucky_Cat {
-                                            joker.update_lucky_cat_on_trigger(score_result.lucky_triggers);
+                                            joker.update_lucky_cat_on_trigger(
+                                                score_result.lucky_triggers,
+                                            );
                                         }
                                     }
                                 }
 
                                 // SpaceJoker: 1/4 機率升級出過的牌型
-                                let space_joker_count = state.jokers.iter()
+                                let space_joker_count = state
+                                    .jokers
+                                    .iter()
                                     .filter(|j| j.enabled && j.id == JokerId::SpaceJoker)
                                     .count();
                                 for _ in 0..space_joker_count {
@@ -708,14 +759,18 @@ impl JokerEnv for EnvService {
 
                                 // Vagabond: 出 ≤4 張牌時生成隨機 Tarot 卡
                                 if selected_count <= 4 {
-                                    let vagabond_count = state.jokers.iter()
+                                    let vagabond_count = state
+                                        .jokers
+                                        .iter()
                                         .filter(|j| j.enabled && j.id == JokerId::Vagabond)
                                         .count();
                                     for _ in 0..vagabond_count {
                                         if !state.consumables.is_full() {
                                             let all_tarots = TarotId::all();
                                             let idx = state.rng.gen_range(0..all_tarots.len());
-                                            state.consumables.add(Consumable::Tarot(all_tarots[idx]));
+                                            state
+                                                .consumables
+                                                .add(Consumable::Tarot(all_tarots[idx]));
                                         }
                                     }
                                 }
@@ -723,24 +778,32 @@ impl JokerEnv for EnvService {
                                 // EightBall: 打出 8 時創建隨機 Tarot 卡
                                 let has_eight = selected.iter().any(|c| c.rank == 8);
                                 if has_eight {
-                                    let eight_ball_count = state.jokers.iter()
+                                    let eight_ball_count = state
+                                        .jokers
+                                        .iter()
                                         .filter(|j| j.enabled && j.id == JokerId::EightBall)
                                         .count();
                                     for _ in 0..eight_ball_count {
                                         if !state.consumables.is_full() {
                                             let all_tarots = TarotId::all();
                                             let idx = state.rng.gen_range(0..all_tarots.len());
-                                            state.consumables.add(Consumable::Tarot(all_tarots[idx]));
+                                            state
+                                                .consumables
+                                                .add(Consumable::Tarot(all_tarots[idx]));
                                         }
                                     }
                                 }
 
                                 // Hallucination: 出牌後 1/2 機率生成隨機 Tarot 卡
-                                let hallucination_count = state.jokers.iter()
+                                let hallucination_count = state
+                                    .jokers
+                                    .iter()
                                     .filter(|j| j.enabled && j.id == JokerId::Hallucination)
                                     .count();
                                 for _ in 0..hallucination_count {
-                                    if state.rng.gen_range(0..2) == 0 && !state.consumables.is_full() {
+                                    if state.rng.gen_range(0..2) == 0
+                                        && !state.consumables.is_full()
+                                    {
                                         let all_tarots = TarotId::all();
                                         let idx = state.rng.gen_range(0..all_tarots.len());
                                         state.consumables.add(Consumable::Tarot(all_tarots[idx]));
@@ -748,7 +811,9 @@ impl JokerEnv for EnvService {
                                 }
 
                                 // MidasMask: 打出人頭牌時變為 Gold 增強
-                                let has_midas = state.jokers.iter()
+                                let has_midas = state
+                                    .jokers
+                                    .iter()
                                     .any(|j| j.enabled && j.id == JokerId::MidasMask);
                                 if has_midas {
                                     let selected_mask = state.selected_mask;
@@ -760,58 +825,79 @@ impl JokerEnv for EnvService {
                                 }
 
                                 // Vampire: 吸收打出牌的增強效果，獲得 +0.1 X Mult 並移除增強
-                                let vampire_idx = state.jokers.iter()
+                                let vampire_idx = state
+                                    .jokers
+                                    .iter()
                                     .position(|j| j.enabled && j.id == JokerId::Vampire);
                                 if let Some(v_idx) = vampire_idx {
                                     let selected_mask = state.selected_mask;
                                     let mut enhancements_absorbed = 0;
                                     for (idx, card) in state.hand.iter_mut().enumerate() {
-                                        if ((selected_mask >> idx) & 1) == 1 && card.enhancement != Enhancement::None {
+                                        if ((selected_mask >> idx) & 1) == 1
+                                            && card.enhancement != Enhancement::None
+                                        {
                                             enhancements_absorbed += 1;
-                                            card.enhancement = Enhancement::None; // 移除增強
+                                            card.enhancement = Enhancement::None;
+                                            // 移除增強
                                         }
                                     }
                                     if enhancements_absorbed > 0 {
-                                        state.jokers[v_idx].update_vampire_on_enhancement(enhancements_absorbed);
+                                        state.jokers[v_idx]
+                                            .update_vampire_on_enhancement(enhancements_absorbed);
                                     }
                                 }
 
                                 // Hiker: 打出的牌永久 +2 Chips
-                                let hiker_count = state.jokers.iter()
+                                let hiker_count = state
+                                    .jokers
+                                    .iter()
                                     .filter(|j| j.enabled && j.id == JokerId::Hiker)
-                                    .count() as i64;
+                                    .count()
+                                    as i64;
                                 if hiker_count > 0 {
                                     let selected_mask = state.selected_mask;
                                     for (idx, card) in state.hand.iter_mut().enumerate() {
                                         if ((selected_mask >> idx) & 1) == 1 {
-                                            card.bonus_chips += 2 * hiker_count; // 多個 Hiker 疊加
+                                            card.bonus_chips += 2 * hiker_count;
+                                            // 多個 Hiker 疊加
                                         }
                                     }
                                 }
 
                                 // ToDoList: 打出特定牌型時 +$4，然後重新隨機選擇
-                                let todo_matches: Vec<usize> = state.jokers.iter()
+                                let todo_matches: Vec<usize> = state
+                                    .jokers
+                                    .iter()
                                     .enumerate()
-                                    .filter(|(_, j)| j.enabled && j.id == JokerId::ToDoList && hand_type_idx == j.todo_hand_type as usize)
+                                    .filter(|(_, j)| {
+                                        j.enabled
+                                            && j.id == JokerId::ToDoList
+                                            && hand_type_idx == j.todo_hand_type as usize
+                                    })
                                     .map(|(i, _)| i)
                                     .collect();
                                 state.money += todo_matches.len() as i64 * 4;
                                 for idx in todo_matches {
                                     // 重新隨機選擇牌型 (0-12)
-                                    state.jokers[idx].todo_hand_type = state.rng.gen_range(0..13) as u8;
+                                    state.jokers[idx].todo_hand_type =
+                                        state.rng.gen_range(0..13) as u8;
                                 }
 
                                 // Seance: Straight Flush 或 Royal Flush 時生成 Spectral 卡
                                 // StraightFlush = 8, RoyalFlush = 9
                                 if hand_type_idx == 8 || hand_type_idx == 9 {
-                                    let seance_count = state.jokers.iter()
+                                    let seance_count = state
+                                        .jokers
+                                        .iter()
                                         .filter(|j| j.enabled && j.id == JokerId::Seance)
                                         .count();
                                     for _ in 0..seance_count {
                                         if !state.consumables.is_full() {
                                             let all_spectrals = SpectralId::all();
                                             let idx = state.rng.gen_range(0..all_spectrals.len());
-                                            state.consumables.add(Consumable::Spectral(all_spectrals[idx]));
+                                            state
+                                                .consumables
+                                                .add(Consumable::Spectral(all_spectrals[idx]));
                                         }
                                     }
                                 }
@@ -886,7 +972,8 @@ impl JokerEnv for EnvService {
                                     }
                                 }
 
-                                state.break_glass_cards(selected_mask, &score_result.glass_to_break);
+                                state
+                                    .break_glass_cards(selected_mask, &score_result.glass_to_break);
 
                                 // GlassJoker: Glass 牌破碎時 +0.75 X Mult
                                 if glass_broken_count > 0 {
@@ -901,7 +988,9 @@ impl JokerEnv for EnvService {
                                 if face_cards_destroyed > 0 {
                                     for joker in &mut state.jokers {
                                         if joker.enabled && joker.id == JokerId::Canio {
-                                            joker.update_canio_on_face_destroyed(face_cards_destroyed);
+                                            joker.update_canio_on_face_destroyed(
+                                                face_cards_destroyed,
+                                            );
                                         }
                                     }
                                 }
@@ -937,7 +1026,10 @@ impl JokerEnv for EnvService {
                             let mask = state.selected_mask;
 
                             // 計算棄牌資訊（在棄牌前）
-                            let selected_cards: Vec<Card> = state.hand.iter().enumerate()
+                            let selected_cards: Vec<Card> = state
+                                .hand
+                                .iter()
+                                .enumerate()
                                 .filter(|(i, _)| (mask >> i) & 1 == 1)
                                 .map(|(_, c)| *c)
                                 .collect();
@@ -955,7 +1047,9 @@ impl JokerEnv for EnvService {
                             let mut money_bonus = 0i64;
                             let mut trading_cards_to_trigger = 0usize;
                             for joker in &mut state.jokers {
-                                if !joker.enabled { continue; }
+                                if !joker.enabled {
+                                    continue;
+                                }
                                 match joker.id {
                                     // Faceless: 棄 3+ 人頭牌時 +$5
                                     JokerId::Faceless => {
@@ -998,7 +1092,8 @@ impl JokerEnv for EnvService {
                             }
 
                             // Hit The Road: 每棄 Jack +0.5 X Mult
-                            let jack_count = selected_cards.iter().filter(|c| c.rank == 11).count() as i32;
+                            let jack_count =
+                                selected_cards.iter().filter(|c| c.rank == 11).count() as i32;
                             if jack_count > 0 {
                                 for joker in &mut state.jokers {
                                     if joker.enabled {
@@ -1009,20 +1104,26 @@ impl JokerEnv for EnvService {
 
                             // Sixth: 棄 6 張牌時銷毀自身並獲得 Spectral 卡
                             if cards_discarded == 6 {
-                                if let Some(idx) = state.jokers.iter()
+                                if let Some(idx) = state
+                                    .jokers
+                                    .iter()
                                     .position(|j| j.enabled && j.id == JokerId::Sixth)
                                 {
                                     state.jokers[idx].enabled = false;
                                     if !state.consumables.is_full() {
                                         let all_spectrals = SpectralId::all();
                                         let spec_idx = state.rng.gen_range(0..all_spectrals.len());
-                                        state.consumables.add(Consumable::Spectral(all_spectrals[spec_idx]));
+                                        state
+                                            .consumables
+                                            .add(Consumable::Spectral(all_spectrals[spec_idx]));
                                     }
                                 }
                             }
 
                             // BurntJoker: 棄牌時升級棄掉牌型的等級
-                            let burnt_count = state.jokers.iter()
+                            let burnt_count = state
+                                .jokers
+                                .iter()
                                 .filter(|j| j.enabled && j.id == JokerId::BurntJoker)
                                 .count();
                             if burnt_count > 0 && !selected_cards.is_empty() {
@@ -1153,8 +1254,11 @@ impl JokerEnv for EnvService {
                                             let all_planets = PlanetId::all();
                                             for _ in 0..2 {
                                                 if !state.consumables.is_full() {
-                                                    let idx = state.rng.gen_range(0..all_planets.len());
-                                                    state.consumables.add(Consumable::Planet(all_planets[idx]));
+                                                    let idx =
+                                                        state.rng.gen_range(0..all_planets.len());
+                                                    state
+                                                        .consumables
+                                                        .add(Consumable::Planet(all_planets[idx]));
                                                 }
                                             }
                                         }
@@ -1163,14 +1267,19 @@ impl JokerEnv for EnvService {
                                             let all_tarots = TarotId::all();
                                             for _ in 0..2 {
                                                 if !state.consumables.is_full() {
-                                                    let idx = state.rng.gen_range(0..all_tarots.len());
-                                                    state.consumables.add(Consumable::Tarot(all_tarots[idx]));
+                                                    let idx =
+                                                        state.rng.gen_range(0..all_tarots.len());
+                                                    state
+                                                        .consumables
+                                                        .add(Consumable::Tarot(all_tarots[idx]));
                                                 }
                                             }
                                         }
                                         TarotId::Temperance => {
                                             // 獲得 Joker 售價總和，最多 $50
-                                            let total_sell_value: i64 = state.jokers.iter()
+                                            let total_sell_value: i64 = state
+                                                .jokers
+                                                .iter()
                                                 .filter(|j| j.enabled)
                                                 .map(|j| j.sell_value)
                                                 .sum();
@@ -1203,7 +1312,8 @@ impl JokerEnv for EnvService {
                                         TarotId::TheHangedMan => {
                                             // 銷毀最多 2 張選中的牌
                                             // 從高索引到低索引移除，避免索引偏移問題
-                                            let mut to_remove: Vec<usize> = selected_indices.iter().take(2).copied().collect();
+                                            let mut to_remove: Vec<usize> =
+                                                selected_indices.iter().take(2).copied().collect();
                                             to_remove.sort_by(|a, b| b.cmp(a));
                                             for idx in to_remove {
                                                 if idx < state.hand.len() {
@@ -1221,9 +1331,12 @@ impl JokerEnv for EnvService {
                                         }
                                         TarotId::Judgement => {
                                             // 生成隨機 Joker（如果有槽位）
-                                            if state.jokers.len() < state.effective_joker_slot_limit() {
+                                            if state.jokers.len()
+                                                < state.effective_joker_slot_limit()
+                                            {
                                                 // 創建一個隨機 common joker
-                                                let joker_id = JokerId::random_common(&mut state.rng);
+                                                let joker_id =
+                                                    JokerId::random_common(&mut state.rng);
                                                 state.jokers.push(JokerSlot::new(joker_id));
                                             }
                                         }
@@ -1317,13 +1430,16 @@ impl JokerEnv for EnvService {
                                             // 加 Foil/Holo/Poly 到選中牌
                                             if let Some(&idx) = selected_indices.first() {
                                                 let editions = Edition::all_common();
-                                                let edition = editions[state.rng.gen_range(0..editions.len())];
+                                                let edition = editions
+                                                    [state.rng.gen_range(0..editions.len())];
                                                 state.hand[idx].edition = edition;
                                             }
                                         }
                                         SpectralId::Wraith => {
                                             // 生成 Rare Joker，金幣歸零
-                                            if state.jokers.len() < state.effective_joker_slot_limit() {
+                                            if state.jokers.len()
+                                                < state.effective_joker_slot_limit()
+                                            {
                                                 let joker_id = JokerId::random_rare(&mut state.rng);
                                                 state.jokers.push(JokerSlot::new(joker_id));
                                             }
@@ -1346,20 +1462,28 @@ impl JokerEnv for EnvService {
                                         }
                                         SpectralId::Ectoplasm => {
                                             // 加 Negative 到隨機 Joker，-1 手牌大小
-                                            let non_negative_jokers: Vec<usize> = state.jokers.iter()
+                                            let non_negative_jokers: Vec<usize> = state
+                                                .jokers
+                                                .iter()
                                                 .enumerate()
                                                 .filter(|(_, j)| j.enabled && !j.is_negative)
                                                 .map(|(i, _)| i)
                                                 .collect();
                                             if !non_negative_jokers.is_empty() {
-                                                let idx = non_negative_jokers[state.rng.gen_range(0..non_negative_jokers.len())];
+                                                let idx = non_negative_jokers[state
+                                                    .rng
+                                                    .gen_range(0..non_negative_jokers.len())];
                                                 state.jokers[idx].is_negative = true;
                                             }
                                             state.hand_size_modifier -= 1;
                                         }
                                         SpectralId::Immolate => {
                                             // 銷毀選中的牌（最多5張），得 $20
-                                            let to_remove = selected_indices.iter().take(5).copied().collect::<Vec<_>>();
+                                            let to_remove = selected_indices
+                                                .iter()
+                                                .take(5)
+                                                .copied()
+                                                .collect::<Vec<_>>();
                                             let mut sorted = to_remove;
                                             sorted.sort_by(|a, b| b.cmp(a));
                                             for idx in sorted {
@@ -1371,13 +1495,16 @@ impl JokerEnv for EnvService {
                                         }
                                         SpectralId::Ankh => {
                                             // 複製隨機 Joker，銷毀其他
-                                            let enabled_jokers: Vec<usize> = state.jokers.iter()
+                                            let enabled_jokers: Vec<usize> = state
+                                                .jokers
+                                                .iter()
                                                 .enumerate()
                                                 .filter(|(_, j)| j.enabled)
                                                 .map(|(i, _)| i)
                                                 .collect();
                                             if !enabled_jokers.is_empty() {
-                                                let keep_idx = enabled_jokers[state.rng.gen_range(0..enabled_jokers.len())];
+                                                let keep_idx = enabled_jokers
+                                                    [state.rng.gen_range(0..enabled_jokers.len())];
                                                 let kept = state.jokers[keep_idx].clone();
                                                 state.jokers.clear();
                                                 state.jokers.push(kept.clone());
@@ -1392,13 +1519,16 @@ impl JokerEnv for EnvService {
                                         }
                                         SpectralId::Hex => {
                                             // 加 Polychrome 到隨機 Joker，銷毀其他
-                                            let enabled_jokers: Vec<usize> = state.jokers.iter()
+                                            let enabled_jokers: Vec<usize> = state
+                                                .jokers
+                                                .iter()
                                                 .enumerate()
                                                 .filter(|(_, j)| j.enabled)
                                                 .map(|(i, _)| i)
                                                 .collect();
                                             if !enabled_jokers.is_empty() {
-                                                let keep_idx = enabled_jokers[state.rng.gen_range(0..enabled_jokers.len())];
+                                                let keep_idx = enabled_jokers
+                                                    [state.rng.gen_range(0..enabled_jokers.len())];
                                                 let mut kept = state.jokers[keep_idx].clone();
                                                 kept.edition = Edition::Polychrome;
                                                 state.jokers.clear();
@@ -1427,8 +1557,11 @@ impl JokerEnv for EnvService {
                                         }
                                         SpectralId::TheSoul => {
                                             // 生成 Legendary Joker
-                                            if state.jokers.len() < state.effective_joker_slot_limit() {
-                                                let joker_id = JokerId::random_legendary(&mut state.rng);
+                                            if state.jokers.len()
+                                                < state.effective_joker_slot_limit()
+                                            {
+                                                let joker_id =
+                                                    JokerId::random_legendary(&mut state.rng);
                                                 state.jokers.push(JokerSlot::new(joker_id));
                                             }
                                         }
@@ -1450,10 +1583,10 @@ impl JokerEnv for EnvService {
                     state.reward = 0;
 
                     // ReservedParking: 手中人頭牌 1/2 機率 +$1 (回合結束)
-                    let face_cards_in_hand = state.hand.iter()
-                        .filter(|c| c.is_face())
-                        .count();
-                    let reserved_parking_count = state.jokers.iter()
+                    let face_cards_in_hand = state.hand.iter().filter(|c| c.is_face()).count();
+                    let reserved_parking_count = state
+                        .jokers
+                        .iter()
                         .filter(|j| j.enabled && j.id == JokerId::ReservedParking)
                         .count();
                     // 為每個 ReservedParking，每張人頭牌 50% 機率 +$1
@@ -1472,7 +1605,9 @@ impl JokerEnv for EnvService {
                     }
 
                     // GiftCard: 每輪結束每個 Joker +$1 售價
-                    let gift_card_count = state.jokers.iter()
+                    let gift_card_count = state
+                        .jokers
+                        .iter()
                         .filter(|j| j.enabled && j.id == JokerId::GiftCard)
                         .count() as i64;
                     if gift_card_count > 0 {
@@ -1482,32 +1617,41 @@ impl JokerEnv for EnvService {
                     }
 
                     // Rocket: 每輪結束 +rocket_money 金幣
-                    let rocket_money: i64 = state.jokers.iter()
+                    let rocket_money: i64 = state
+                        .jokers
+                        .iter()
                         .filter(|j| j.enabled && j.id == JokerId::Rocket)
                         .map(|j| j.rocket_money as i64)
                         .sum();
                     state.money += rocket_money;
 
                     // Satellite: 每用過的 Planet +$1
-                    let satellite_count = state.jokers.iter()
+                    let satellite_count = state
+                        .jokers
+                        .iter()
                         .filter(|j| j.enabled && j.id == JokerId::Satellite)
                         .count() as i64;
                     state.money += satellite_count * state.planets_used_this_run as i64;
 
                     // Certificate: 每張手中 Gold Seal 牌 +$1
-                    let certificate_count = state.jokers.iter()
+                    let certificate_count = state
+                        .jokers
+                        .iter()
                         .filter(|j| j.enabled && j.id == JokerId::Certificate)
                         .count() as i64;
-                    let gold_seal_count = state.hand.iter()
-                        .filter(|c| c.seal == Seal::Gold)
-                        .count() as i64;
+                    let gold_seal_count =
+                        state.hand.iter().filter(|c| c.seal == Seal::Gold).count() as i64;
                     state.money += certificate_count * gold_seal_count;
 
                     // CloudNine: 每張牌組中的 9 +$1
-                    let cloud_nine_count = state.jokers.iter()
+                    let cloud_nine_count = state
+                        .jokers
+                        .iter()
                         .filter(|j| j.enabled && j.id == JokerId::CloudNine)
                         .count() as i64;
-                    let nines_in_deck = state.deck.iter()
+                    let nines_in_deck = state
+                        .deck
+                        .iter()
                         .chain(state.hand.iter())
                         .chain(state.discarded.iter())
                         .filter(|c| c.rank == 9)
@@ -1515,10 +1659,14 @@ impl JokerEnv for EnvService {
                     state.money += cloud_nine_count * nines_in_deck;
 
                     // Golden_Ticket: 牌組中每張 Gold 增強牌 +$3
-                    let golden_ticket_count = state.jokers.iter()
+                    let golden_ticket_count = state
+                        .jokers
+                        .iter()
                         .filter(|j| j.enabled && j.id == JokerId::Golden_Ticket)
                         .count() as i64;
-                    let gold_cards_in_full_deck = state.deck.iter()
+                    let gold_cards_in_full_deck = state
+                        .deck
+                        .iter()
                         .chain(state.hand.iter())
                         .chain(state.discarded.iter())
                         .filter(|c| c.enhancement == Enhancement::Gold)
@@ -1527,20 +1675,22 @@ impl JokerEnv for EnvService {
 
                     // Delayed: 如果本輪沒有使用棄牌 +$2
                     if state.discards_used_this_blind == 0 {
-                        let delayed_count = state.jokers.iter()
+                        let delayed_count = state
+                            .jokers
+                            .iter()
                             .filter(|j| j.enabled && j.id == JokerId::Delayed)
                             .count() as i64;
                         state.money += delayed_count * 2;
                     }
 
                     // Blue Seal: 手中持有 Blue Seal 牌時，生成對應最後打出牌型的 Planet 卡
-                    let blue_seal_count = state.hand.iter()
-                        .filter(|c| c.seal == Seal::Blue)
-                        .count();
+                    let blue_seal_count =
+                        state.hand.iter().filter(|c| c.seal == Seal::Blue).count();
                     if blue_seal_count > 0 {
                         // 使用最後打出的牌型（如果有）
                         if let Some(&last_hand_type) = state.played_hand_types.last() {
-                            if let Some(planet_id) = PlanetId::from_hand_type_index(last_hand_type) {
+                            if let Some(planet_id) = PlanetId::from_hand_type_index(last_hand_type)
+                            {
                                 for _ in 0..blue_seal_count {
                                     if !state.consumables.is_full() {
                                         state.consumables.add(Consumable::Planet(planet_id));
@@ -1573,14 +1723,21 @@ impl JokerEnv for EnvService {
                     // === Tag 效果觸發 ===
 
                     // TopUpTag: 填滿 Common Joker（最多 2 個）
-                    let topup_count = state.tags.iter().filter(|t| !t.used && t.id == TagId::TopUpTag).count();
+                    let topup_count = state
+                        .tags
+                        .iter()
+                        .filter(|t| !t.used && t.id == TagId::TopUpTag)
+                        .count();
                     if topup_count > 0 {
                         let common_jokers = JokerId::by_rarity(1);
                         let effective_slots = state.effective_joker_slot_limit();
                         let mut added = 0;
                         for _ in 0..topup_count {
                             for _ in 0..2 {
-                                if state.jokers.len() < effective_slots && !common_jokers.is_empty() && added < 2 {
+                                if state.jokers.len() < effective_slots
+                                    && !common_jokers.is_empty()
+                                    && added < 2
+                                {
                                     let idx = state.rng.gen_range(0..common_jokers.len());
                                     state.jokers.push(JokerSlot::new(common_jokers[idx]));
                                     added += 1;
@@ -1596,7 +1753,11 @@ impl JokerEnv for EnvService {
                     }
 
                     // CharmTag: 獲得免費 Mega Arcana Pack（產生 2 張 Tarot 卡）
-                    let charm_count = state.tags.iter().filter(|t| !t.used && t.id == TagId::CharmTag).count();
+                    let charm_count = state
+                        .tags
+                        .iter()
+                        .filter(|t| !t.used && t.id == TagId::CharmTag)
+                        .count();
                     for _ in 0..charm_count {
                         let all_tarots = TarotId::all();
                         for _ in 0..2 {
@@ -1613,7 +1774,11 @@ impl JokerEnv for EnvService {
                     }
 
                     // MeteorTag: 獲得免費 Mega Celestial Pack（產生 2 張 Planet 卡）
-                    let meteor_count = state.tags.iter().filter(|t| !t.used && t.id == TagId::MeteorTag).count();
+                    let meteor_count = state
+                        .tags
+                        .iter()
+                        .filter(|t| !t.used && t.id == TagId::MeteorTag)
+                        .count();
                     for _ in 0..meteor_count {
                         let all_planets = PlanetId::all();
                         for _ in 0..2 {
@@ -1630,12 +1795,18 @@ impl JokerEnv for EnvService {
                     }
 
                     // EtherealTag: 獲得免費 Spectral Pack（產生 1 張 Spectral 卡）
-                    let ethereal_count = state.tags.iter().filter(|t| !t.used && t.id == TagId::EtherealTag).count();
+                    let ethereal_count = state
+                        .tags
+                        .iter()
+                        .filter(|t| !t.used && t.id == TagId::EtherealTag)
+                        .count();
                     for _ in 0..ethereal_count {
                         if !state.consumables.is_full() {
                             let all_spectrals = SpectralId::all();
                             let idx = state.rng.gen_range(0..all_spectrals.len());
-                            state.consumables.add(Consumable::Spectral(all_spectrals[idx]));
+                            state
+                                .consumables
+                                .add(Consumable::Spectral(all_spectrals[idx]));
                         }
                     }
                     for tag in &mut state.tags {
@@ -1645,7 +1816,11 @@ impl JokerEnv for EnvService {
                     }
 
                     // BuffoonTag: 獲得免費 Mega Buffoon Pack（產生 1 個 Joker）
-                    let buffoon_count = state.tags.iter().filter(|t| !t.used && t.id == TagId::BuffoonTag).count();
+                    let buffoon_count = state
+                        .tags
+                        .iter()
+                        .filter(|t| !t.used && t.id == TagId::BuffoonTag)
+                        .count();
                     for _ in 0..buffoon_count {
                         let effective_slots = state.effective_joker_slot_limit();
                         if state.jokers.len() < effective_slots {
@@ -1661,7 +1836,11 @@ impl JokerEnv for EnvService {
                     }
 
                     // StandardTag: 獲得免費 Mega Standard Pack（將 3 張牌加入牌組）
-                    let standard_count = state.tags.iter().filter(|t| !t.used && t.id == TagId::StandardTag).count();
+                    let standard_count = state
+                        .tags
+                        .iter()
+                        .filter(|t| !t.used && t.id == TagId::StandardTag)
+                        .count();
                     for _ in 0..standard_count {
                         for _ in 0..3 {
                             let rank = state.rng.gen_range(1..=13) as u8;
@@ -1678,7 +1857,9 @@ impl JokerEnv for EnvService {
                     // === End Tag Effects ===
 
                     // Perkeo: 進入商店時，為隨機消耗品生成 Negative 複製
-                    let perkeo_count = state.jokers.iter()
+                    let perkeo_count = state
+                        .jokers
+                        .iter()
                         .filter(|j| j.enabled && j.id == JokerId::Perkeo)
                         .count();
                     for _ in 0..perkeo_count {
@@ -1698,7 +1879,9 @@ impl JokerEnv for EnvService {
                     ACTION_TYPE_BUY_JOKER => {
                         let index = action_id as usize;
                         // CreditCard: 允許 $20 負債
-                        let has_credit_card = state.jokers.iter()
+                        let has_credit_card = state
+                            .jokers
+                            .iter()
                             .any(|j| j.enabled && j.id == JokerId::CreditCard);
                         let debt_limit = if has_credit_card { 20 } else { 0 };
                         if let Some(item) = state.shop.items.get(index) {
@@ -1758,11 +1941,14 @@ impl JokerEnv for EnvService {
                             }
                         }
                         // 移除 perishable_rounds <= 0 的 Joker
-                        state.jokers.retain(|j| !j.is_perishable || j.perishable_rounds > 0);
+                        state
+                            .jokers
+                            .retain(|j| !j.is_perishable || j.perishable_rounds > 0);
 
                         // Rental: 回合結束時支付 $3 租金，付不起則銷毀
                         let rental_cost = 3i64;
-                        let rental_count = state.jokers.iter().filter(|j| j.is_rental).count() as i64;
+                        let rental_count =
+                            state.jokers.iter().filter(|j| j.is_rental).count() as i64;
                         let total_rental_cost = rental_count * rental_cost;
                         if state.money >= total_rental_cost {
                             // 付得起全部租金
@@ -1770,7 +1956,8 @@ impl JokerEnv for EnvService {
                         } else {
                             // 付不起，依次移除 Rental Joker 直到付得起
                             while state.jokers.iter().filter(|j| j.is_rental).count() > 0 {
-                                let current_rental = state.jokers.iter().filter(|j| j.is_rental).count() as i64;
+                                let current_rental =
+                                    state.jokers.iter().filter(|j| j.is_rental).count() as i64;
                                 let current_cost = current_rental * rental_cost;
                                 if state.money >= current_cost {
                                     state.money -= current_cost;
@@ -1790,7 +1977,10 @@ impl JokerEnv for EnvService {
                         // ChaosTheClown: 每回合 1 次免費 reroll
                         let mut chaos_free_reroll = false;
                         for joker in &state.jokers {
-                            if joker.enabled && joker.id == JokerId::ChaosTheClown && !joker.chaos_free_reroll_used {
+                            if joker.enabled
+                                && joker.id == JokerId::ChaosTheClown
+                                && !joker.chaos_free_reroll_used
+                            {
                                 chaos_free_reroll = true;
                                 break;
                             }
@@ -1800,7 +1990,9 @@ impl JokerEnv for EnvService {
                         }
 
                         // CreditCard: 允許 $20 負債
-                        let has_credit_card = state.jokers.iter()
+                        let has_credit_card = state
+                            .jokers
+                            .iter()
                             .any(|j| j.enabled && j.id == JokerId::CreditCard);
                         let debt_limit = if has_credit_card { 20 } else { 0 };
                         if reroll_cost <= state.money + debt_limit {
@@ -1843,13 +2035,18 @@ impl JokerEnv for EnvService {
 
                             // InvisibleJoker: counter >= 2 時賣出可複製隨機 Joker
                             if sold_joker.id == JokerId::InvisibleJoker && sold_joker.counter >= 2 {
-                                let enabled_jokers: Vec<usize> = state.jokers.iter()
+                                let enabled_jokers: Vec<usize> = state
+                                    .jokers
+                                    .iter()
                                     .enumerate()
                                     .filter(|(_, j)| j.enabled)
                                     .map(|(i, _)| i)
                                     .collect();
-                                if !enabled_jokers.is_empty() && state.jokers.len() < state.effective_joker_slot_limit() {
-                                    let target_idx = enabled_jokers[state.rng.gen_range(0..enabled_jokers.len())];
+                                if !enabled_jokers.is_empty()
+                                    && state.jokers.len() < state.effective_joker_slot_limit()
+                                {
+                                    let target_idx = enabled_jokers
+                                        [state.rng.gen_range(0..enabled_jokers.len())];
                                     let copied = state.jokers[target_idx].clone();
                                     state.jokers.push(copied);
                                 }
@@ -1934,7 +2131,9 @@ impl JokerEnv for EnvService {
                         if let Some(voucher_id) = state.shop_voucher {
                             let cost = voucher_id.cost();
                             // CreditCard: 允許 $20 負債
-                            let has_credit_card = state.jokers.iter()
+                            let has_credit_card = state
+                                .jokers
+                                .iter()
                                 .any(|j| j.enabled && j.id == JokerId::CreditCard);
                             let debt_limit = if has_credit_card { 20 } else { 0 };
                             if cost <= state.money + debt_limit {
@@ -1949,7 +2148,9 @@ impl JokerEnv for EnvService {
                     ACTION_TYPE_BUY_PACK => {
                         let index = action_id as usize;
                         // CreditCard: 允許 $20 負債
-                        let has_credit_card = state.jokers.iter()
+                        let has_credit_card = state
+                            .jokers
+                            .iter()
                             .any(|j| j.enabled && j.id == JokerId::CreditCard);
                         let debt_limit = if has_credit_card { 20 } else { 0 };
                         if let Some(pack) = state.shop_packs.get(index).cloned() {
@@ -1959,7 +2160,9 @@ impl JokerEnv for EnvService {
                                 state.money -= cost;
 
                                 // Hallucination (#173): 開包時 1/2 機率生成 Tarot 卡
-                                let has_hallucination = state.jokers.iter()
+                                let has_hallucination = state
+                                    .jokers
+                                    .iter()
                                     .any(|j| j.enabled && j.id == JokerId::Hallucination);
                                 if has_hallucination && state.rng.gen_range(0..2) == 0 {
                                     let tarot_id = TarotId::from_index(state.rng.gen_range(0..22));
@@ -1970,7 +2173,8 @@ impl JokerEnv for EnvService {
 
                                 // 生成卡包內容並自動選擇
                                 let full_pack_type = pack.pack_type.to_pack_type();
-                                let contents = PackContents::generate(full_pack_type, &mut state.rng);
+                                let contents =
+                                    PackContents::generate(full_pack_type, &mut state.rng);
                                 let pick_count = full_pack_type.pick_count();
                                 let effective_joker_slots = state.effective_joker_slot_limit();
 
@@ -1984,7 +2188,9 @@ impl JokerEnv for EnvService {
                                             state.consumables.add(Consumable::Planet(planet_id));
                                         }
                                         PackItem::Spectral(spectral_id) => {
-                                            state.consumables.add(Consumable::Spectral(spectral_id));
+                                            state
+                                                .consumables
+                                                .add(Consumable::Spectral(spectral_id));
                                         }
                                         PackItem::Joker(joker_id, edition) => {
                                             if state.jokers.len() < effective_joker_slots {

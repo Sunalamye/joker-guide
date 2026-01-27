@@ -9,34 +9,34 @@ use rand::rngs::StdRng;
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum TagId {
     // 經濟類
-    UncommonTag,  // 免費獲得一張 Uncommon Joker
-    RareTag,      // 免費獲得一張 Rare Joker
-    NegativeTag,  // 下一個 Joker 變成 Negative
-    FoilTag,      // 下一個 Joker 變成 Foil
+    UncommonTag,    // 免費獲得一張 Uncommon Joker
+    RareTag,        // 免費獲得一張 Rare Joker
+    NegativeTag,    // 下一個 Joker 變成 Negative
+    FoilTag,        // 下一個 Joker 變成 Foil
     HolographicTag, // 下一個 Joker 變成 Holographic
-    PolychromeTag, // 下一個 Joker 變成 Polychrome
-    InvestmentTag, // +$25 at end of round
-    VoucherTag,   // 免費獲得一張 Voucher
-    BossTag,      // 重抽 Boss Blind
-    StandardTag,  // 獲得免費 Standard Pack
-    BuffoonTag,   // 獲得免費 Buffoon Pack
-    MeteorTag,    // 獲得免費 Meteor Pack
-    EtherealTag,  // 獲得免費 Ethereal Pack
-    CelestialTag, // 獲得免費 Celestial Pack
+    PolychromeTag,  // 下一個 Joker 變成 Polychrome
+    InvestmentTag,  // +$25 at end of round
+    VoucherTag,     // 免費獲得一張 Voucher
+    BossTag,        // 重抽 Boss Blind
+    StandardTag,    // 獲得免費 Standard Pack
+    BuffoonTag,     // 獲得免費 Buffoon Pack
+    MeteorTag,      // 獲得免費 Meteor Pack
+    EtherealTag,    // 獲得免費 Ethereal Pack
+    CelestialTag,   // 獲得免費 Celestial Pack
     // 商店類
-    CouponTag,    // 商店物品 50% off
-    DoubleTag,    // 複製下一個選擇的 Tag
-    JuggleTag,    // +3 手牌大小
-    D6Tag,        // 免費 Reroll 整個商店
-    TopUpTag,     // 建立 2 個常見消耗品
-    SpeedTag,     // +$25 並跳過商店
-    OrbitalTag,   // 升級一種牌型
-    EconomyTag,   // +$10 (簡單經濟獎勵)
+    CouponTag,  // 商店物品 50% off
+    DoubleTag,  // 複製下一個選擇的 Tag
+    JuggleTag,  // +3 手牌大小
+    D6Tag,      // 免費 Reroll 整個商店
+    TopUpTag,   // 建立 2 個常見消耗品
+    SpeedTag,   // +$25 並跳過商店
+    OrbitalTag, // 升級一種牌型
+    EconomyTag, // +$10 (簡單經濟獎勵)
     // 動態獎勵類
-    HandyTag,     // $1 per hand played (跳過時根據剩餘出牌次數給錢)
-    GarbageTag,   // $1 per unused discard (跳過時根據剩餘棄牌次數給錢)
+    HandyTag,   // $1 per hand played (跳過時根據剩餘出牌次數給錢)
+    GarbageTag, // $1 per unused discard (跳過時根據剩餘棄牌次數給錢)
     // Arcana 卡包類
-    CharmTag,     // 獲得免費 Mega Arcana Pack
+    CharmTag, // 獲得免費 Mega Arcana Pack
 }
 
 impl TagId {
