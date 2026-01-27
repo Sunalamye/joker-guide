@@ -164,6 +164,12 @@ impl JokerEnv for EnvService {
                             .count() as i32;
                         state.discards_left += drunkard_count;
 
+                        // Troubadour: -1 出牌次數每輪
+                        let troubadour_count = state.jokers.iter()
+                            .filter(|j| j.enabled && j.id == JokerId::Troubadour)
+                            .count() as i32;
+                        state.plays_left = (state.plays_left - troubadour_count).max(1);
+
                         state.score = 0;
                         state.played_hand_types.clear();
                         state.first_hand_type = None;
