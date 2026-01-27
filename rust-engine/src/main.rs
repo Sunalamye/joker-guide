@@ -1010,6 +1010,8 @@ impl JokerEnv for EnvService {
                                     }
                                     // Satellite: 追蹤使用的 Planet 數量
                                     state.planets_used_this_run += 1;
+                                    // 更新 last_used_consumable
+                                    state.last_used_consumable = Some(consumable.clone());
                                 }
                                 Consumable::Tarot(tarot_id) => {
                                     // FortuneTeller: 使用 ctx.tarots_used_this_run 計分
@@ -1161,9 +1163,35 @@ impl JokerEnv for EnvService {
                                                 state.jokers.push(JokerSlot::new(joker_id));
                                             }
                                         }
-                                        _ => {
-                                            // TODO: TheFool, TheWheelOfFortune 等需要額外邏輯
+                                        TarotId::TheWheelOfFortune => {
+                                            // 1/4 機率給隨機 Joker 添加 edition
+                                            let joker_count = state.jokers.len();
+                                            if joker_count > 0 && state.rng.gen_range(0..4) == 0 {
+                                                let idx = state.rng.gen_range(0..joker_count);
+                                                // 隨機選擇 Foil/Holographic/Polychrome
+                                                let edition = match state.rng.gen_range(0..3) {
+                                                    0 => Edition::Foil,
+                                                    1 => Edition::Holographic,
+                                                    _ => Edition::Polychrome,
+                                                };
+                                                state.jokers[idx].edition = edition;
+                                            }
                                         }
+                                        TarotId::TheFool => {
+                                            // 複製上一張使用的消耗品（不包括 TheFool 自己）
+                                            if let Some(last) = state.last_used_consumable.clone() {
+                                                if !state.consumables.is_full() {
+                                                    state.consumables.add(last);
+                                                }
+                                            }
+                                        }
+                                        _ => {
+                                            // 其他 Tarot 不需要額外處理
+                                        }
+                                    }
+                                    // 更新 last_used_consumable（TheFool 除外，它不會更新）
+                                    if *tarot_id != TarotId::TheFool {
+                                        state.last_used_consumable = Some(consumable.clone());
                                     }
                                 }
                                 Consumable::Spectral(spectral_id) => {
@@ -1332,6 +1360,8 @@ impl JokerEnv for EnvService {
                                             }
                                         }
                                     }
+                                    // 更新 last_used_consumable
+                                    state.last_used_consumable = Some(consumable.clone());
                                 }
                             }
                         }
@@ -1637,10 +1667,23 @@ impl JokerEnv for EnvService {
                                     }
                                     // Satellite: 追蹤使用的 Planet 數量
                                     state.planets_used_this_run += 1;
+                                    // 更新 last_used_consumable
+                                    state.last_used_consumable = Some(consumable.clone());
                                 }
-                                Consumable::Tarot(_) => {
+                                Consumable::Tarot(tarot_id) => {
                                     // FortuneTeller: 使用 ctx.tarots_used_this_run 計分
                                     state.tarots_used_this_run += 1;
+                                    // TheFool: 複製上一張消耗品
+                                    if *tarot_id == TarotId::TheFool {
+                                        if let Some(last) = state.last_used_consumable.clone() {
+                                            if !state.consumables.is_full() {
+                                                state.consumables.add(last);
+                                            }
+                                        }
+                                    } else {
+                                        // 更新 last_used_consumable（TheFool 除外）
+                                        state.last_used_consumable = Some(consumable.clone());
+                                    }
                                 }
                                 Consumable::Spectral(spectral_id) => {
                                     // 處理 Spectral 效果
@@ -1650,9 +1693,11 @@ impl JokerEnv for EnvService {
                                             state.hand_levels.upgrade_all();
                                         }
                                         _ => {
-                                            // TODO: 實作其他 Spectral 效果
+                                            // Shop 階段其他 Spectral 無法使用（需要選擇手牌）
                                         }
                                     }
+                                    // 更新 last_used_consumable
+                                    state.last_used_consumable = Some(consumable.clone());
                                 }
                             }
                         }

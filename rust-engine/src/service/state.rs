@@ -4,7 +4,7 @@ use rand::seq::SliceRandom;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::game::{
-    Ante, BlindType, BossBlind, Card, Enhancement, JokerId, JokerSlot, Seal, Shop, Stage,
+    Ante, BlindType, BossBlind, Card, Consumable, Enhancement, JokerId, JokerSlot, Seal, Shop, Stage,
     Tag, TagId, ConsumableSlots, HandLevels, VoucherEffects, VoucherId,
     DeckType, DeckConfig, Stake, StakeConfig,
     DISCARDS_PER_BLIND, HAND_SIZE, INTEREST_RATE, JOKER_SLOTS, MAX_INTEREST,
@@ -131,6 +131,9 @@ pub struct EnvState {
 
     // Spectral 永久效果
     pub hand_size_modifier: i32, // Ouija/Ectoplasm: 永久手牌大小修改
+
+    // TheFool: 上一張使用的消耗品
+    pub last_used_consumable: Option<Consumable>,
 }
 
 impl EnvState {
@@ -179,6 +182,7 @@ impl EnvState {
             hand_type_counts: [0; 13],
             pillar_played_cards: std::collections::HashSet::new(),
             hand_size_modifier: 0,
+            last_used_consumable: None,
         }
     }
 
@@ -231,6 +235,7 @@ impl EnvState {
             hand_type_counts: [0; 13],
             pillar_played_cards: std::collections::HashSet::new(),
             hand_size_modifier: 0,
+            last_used_consumable: None,
         }
     }
 
