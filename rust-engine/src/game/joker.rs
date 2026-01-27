@@ -459,6 +459,8 @@ pub struct ScoringContext<'a> {
     pub uncommon_joker_count: usize,
     /// 牌組中增強牌數量 (DriversLicense)
     pub enhanced_cards_in_deck: i32,
+    /// Mime: 手中持有牌的能力是否重觸發
+    pub has_mime: bool,
 }
 
 impl<'a> ScoringContext<'a> {
@@ -494,6 +496,7 @@ impl<'a> ScoringContext<'a> {
             joker_slot_limit: 5, // 默認 5 個槽位
             uncommon_joker_count: 0,
             enhanced_cards_in_deck: 0,
+            has_mime: false,
         }
     }
 }
@@ -844,15 +847,19 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
         }
         JokerId::Baron => {
             // Each King held in hand (not played) gives X1.5 Mult
+            // Mime: 效果觸發兩次
             let kings_in_hand = ctx.hand.iter().filter(|c| c.rank == 13).count();
             if kings_in_hand > 0 {
-                bonus.mul_mult *= 1.5f32.powi(kings_in_hand as i32);
+                let trigger_count = if ctx.has_mime { 2 } else { 1 };
+                bonus.mul_mult *= 1.5f32.powi((kings_in_hand * trigger_count) as i32);
             }
         }
         JokerId::ShootTheMoon => {
             // Each Queen held in hand (not played) gives +13 Mult
+            // Mime: 效果觸發兩次
             let queens_in_hand = ctx.hand.iter().filter(|c| c.rank == 12).count();
-            bonus.add_mult += queens_in_hand as i64 * 13;
+            let trigger_count = if ctx.has_mime { 2 } else { 1 };
+            bonus.add_mult += queens_in_hand as i64 * 13 * trigger_count as i64;
         }
         JokerId::Swashbuckler => {
             // Each card below 8 held in hand gives +2 Mult (ranks 2-7)

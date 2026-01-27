@@ -4,7 +4,7 @@ use rand::rngs::StdRng;
 use rand::Rng;
 
 use crate::game::{
-    BossBlind, Card, Enhancement, HandId, JokerSlot, Seal,
+    BossBlind, Card, Enhancement, HandId, JokerId, JokerSlot, Seal,
     ScoringContext, compute_joker_bonus, score_hand_with_rules, JokerRules,
 };
 
@@ -64,6 +64,8 @@ pub fn calculate_play_score(
     ctx.uncommon_joker_count = jokers.iter().filter(|j| j.id.rarity() == 2).count();
     // 牌組中增強牌數量 (DriversLicense)
     ctx.enhanced_cards_in_deck = enhanced_cards_in_deck;
+    // Mime: 手中持有牌能力重觸發
+    ctx.has_mime = jokers.iter().any(|j| j.enabled && j.id == JokerId::Mime);
 
     // 生成隨機值給需要隨機效果的 Joker（如 Misprint）
     let rng_values: Vec<u8> = (0..jokers.len()).map(|_| rng.gen()).collect();
