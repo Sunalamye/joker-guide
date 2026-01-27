@@ -169,6 +169,13 @@ impl JokerEnv for EnvService {
                         state.first_hand_type = None;
                         state.discards_used_this_blind = 0;
 
+                        // Hit The Road: 每 Blind 開始時重置 X Mult
+                        for joker in &mut state.jokers {
+                            if joker.enabled && joker.id == JokerId::Hit_The_Road {
+                                joker.hit_the_road_mult = 1.0;
+                            }
+                        }
+
                         // MarbleJoker: 選擇 Blind 時加 Stone 卡到牌組
                         let marble_joker_count = state.jokers.iter()
                             .filter(|j| j.enabled && j.id == JokerId::MarbleJoker)
@@ -450,6 +457,16 @@ impl JokerEnv for EnvService {
                                 for joker in &mut state.jokers {
                                     if joker.enabled && joker.id == JokerId::Castle {
                                         joker.update_castle_on_discard(card.suit);
+                                    }
+                                }
+                            }
+
+                            // Hit The Road: 每棄 Jack +0.5 X Mult
+                            let jack_count = selected_cards.iter().filter(|c| c.rank == 11).count() as i32;
+                            if jack_count > 0 {
+                                for joker in &mut state.jokers {
+                                    if joker.enabled {
+                                        joker.update_hit_the_road_on_jack_discard(jack_count);
                                     }
                                 }
                             }

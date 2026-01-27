@@ -1057,6 +1057,8 @@ pub struct JokerSlot {
     pub castle_suit: u8,
     /// Castle: 累積的 Chips (每棄特定花色牌 +3)
     pub castle_chips: i32,
+    /// Hit The Road: X Mult 累積 (起始 1.0, 每棄 Jack +0.5)
+    pub hit_the_road_mult: f32,
 }
 
 impl JokerSlot {
@@ -1092,6 +1094,7 @@ impl JokerSlot {
             ancient_suit: 0,  // AncientJoker: 初始為 Diamonds (0)
             castle_suit: 0,   // Castle: 初始為 Diamonds (0)
             castle_chips: 0,  // Castle: 初始 0 chips
+            hit_the_road_mult: 1.0,  // Hit The Road: 初始 X1.0 Mult
         }
     }
 
@@ -1193,6 +1196,13 @@ impl JokerSlot {
         }
     }
 
+    /// Hit The Road: 棄 Jack 時調用 (+0.5 X Mult per Jack)
+    pub fn update_hit_the_road_on_jack_discard(&mut self, jacks_discarded: i32) {
+        if self.id == JokerId::Hit_The_Road {
+            self.hit_the_road_mult += jacks_discarded as f32 * 0.5;
+        }
+    }
+
     /// 獲取此 Joker 的 X Mult 值（用於計分）
     pub fn get_x_mult(&self) -> f32 {
         match self.id {
@@ -1204,6 +1214,7 @@ impl JokerSlot {
             JokerId::Madness => self.madness_mult,
             JokerId::Yorick => self.yorick_mult,
             JokerId::GlassJoker => self.glass_mult,
+            JokerId::Hit_The_Road => self.hit_the_road_mult,
             _ => 1.0,
         }
     }
@@ -1280,6 +1291,11 @@ pub fn compute_joker_effect_with_state(joker: &JokerSlot, ctx: &ScoringContext, 
             if joker.counter >= 6 {
                 bonus.mul_mult = 4.0;
             }
+        }
+        JokerId::Hit_The_Road => {
+            // Hit The Road: 使用累積的 hit_the_road_mult
+            // 每回合棄掉的 Jack +0.5 X Mult
+            bonus.mul_mult = joker.hit_the_road_mult;
         }
         _ => {}
     }
