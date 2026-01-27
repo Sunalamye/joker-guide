@@ -773,6 +773,12 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
                 bonus.mul_mult *= 2.0;
             }
         }
+        JokerId::SuperPosition => {
+            // X2 Mult when hand is both a Straight AND a Flush (Straight Flush or Royal Flush)
+            if matches!(ctx.hand_id, HandId::StraightFlush | HandId::RoyalFlush) {
+                bonus.mul_mult *= 2.0;
+            }
+        }
 
         // ====== 消耗品計數類 ======
         JokerId::FortuneTeller => {
