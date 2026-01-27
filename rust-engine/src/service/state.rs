@@ -121,6 +121,9 @@ pub struct EnvState {
     // Blind 追蹤
     pub discards_used_this_blind: i32, // Delayed: +$2 if no discards used
     pub hands_played_this_blind: i32,  // DNA: X2 分數 if first hand
+
+    // Obelisk: 牌型計數（用於確定最常打的牌型）
+    pub hand_type_counts: [i32; 13],
 }
 
 impl EnvState {
@@ -165,6 +168,7 @@ impl EnvState {
             planets_used_this_run: 0,
             discards_used_this_blind: 0,
             hands_played_this_blind: 0,
+            hand_type_counts: [0; 13],
         }
     }
 
@@ -213,6 +217,7 @@ impl EnvState {
             planets_used_this_run: 0,
             discards_used_this_blind: 0,
             hands_played_this_blind: 0,
+            hand_type_counts: [0; 13],
         }
     }
 

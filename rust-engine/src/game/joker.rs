@@ -1074,6 +1074,8 @@ pub struct JokerSlot {
     pub hit_the_road_mult: f32,
     /// Selzer: 剩餘重觸發次數 (起始 10, 用完自毀)
     pub selzer_charges: i32,
+    /// Obelisk: 連續非最常打牌型次數 (每次 +X0.2 Mult)
+    pub obelisk_streak: i32,
 }
 
 impl JokerSlot {
@@ -1111,6 +1113,7 @@ impl JokerSlot {
             castle_chips: 0,  // Castle: 初始 0 chips
             hit_the_road_mult: 1.0,  // Hit The Road: 初始 X1.0 Mult
             selzer_charges: if id == JokerId::Selzer { 10 } else { 0 },  // Selzer: 10 張牌重觸發
+            obelisk_streak: 0,  // Obelisk: 連續非最常打牌型次數
         }
     }
 
@@ -1312,6 +1315,11 @@ pub fn compute_joker_effect_with_state(joker: &JokerSlot, ctx: &ScoringContext, 
             // Hit The Road: 使用累積的 hit_the_road_mult
             // 每回合棄掉的 Jack +0.5 X Mult
             bonus.mul_mult = joker.hit_the_road_mult;
+        }
+        JokerId::Obelisk => {
+            // Obelisk: X0.2 Mult per consecutive hand without most played type
+            // streak 在 main.rs 打牌後更新
+            bonus.mul_mult = 1.0 + (joker.obelisk_streak as f32 * 0.2);
         }
         _ => {}
     }

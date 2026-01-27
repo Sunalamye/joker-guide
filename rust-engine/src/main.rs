@@ -352,6 +352,24 @@ impl JokerEnv for EnvService {
                                     state.first_hand_type = Some(hand_type_idx);
                                 }
 
+                                // Obelisk: 更新牌型計數和連續非最常打牌型 streak
+                                state.hand_type_counts[hand_type_idx] += 1;
+                                let max_count = *state.hand_type_counts.iter().max().unwrap_or(&0);
+                                let most_played_idx = state.hand_type_counts.iter()
+                                    .position(|&c| c == max_count)
+                                    .unwrap_or(0);
+                                let is_most_played = hand_type_idx == most_played_idx;
+
+                                for joker in &mut state.jokers {
+                                    if joker.enabled && joker.id == JokerId::Obelisk {
+                                        if is_most_played {
+                                            joker.obelisk_streak = 0;  // 打了最常打的，重置
+                                        } else {
+                                            joker.obelisk_streak += 1;  // 連續非最常打 +1
+                                        }
+                                    }
+                                }
+
                                 state.score += score_gained;
                                 state.plays_left -= 1;
                                 state.hands_played_this_blind += 1; // DNA: 追蹤第一手牌
