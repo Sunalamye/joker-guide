@@ -1346,6 +1346,15 @@ impl JokerEnv for EnvService {
                                         }
                                         SpectralId::Ectoplasm => {
                                             // 加 Negative 到隨機 Joker，-1 手牌大小
+                                            let non_negative_jokers: Vec<usize> = state.jokers.iter()
+                                                .enumerate()
+                                                .filter(|(_, j)| j.enabled && !j.is_negative)
+                                                .map(|(i, _)| i)
+                                                .collect();
+                                            if !non_negative_jokers.is_empty() {
+                                                let idx = non_negative_jokers[state.rng.gen_range(0..non_negative_jokers.len())];
+                                                state.jokers[idx].is_negative = true;
+                                            }
                                             state.hand_size_modifier -= 1;
                                         }
                                         SpectralId::Immolate => {
