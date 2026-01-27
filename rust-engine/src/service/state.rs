@@ -120,6 +120,7 @@ pub struct EnvState {
 
     // Blind 追蹤
     pub discards_used_this_blind: i32, // Delayed: +$2 if no discards used
+    pub hands_played_this_blind: i32,  // DNA: X2 分數 if first hand
 }
 
 impl EnvState {
@@ -163,6 +164,7 @@ impl EnvState {
             blinds_skipped: 0,
             planets_used_this_run: 0,
             discards_used_this_blind: 0,
+            hands_played_this_blind: 0,
         }
     }
 
@@ -210,6 +212,7 @@ impl EnvState {
             blinds_skipped: 0,
             planets_used_this_run: 0,
             discards_used_this_blind: 0,
+            hands_played_this_blind: 0,
         }
     }
 

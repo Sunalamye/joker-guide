@@ -41,6 +41,8 @@ pub fn calculate_play_score(
     blinds_skipped: i32,
     joker_slot_limit: usize,
     enhanced_cards_in_deck: i32,
+    is_first_hand: bool,
+    is_final_hand: bool,
     rng: &mut StdRng,
 ) -> CardScoreResult {
     // 從 Joker 構建規則（FourFingers, Shortcut, Splash, Smeared 等）
@@ -54,6 +56,8 @@ pub fn calculate_play_score(
     ctx.joker_slot_limit = joker_slot_limit;
     ctx.rerolls_this_run = rerolls_this_run;
     ctx.blinds_skipped = blinds_skipped;
+    ctx.is_first_hand = is_first_hand;
+    ctx.is_final_hand = is_final_hand;
     // 計算 Uncommon Joker 數量 (rarity == 2)
     ctx.uncommon_joker_count = jokers.iter().filter(|j| j.id.rarity() == 2).count();
     // 牌組中增強牌數量 (DriversLicense)

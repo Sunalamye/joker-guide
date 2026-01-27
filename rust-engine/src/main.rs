@@ -168,6 +168,7 @@ impl JokerEnv for EnvService {
                         state.played_hand_types.clear();
                         state.first_hand_type = None;
                         state.discards_used_this_blind = 0;
+                        state.hands_played_this_blind = 0;
 
                         // Hit The Road: 每 Blind 開始時重置 X Mult
                         for joker in &mut state.jokers {
@@ -300,6 +301,9 @@ impl JokerEnv for EnvService {
                                 let enhanced_cards_in_deck = state.deck.iter()
                                     .filter(|c| c.enhancement != Enhancement::None)
                                     .count() as i32;
+                                // DNA: 是否是第一手牌；DuskJoker/Acrobat: 是否是最後一手牌
+                                let is_first_hand = state.hands_played_this_blind == 0;
+                                let is_final_hand = state.plays_left == 1;
                                 let score_result = calculate_play_score(
                                     &selected,
                                     &jokers_clone,
@@ -309,6 +313,8 @@ impl JokerEnv for EnvService {
                                     state.blinds_skipped,
                                     state.joker_slot_limit,
                                     enhanced_cards_in_deck,
+                                    is_first_hand,
+                                    is_final_hand,
                                     &mut state.rng,
                                 );
                                 let score_gained = score_result.score;
@@ -336,6 +342,7 @@ impl JokerEnv for EnvService {
 
                                 state.score += score_gained;
                                 state.plays_left -= 1;
+                                state.hands_played_this_blind += 1; // DNA: 追蹤第一手牌
                                 state.money += score_result.money_gained;
 
                                 // SpaceJoker: 1/4 機率升級出過的牌型

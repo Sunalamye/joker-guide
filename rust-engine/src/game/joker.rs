@@ -714,6 +714,12 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
                 bonus.mul_mult *= 3.0;
             }
         }
+        JokerId::DNA => {
+            // DNA: 每回合第一手牌觸發兩次 (X2 分數效果)
+            if ctx.is_first_hand {
+                bonus.mul_mult *= 2.0;
+            }
+        }
         JokerId::Photograph => {
             if ctx.played_cards.iter().any(|c| c.rank >= 11 && c.rank <= 13) {
                 bonus.mul_mult *= 2.0;
