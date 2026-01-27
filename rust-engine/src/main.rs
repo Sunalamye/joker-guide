@@ -207,6 +207,14 @@ impl JokerEnv for EnvService {
                             }
                         }
 
+                        // Castle: 每回合開始時隨機設置花色
+                        let castle_random_suit: u8 = state.rng.gen_range(0..4);
+                        for joker in &mut state.jokers {
+                            if joker.enabled && joker.id == JokerId::Castle {
+                                joker.set_castle_suit(castle_random_suit);
+                            }
+                        }
+
                         state.deal();
 
                         if state.boss_blind == Some(BossBlind::TheHook) {
@@ -430,6 +438,15 @@ impl JokerEnv for EnvService {
                                 }
                             }
                             state.money += money_bonus;
+
+                            // Castle: 每棄特定花色牌 +3 Chips (永久)
+                            for card in &selected_cards {
+                                for joker in &mut state.jokers {
+                                    if joker.enabled && joker.id == JokerId::Castle {
+                                        joker.update_castle_on_discard(card.suit);
+                                    }
+                                }
+                            }
 
                             // Sixth: 棄 6 張牌時銷毀自身並獲得 Spectral 卡
                             if cards_discarded == 6 {

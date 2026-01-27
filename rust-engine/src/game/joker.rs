@@ -967,6 +967,10 @@ pub struct JokerSlot {
     pub rocket_money: i32,
     /// AncientJoker: 當前選定的花色 (0-3, 每回合隨機變化)
     pub ancient_suit: u8,
+    /// Castle: 當前選定的花色 (0-3, 每回合隨機變化)
+    pub castle_suit: u8,
+    /// Castle: 累積的 Chips (每棄特定花色牌 +3)
+    pub castle_chips: i32,
 }
 
 impl JokerSlot {
@@ -1000,6 +1004,8 @@ impl JokerSlot {
             glass_mult: 1.0,
             rocket_money: 1,  // Rocket: 初始每回合 +$1
             ancient_suit: 0,  // AncientJoker: 初始為 Diamonds (0)
+            castle_suit: 0,   // Castle: 初始為 Diamonds (0)
+            castle_chips: 0,  // Castle: 初始 0 chips
         }
     }
 
@@ -1087,6 +1093,20 @@ impl JokerSlot {
         }
     }
 
+    /// Castle: 設置當前花色 (每回合開始時隨機調用)
+    pub fn set_castle_suit(&mut self, suit: u8) {
+        if self.id == JokerId::Castle {
+            self.castle_suit = suit % 4;  // 確保在 0-3 範圍內
+        }
+    }
+
+    /// Castle: 棄牌時調用 (如果花色匹配，+3 Chips)
+    pub fn update_castle_on_discard(&mut self, discarded_suit: u8) {
+        if self.id == JokerId::Castle && discarded_suit == self.castle_suit {
+            self.castle_chips += 3;
+        }
+    }
+
     /// 獲取此 Joker 的 X Mult 值（用於計分）
     pub fn get_x_mult(&self) -> f32 {
         match self.id {
@@ -1163,6 +1183,10 @@ pub fn compute_joker_effect_with_state(joker: &JokerSlot, ctx: &ScoringContext, 
             if has_suit {
                 bonus.mul_mult = 1.5;
             }
+        }
+        JokerId::Castle => {
+            // Castle: 使用累積的 castle_chips (每棄特定花色牌 +3)
+            bonus.chip_bonus = joker.castle_chips as i64;
         }
         _ => {}
     }
