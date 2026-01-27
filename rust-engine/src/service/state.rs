@@ -514,8 +514,7 @@ impl EnvState {
                 JokerId::Juggler => modifier += 1,
                 JokerId::Troubadour => modifier += 2,
                 JokerId::Stuntman => modifier -= 2,
-                // TurtleBean: +5，但每輪 -1（需要追蹤狀態）
-                // JokerId::TurtleBean => modifier += joker.turtle_hand_mod,
+                JokerId::TurtleBean => modifier += joker.turtle_hand_mod,
                 _ => {}
             }
         }

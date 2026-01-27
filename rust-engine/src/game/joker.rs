@@ -1076,6 +1076,8 @@ pub struct JokerSlot {
     pub selzer_charges: i32,
     /// Obelisk: 連續非最常打牌型次數 (每次 +X0.2 Mult)
     pub obelisk_streak: i32,
+    /// TurtleBean: 手牌大小加成 (起始 5, 每輪 -1, 到 0 時自毀)
+    pub turtle_hand_mod: i32,
 }
 
 impl JokerSlot {
@@ -1114,6 +1116,7 @@ impl JokerSlot {
             hit_the_road_mult: 1.0,  // Hit The Road: 初始 X1.0 Mult
             selzer_charges: if id == JokerId::Selzer { 10 } else { 0 },  // Selzer: 10 張牌重觸發
             obelisk_streak: 0,  // Obelisk: 連續非最常打牌型次數
+            turtle_hand_mod: if id == JokerId::TurtleBean { 5 } else { 0 },  // TurtleBean: +5 手牌大小
         }
     }
 

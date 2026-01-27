@@ -183,6 +183,16 @@ impl JokerEnv for EnvService {
                             }
                         }
 
+                        // TurtleBean: 每輪 -1 手牌大小，到 0 時自毀
+                        for joker in &mut state.jokers {
+                            if joker.enabled && joker.id == JokerId::TurtleBean {
+                                joker.turtle_hand_mod -= 1;
+                                if joker.turtle_hand_mod <= 0 {
+                                    joker.enabled = false;  // 自毀
+                                }
+                            }
+                        }
+
                         // MarbleJoker: 選擇 Blind 時加 Stone 卡到牌組
                         let marble_joker_count = state.jokers.iter()
                             .filter(|j| j.enabled && j.id == JokerId::MarbleJoker)
