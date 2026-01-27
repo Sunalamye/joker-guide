@@ -527,6 +527,23 @@ impl JokerEnv for EnvService {
                                     }
                                 }
 
+                                // Vampire: 吸收打出牌的增強效果，獲得 +0.1 X Mult 並移除增強
+                                let vampire_idx = state.jokers.iter()
+                                    .position(|j| j.enabled && j.id == JokerId::Vampire);
+                                if let Some(v_idx) = vampire_idx {
+                                    let selected_mask = state.selected_mask;
+                                    let mut enhancements_absorbed = 0;
+                                    for (idx, card) in state.hand.iter_mut().enumerate() {
+                                        if ((selected_mask >> idx) & 1) == 1 && card.enhancement != Enhancement::None {
+                                            enhancements_absorbed += 1;
+                                            card.enhancement = Enhancement::None; // 移除增強
+                                        }
+                                    }
+                                    if enhancements_absorbed > 0 {
+                                        state.jokers[v_idx].update_vampire_on_enhancement(enhancements_absorbed);
+                                    }
+                                }
+
                                 // Hiker: 打出的牌永久 +2 Chips
                                 let hiker_count = state.jokers.iter()
                                     .filter(|j| j.enabled && j.id == JokerId::Hiker)
