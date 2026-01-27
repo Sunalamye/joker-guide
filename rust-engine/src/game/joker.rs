@@ -836,6 +836,11 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
             let below_8_count = ctx.hand.iter().filter(|c| c.rank >= 2 && c.rank <= 7).count();
             bonus.add_mult += below_8_count as i64 * 2;
         }
+        JokerId::Courier => {
+            // +25 Chips per card below Ace held in hand (ranks 2-13, i.e., not Ace)
+            let below_ace_count = ctx.hand.iter().filter(|c| c.rank < 14).count();
+            bonus.chip_bonus += below_ace_count as i64 * 25;
+        }
         JokerId::Card_Sharp => {
             if ctx.hands_played_this_round > 0 {
                 bonus.mul_mult *= 3.0;
