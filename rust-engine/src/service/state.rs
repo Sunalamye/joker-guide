@@ -117,6 +117,7 @@ pub struct EnvState {
     pub rerolls_this_run: i32,    // Flash Joker: +2 Mult per reroll
     pub blinds_skipped: i32,      // RedCard: +3 Mult per skip
     pub planets_used_this_run: i32, // Satellite: +$1 per unique Planet used
+    pub tarots_used_this_run: i32,  // Fortune_Teller: +1 Mult per Tarot used
 
     // Blind 追蹤
     pub discards_used_this_blind: i32, // Delayed: +$2 if no discards used
@@ -166,6 +167,7 @@ impl EnvState {
             rerolls_this_run: 0,
             blinds_skipped: 0,
             planets_used_this_run: 0,
+            tarots_used_this_run: 0,
             discards_used_this_blind: 0,
             hands_played_this_blind: 0,
             hand_type_counts: [0; 13],
@@ -215,6 +217,7 @@ impl EnvState {
             rerolls_this_run: 0,
             blinds_skipped: 0,
             planets_used_this_run: 0,
+            tarots_used_this_run: 0,
             discards_used_this_blind: 0,
             hands_played_this_blind: 0,
             hand_type_counts: [0; 13],

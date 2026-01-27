@@ -832,8 +832,27 @@ impl JokerEnv for EnvService {
 
                     ACTION_TYPE_USE_CONSUMABLE => {
                         let index = action_id as usize;
-                        if let Some(_consumable) = state.consumables.use_item(index) {
-                            // TODO: 實作消耗品效果
+                        if let Some(consumable) = state.consumables.use_item(index) {
+                            // 根據消耗品類型更新 Joker 狀態
+                            match &consumable {
+                                Consumable::Planet(_) => {
+                                    // Constellation: 每使用 Planet 卡 +0.1 X Mult
+                                    for joker in &mut state.jokers {
+                                        if joker.enabled && joker.id == JokerId::Constellation {
+                                            joker.update_constellation_on_planet_used();
+                                        }
+                                    }
+                                    // Satellite: 追蹤使用的 Planet 數量
+                                    state.planets_used_this_run += 1;
+                                }
+                                Consumable::Tarot(_) => {
+                                    // FortuneTeller: 使用 ctx.tarots_used_this_run 計分
+                                    state.tarots_used_this_run += 1;
+                                }
+                                Consumable::Spectral(_) => {
+                                    // TODO: 實作 Spectral 效果
+                                }
+                            }
                         }
                     }
 
@@ -1104,8 +1123,27 @@ impl JokerEnv for EnvService {
 
                     ACTION_TYPE_USE_CONSUMABLE => {
                         let index = action_id as usize;
-                        if let Some(_consumable) = state.consumables.use_item(index) {
-                            // TODO: 實作消耗品效果
+                        if let Some(consumable) = state.consumables.use_item(index) {
+                            // 根據消耗品類型更新 Joker 狀態
+                            match &consumable {
+                                Consumable::Planet(_) => {
+                                    // Constellation: 每使用 Planet 卡 +0.1 X Mult
+                                    for joker in &mut state.jokers {
+                                        if joker.enabled && joker.id == JokerId::Constellation {
+                                            joker.update_constellation_on_planet_used();
+                                        }
+                                    }
+                                    // Satellite: 追蹤使用的 Planet 數量
+                                    state.planets_used_this_run += 1;
+                                }
+                                Consumable::Tarot(_) => {
+                                    // FortuneTeller: 使用 ctx.tarots_used_this_run 計分
+                                    state.tarots_used_this_run += 1;
+                                }
+                                Consumable::Spectral(_) => {
+                                    // TODO: 實作 Spectral 效果
+                                }
+                            }
                         }
                     }
 
