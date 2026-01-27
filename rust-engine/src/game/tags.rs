@@ -35,6 +35,8 @@ pub enum TagId {
     // 動態獎勵類
     HandyTag,     // $1 per hand played (跳過時根據剩餘出牌次數給錢)
     GarbageTag,   // $1 per unused discard (跳過時根據剩餘棄牌次數給錢)
+    // Arcana 卡包類
+    CharmTag,     // 獲得免費 Mega Arcana Pack
 }
 
 impl TagId {
@@ -71,6 +73,7 @@ impl TagId {
             TagId::EconomyTag,
             TagId::HandyTag,
             TagId::GarbageTag,
+            TagId::CharmTag,
         ]
     }
 
@@ -127,7 +130,26 @@ impl TagId {
             TagId::EconomyTag => 21,
             TagId::HandyTag => 22,
             TagId::GarbageTag => 23,
+            TagId::CharmTag => 24,
         }
+    }
+
+    /// 是否給予免費卡包
+    pub fn gives_free_pack(&self) -> bool {
+        matches!(
+            self,
+            TagId::StandardTag
+                | TagId::BuffoonTag
+                | TagId::MeteorTag
+                | TagId::EtherealTag
+                | TagId::CelestialTag
+                | TagId::CharmTag
+        )
+    }
+
+    /// 是否複製下一個 Tag (DoubleTag)
+    pub fn doubles_next_tag(&self) -> bool {
+        matches!(self, TagId::DoubleTag)
     }
 }
 
@@ -154,7 +176,7 @@ impl Tag {
 }
 
 /// Tag 常量
-pub const TAG_COUNT: usize = 24;
+pub const TAG_COUNT: usize = 25;
 
 // ============================================================================
 // 單元測試

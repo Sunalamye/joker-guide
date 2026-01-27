@@ -589,6 +589,9 @@ fn tag_base_value(tag: TagId) -> f32 {
         // 動態經濟類（基於 hands/discards）
         TagId::HandyTag => 0.08,        // $4 (1 per hand) - 小額但穩定
         TagId::GarbageTag => 0.06,      // $3 (1 per discard) - 小額穩定
+
+        // Arcana Pack 類
+        TagId::CharmTag => 0.24,        // Mega Arcana Pack - 5 張 Tarot 選 1
     }
 }
 
