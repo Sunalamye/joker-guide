@@ -536,6 +536,7 @@ impl JokerEnv for EnvService {
 
                             // 經濟類 Joker 觸發 - 先計算獎勵，避免借用衝突
                             let mut money_bonus = 0i64;
+                            let mut trading_cards_to_trigger = 0usize;
                             for joker in &mut state.jokers {
                                 if !joker.enabled { continue; }
                                 match joker.id {
@@ -545,11 +546,11 @@ impl JokerEnv for EnvService {
                                             money_bonus += 5;
                                         }
                                     }
-                                    // TradingCard: 首次棄人頭牌時創建 Tarot
+                                    // TradingCard: 首次棄人頭牌時創建 Tarot (標記觸發，之後創建)
                                     JokerId::TradingCard => {
                                         if has_face && !joker.trading_card_triggered {
                                             joker.trading_card_triggered = true;
-                                            // TODO: 創建隨機 Tarot 到消耗品欄位
+                                            trading_cards_to_trigger += 1;
                                         }
                                     }
                                     // MailInRebate: 棄 K 時 +$5
@@ -560,6 +561,15 @@ impl JokerEnv for EnvService {
                                 }
                             }
                             state.money += money_bonus;
+
+                            // TradingCard: 創建 Tarot 卡
+                            for _ in 0..trading_cards_to_trigger {
+                                if !state.consumables.is_full() {
+                                    let all_tarots = TarotId::all();
+                                    let idx = state.rng.gen_range(0..all_tarots.len());
+                                    state.consumables.add(Consumable::Tarot(all_tarots[idx]));
+                                }
+                            }
 
                             // Castle: 每棄特定花色牌 +3 Chips (永久)
                             for card in &selected_cards {
