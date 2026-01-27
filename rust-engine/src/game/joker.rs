@@ -5,7 +5,7 @@
 //! - Tier 2 (ConditionalJoker): 條件觸發類，使用 trait object
 //! - Tier 3: 複雜/動態 Joker，未來擴展
 
-use super::cards::Card;
+use super::cards::{Card, Enhancement};
 use super::hand_types::HandId;
 
 // ============================================================================
@@ -726,6 +726,13 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
             // +$1 per Diamond played
             let diamonds = ctx.played_cards.iter().filter(|c| c.suit == 1).count();
             bonus.money_bonus += diamonds as i64;
+        }
+        JokerId::Ticket => {
+            // +$1 per Gold enhancement card played
+            let gold_cards = ctx.played_cards.iter()
+                .filter(|c| c.enhancement == Enhancement::Gold)
+                .count();
+            bonus.money_bonus += gold_cards as i64;
         }
 
         // ====== Walkie Talkie ======
