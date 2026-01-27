@@ -38,7 +38,7 @@ pub const SHOP_FEATURES: usize = SHOP_JOKER_COUNT * (JOKER_ID_SIZE + 1); // id +
 
 // 新增觀察空間
 pub const BOSS_BLIND_COUNT: usize = 27;
-pub const DECK_TYPE_FEATURES: usize = 12;    // DECK_TYPE_COUNT (one-hot)
+pub const DECK_TYPE_FEATURES: usize = 16;    // DECK_TYPE_COUNT (one-hot)
 pub const STAKE_FEATURES: usize = 8;         // STAKE_COUNT (one-hot)
 pub const VOUCHER_FEATURES: usize = 36;      // VOUCHER_COUNT (binary flags for owned)
 pub const CONSUMABLE_FEATURES: usize = 52;   // CONSUMABLE_COUNT per slot

@@ -46,6 +46,18 @@ pub enum DeckType {
 
     /// 不穩定牌組：點數和花色隨機化
     Erratic,
+
+    /// 魔法牌組：起始 Crystal Ball Voucher，2 張 Fool Tarot
+    Magic,
+
+    /// 星雲牌組：起始 Telescope Voucher，-1 consumable slot
+    Nebula,
+
+    /// 黃道牌組：起始 3 個商人 Voucher (Tarot/Planet/Card Merchant)
+    Zodiac,
+
+    /// 立體牌組：每次 Boss 過關後獲得 Double Tag
+    Anaglyph,
 }
 
 impl DeckType {
@@ -64,6 +76,10 @@ impl DeckType {
             DeckType::Painted,
             DeckType::Plasma,
             DeckType::Erratic,
+            DeckType::Magic,
+            DeckType::Nebula,
+            DeckType::Zodiac,
+            DeckType::Anaglyph,
         ]
     }
 
@@ -82,6 +98,10 @@ impl DeckType {
             DeckType::Painted => "Painted Deck",
             DeckType::Plasma => "Plasma Deck",
             DeckType::Erratic => "Erratic Deck",
+            DeckType::Magic => "Magic Deck",
+            DeckType::Nebula => "Nebula Deck",
+            DeckType::Zodiac => "Zodiac Deck",
+            DeckType::Anaglyph => "Anaglyph Deck",
         }
     }
 
@@ -178,6 +198,48 @@ impl DeckType {
             DeckType::Painted => 9,
             DeckType::Plasma => 10,
             DeckType::Erratic => 11,
+            DeckType::Magic => 12,
+            DeckType::Nebula => 13,
+            DeckType::Zodiac => 14,
+            DeckType::Anaglyph => 15,
+        }
+    }
+
+    /// Consumable slot 修正
+    pub fn consumable_slots_modifier(&self) -> i32 {
+        match self {
+            DeckType::Nebula => -1,
+            _ => 0,
+        }
+    }
+
+    /// 起始 Voucher 列表
+    pub fn starting_vouchers(&self) -> Vec<super::VoucherId> {
+        match self {
+            DeckType::Magic => vec![super::VoucherId::CrystalBall],
+            DeckType::Nebula => vec![super::VoucherId::Telescope],
+            DeckType::Zodiac => vec![
+                super::VoucherId::Tarot_Merchant,
+                super::VoucherId::Planet_Merchant,
+                super::VoucherId::Overstock,
+            ],
+            _ => vec![],
+        }
+    }
+
+    /// 是否在 Boss 過關後獲得 Double Tag
+    pub fn gives_double_tag_after_boss(&self) -> bool {
+        matches!(self, DeckType::Anaglyph)
+    }
+
+    /// 起始消耗品 (Tarot ID 列表)
+    pub fn starting_consumables(&self) -> Vec<super::TarotId> {
+        match self {
+            DeckType::Magic => vec![
+                super::TarotId::TheFool,
+                super::TarotId::TheFool,
+            ],
+            _ => vec![],
         }
     }
 }
@@ -256,7 +318,7 @@ fn create_erratic_deck(rng: &mut StdRng) -> Vec<Card> {
 }
 
 /// 牌組類型總數
-pub const DECK_TYPE_COUNT: usize = 12;
+pub const DECK_TYPE_COUNT: usize = 16;
 
 // ============================================================================
 // 單元測試
