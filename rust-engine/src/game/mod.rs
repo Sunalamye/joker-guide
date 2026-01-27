@@ -8,13 +8,14 @@
 //! - `scoring`: 計分引擎
 //! - `joker`: Joker 系統 (Tiered Architecture)
 //! - `shop`: 商店系統
-//! - `reward`: 獎勵計算系統
 //! - `tags`: Tag 系統（跳過 Blind 獎勵）
 //! - `decks`: 起始牌組系統
 //! - `stakes`: Stake 難度系統
 //! - `vouchers`: Voucher 永久升級系統
 //! - `consumables`: 消耗品系統 (Tarot/Planet/Spectral)
 //! - `packs`: 卡包系統
+//!
+//! 注意：獎勵計算由 Python 端處理，Rust 端只提供遊戲狀態
 
 #![allow(unused_imports)]
 
@@ -25,7 +26,6 @@ pub mod hand_types;
 pub mod scoring;
 pub mod joker;
 pub mod shop;
-pub mod reward;
 pub mod tags;
 pub mod decks;
 pub mod stakes;
@@ -41,13 +41,6 @@ pub use hand_types::{HandId, HandScore};
 pub use scoring::{score_hand, score_hand_with_rules, hand_potential, JokerRules};
 pub use joker::{JokerId, JokerSlot, JokerBonus, ScoringContext, compute_joker_bonus, JOKER_COUNT};
 pub use shop::{Shop, ShopItem};
-pub use reward::{
-    combo_score, joker_buy_reward, play_reward, blind_clear_reward,
-    ante_progress_reward, game_end_reward, money_reward,
-    skip_blind_reward, skip_blind_reward_v2, consumable_use_reward, voucher_buy_reward,
-    card_enhancement_reward, reroll_reward, reroll_reward_with_ante,
-    sell_joker_reward, discard_reward,
-};
 pub use tags::{Tag, TagId, TAG_COUNT};
 pub use decks::{DeckType, DeckConfig, DECK_TYPE_COUNT};
 pub use stakes::{Stake, StakeConfig, STAKE_COUNT};
