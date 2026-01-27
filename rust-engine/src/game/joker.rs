@@ -13,7 +13,7 @@ use super::hand_types::HandId;
 // ============================================================================
 
 /// Joker 總數
-pub const JOKER_COUNT: usize = 163;
+pub const JOKER_COUNT: usize = 164;
 
 /// Joker 唯一識別碼
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -201,6 +201,7 @@ pub enum JokerId {
     SquareJoker = 160,   // 牌組正好 52 張時，每張打出的牌 +4 Mult
     DietCola = 161,      // 賣出時 +$100（實際獲得售價 + $100）
     ChaosTheClown = 162, // 每回合 1 次免費 reroll
+    Hallucination = 163, // 開包時有機率生成 Tarot 卡
 }
 
 impl JokerId {

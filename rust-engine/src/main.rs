@@ -1743,6 +1743,18 @@ impl JokerEnv for EnvService {
                                 let cost = pack.cost;
                                 action_cost = cost;
                                 state.money -= cost;
+
+                                // Hallucination (#163): 開包時 1/2 機率生成 Tarot 卡
+                                let has_hallucination = state.jokers.iter()
+                                    .any(|j| j.enabled && j.id == JokerId::Hallucination);
+                                if has_hallucination && state.rng.gen_range(0..2) == 0 {
+                                    // 生成隨機 Tarot 卡
+                                    let tarot_id = TarotId::from_index(state.rng.gen_range(0..22));
+                                    if let Some(tarot) = tarot_id {
+                                        state.consumables.add(Consumable::Tarot(tarot));
+                                    }
+                                }
+
                                 // TODO: 實作卡包開啟邏輯
                                 state.shop_packs.remove(index);
                             }
