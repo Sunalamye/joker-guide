@@ -585,6 +585,16 @@ impl JokerEnv for EnvService {
                         }
                     }
 
+                    // GiftCard: 每輪結束每個 Joker +$1 售價
+                    let gift_card_count = state.jokers.iter()
+                        .filter(|j| j.enabled && j.id == JokerId::GiftCard)
+                        .count() as i64;
+                    if gift_card_count > 0 {
+                        for joker in state.jokers.iter_mut() {
+                            joker.sell_value += gift_card_count;
+                        }
+                    }
+
                     // Rocket: 每輪結束 +rocket_money 金幣
                     let rocket_money: i64 = state.jokers.iter()
                         .filter(|j| j.enabled && j.id == JokerId::Rocket)
