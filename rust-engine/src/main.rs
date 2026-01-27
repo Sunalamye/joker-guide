@@ -1629,7 +1629,7 @@ impl JokerEnv for EnvService {
 
                     ACTION_TYPE_SELL_JOKER => {
                         let index = action_id as usize;
-                        if index < state.jokers.len() {
+                        if index < state.jokers.len() && !state.jokers[index].is_eternal {
                             let sold_joker = state.jokers.remove(index);
                             let mut sell_value = sold_joker.sell_value;
 

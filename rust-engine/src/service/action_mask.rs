@@ -85,7 +85,10 @@ pub fn action_mask_from_state(state: &EnvState, done: bool) -> Tensor {
 
     // Sell joker slots (5)
     for i in 0..JOKER_SLOTS {
-        let can_sell = in_shop && i < state.jokers.len();
+        // Eternal Jokers 無法賣出
+        let can_sell = in_shop
+            && i < state.jokers.len()
+            && !state.jokers[i].is_eternal;
         data[offset + i] = if can_sell { 1.0 } else { 0.0 };
     }
     offset += JOKER_SLOTS;
