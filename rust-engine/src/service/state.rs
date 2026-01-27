@@ -30,6 +30,20 @@ pub enum BoosterPackType {
     Buffoon,    // 2 Joker 選 1
 }
 
+impl BoosterPackType {
+    /// 轉換為 PackType（用於生成卡包內容）
+    pub fn to_pack_type(self) -> crate::game::PackType {
+        use crate::game::PackType;
+        match self {
+            BoosterPackType::Arcana => PackType::Arcana,
+            BoosterPackType::Celestial => PackType::Celestial,
+            BoosterPackType::Spectral => PackType::Spectral,
+            BoosterPackType::Standard => PackType::Standard,
+            BoosterPackType::Buffoon => PackType::Buffoon,
+        }
+    }
+}
+
 impl BoosterPack {
     pub fn random(rng: &mut StdRng) -> Self {
         let types = [

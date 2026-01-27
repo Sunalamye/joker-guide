@@ -583,24 +583,30 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
 
         // ====== Pair 牌型加成 ======
         JokerId::JollyJoker => {
-            if matches!(ctx.hand_id, HandId::Pair | HandId::TwoPair | HandId::FullHouse) {
+            // 包含 Pair 的牌型: Pair, TwoPair, FullHouse, FlushHouse
+            if matches!(ctx.hand_id, HandId::Pair | HandId::TwoPair |
+                       HandId::FullHouse | HandId::FlushHouse) {
                 bonus.add_mult += 8;
             }
         }
         JokerId::SlyJoker => {
-            if matches!(ctx.hand_id, HandId::Pair | HandId::TwoPair | HandId::FullHouse) {
+            if matches!(ctx.hand_id, HandId::Pair | HandId::TwoPair |
+                       HandId::FullHouse | HandId::FlushHouse) {
                 bonus.chip_bonus += 50;
             }
         }
 
         // ====== Three of a Kind 加成 ======
         JokerId::ZanyJoker => {
-            if matches!(ctx.hand_id, HandId::ThreeKind | HandId::FullHouse | HandId::FourKind) {
+            // 包含 Three of a Kind 的牌型: ThreeKind, FullHouse, FourKind, FiveKind, FlushHouse, FlushFive
+            if matches!(ctx.hand_id, HandId::ThreeKind | HandId::FullHouse |
+                       HandId::FourKind | HandId::FiveKind | HandId::FlushHouse | HandId::FlushFive) {
                 bonus.add_mult += 12;
             }
         }
         JokerId::WilyJoker => {
-            if matches!(ctx.hand_id, HandId::ThreeKind | HandId::FullHouse | HandId::FourKind) {
+            if matches!(ctx.hand_id, HandId::ThreeKind | HandId::FullHouse |
+                       HandId::FourKind | HandId::FiveKind | HandId::FlushHouse | HandId::FlushFive) {
                 bonus.chip_bonus += 100;
             }
         }
@@ -631,12 +637,15 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
 
         // ====== Flush 加成 ======
         JokerId::DrollJoker => {
-            if matches!(ctx.hand_id, HandId::Flush | HandId::StraightFlush | HandId::RoyalFlush) {
+            // 包含 Flush 的牌型: Flush, StraightFlush, RoyalFlush, FlushHouse, FlushFive
+            if matches!(ctx.hand_id, HandId::Flush | HandId::StraightFlush | HandId::RoyalFlush |
+                       HandId::FlushHouse | HandId::FlushFive) {
                 bonus.add_mult += 10;
             }
         }
         JokerId::CraftyJoker => {
-            if matches!(ctx.hand_id, HandId::Flush | HandId::StraightFlush | HandId::RoyalFlush) {
+            if matches!(ctx.hand_id, HandId::Flush | HandId::StraightFlush | HandId::RoyalFlush |
+                       HandId::FlushHouse | HandId::FlushFive) {
                 bonus.chip_bonus += 80;
             }
         }

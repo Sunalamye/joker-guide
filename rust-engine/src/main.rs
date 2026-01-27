@@ -23,6 +23,7 @@ use game::{
     ACTION_TYPE_USE_CONSUMABLE, ACTION_TYPE_BUY_VOUCHER, ACTION_TYPE_BUY_PACK,
     Stage, GameEnd, BlindType, BossBlind, JokerId, JokerSlot, Card, Enhancement, Edition, Seal,
     Consumable, TarotId, PlanetId, SpectralId,
+    PackContents, PackItem,
     score_hand,
 };
 
@@ -1792,24 +1793,60 @@ impl JokerEnv for EnvService {
                         let has_credit_card = state.jokers.iter()
                             .any(|j| j.enabled && j.id == JokerId::CreditCard);
                         let debt_limit = if has_credit_card { 20 } else { 0 };
-                        if let Some(pack) = state.shop_packs.get(index) {
+                        if let Some(pack) = state.shop_packs.get(index).cloned() {
                             if pack.cost <= state.money + debt_limit {
                                 let cost = pack.cost;
                                 action_cost = cost;
                                 state.money -= cost;
 
-                                // Hallucination (#163): 開包時 1/2 機率生成 Tarot 卡
+                                // Hallucination (#173): 開包時 1/2 機率生成 Tarot 卡
                                 let has_hallucination = state.jokers.iter()
                                     .any(|j| j.enabled && j.id == JokerId::Hallucination);
                                 if has_hallucination && state.rng.gen_range(0..2) == 0 {
-                                    // 生成隨機 Tarot 卡
                                     let tarot_id = TarotId::from_index(state.rng.gen_range(0..22));
                                     if let Some(tarot) = tarot_id {
                                         state.consumables.add(Consumable::Tarot(tarot));
                                     }
                                 }
 
-                                // TODO: 實作卡包開啟邏輯
+                                // 生成卡包內容並自動選擇
+                                let full_pack_type = pack.pack_type.to_pack_type();
+                                let contents = PackContents::generate(full_pack_type, &mut state.rng);
+                                let pick_count = full_pack_type.pick_count();
+                                let effective_joker_slots = state.effective_joker_slot_limit();
+
+                                // 自動選擇前 N 個項目
+                                for item in contents.items.into_iter().take(pick_count) {
+                                    match item {
+                                        PackItem::Tarot(tarot_id) => {
+                                            state.consumables.add(Consumable::Tarot(tarot_id));
+                                        }
+                                        PackItem::Planet(planet_id) => {
+                                            state.consumables.add(Consumable::Planet(planet_id));
+                                        }
+                                        PackItem::Spectral(spectral_id) => {
+                                            state.consumables.add(Consumable::Spectral(spectral_id));
+                                        }
+                                        PackItem::Joker(joker_id, edition) => {
+                                            if state.jokers.len() < effective_joker_slots {
+                                                let mut new_joker = JokerSlot::new(joker_id);
+                                                new_joker.edition = edition;
+                                                state.jokers.push(new_joker);
+                                            }
+                                        }
+                                        PackItem::PlayingCard(card) => {
+                                            // 將撲克牌加入牌組
+                                            state.deck.push(card.clone());
+                                            // Hologram: 每加牌到牌組 +0.25 X Mult
+                                            for joker in &mut state.jokers {
+                                                if joker.enabled {
+                                                    joker.update_hologram_on_card_added(1);
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+
                                 state.shop_packs.remove(index);
                             }
                         }
