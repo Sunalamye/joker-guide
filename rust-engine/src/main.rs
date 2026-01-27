@@ -399,6 +399,13 @@ impl JokerEnv for EnvService {
                             }
                         }
 
+                        // Verdant: 所有牌在回合開始時面朝下
+                        if state.boss_blind == Some(BossBlind::Verdant) {
+                            for card in &mut state.hand {
+                                card.face_down = true;
+                            }
+                        }
+
                         // TheMark: 所有 Face Card 面朝下
                         if state.boss_blind == Some(BossBlind::TheMark) {
                             for card in &mut state.hand {
