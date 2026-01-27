@@ -4,7 +4,7 @@ use rand::seq::SliceRandom;
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
 use crate::game::{
-    Ante, BlindType, BossBlind, Card, Enhancement, JokerSlot, Seal, Shop, Stage,
+    Ante, BlindType, BossBlind, Card, Enhancement, JokerId, JokerSlot, Seal, Shop, Stage,
     Tag, TagId, ConsumableSlots, HandLevels, VoucherEffects, VoucherId,
     DeckType, DeckConfig, Stake, StakeConfig,
     DISCARDS_PER_BLIND, HAND_SIZE, INTEREST_RATE, JOKER_SLOTS, MAX_INTEREST,
@@ -305,7 +305,8 @@ impl EnvState {
         self.deck.append(&mut self.hand);
         self.deck.append(&mut self.discarded);
         self.deck.shuffle(&mut self.rng);
-        self.hand = self.deck.drain(0..HAND_SIZE.min(self.deck.len())).collect();
+        let hand_size = self.effective_hand_size();
+        self.hand = self.deck.drain(0..hand_size.min(self.deck.len())).collect();
         self.selected_mask = 0;
     }
 
@@ -384,7 +385,8 @@ impl EnvState {
             let card = self.hand.remove(idx);
             self.discarded.push(card);
         }
-        let draw_count = HAND_SIZE - self.hand.len();
+        let hand_size = self.effective_hand_size();
+        let draw_count = hand_size.saturating_sub(self.hand.len());
         for _ in 0..draw_count {
             if let Some(card) = self.deck.pop() {
                 self.hand.push(card);
@@ -458,7 +460,8 @@ impl EnvState {
             }
         }
 
-        let draw_count = HAND_SIZE - new_hand.len();
+        let hand_size = self.effective_hand_size();
+        let draw_count = hand_size.saturating_sub(new_hand.len());
         for _ in 0..draw_count {
             if let Some(card) = self.deck.pop() {
                 new_hand.push(card);
@@ -487,5 +490,31 @@ impl EnvState {
             .iter()
             .filter(|c| c.enhancement == Enhancement::Gold)
             .count() as i64 * 3
+    }
+
+    /// 計算有效手牌大小（考慮 Joker 修正）
+    /// - Juggler: +1
+    /// - Troubadour: +2
+    /// - Stuntman: -2
+    /// - TurtleBean: 由 turtle_hand_mod 追蹤
+    pub fn effective_hand_size(&self) -> usize {
+        let base = HAND_SIZE as i32;
+        let mut modifier: i32 = 0;
+
+        for joker in &self.jokers {
+            if !joker.enabled {
+                continue;
+            }
+            match joker.id {
+                JokerId::Juggler => modifier += 1,
+                JokerId::Troubadour => modifier += 2,
+                JokerId::Stuntman => modifier -= 2,
+                // TurtleBean: +5，但每輪 -1（需要追蹤狀態）
+                // JokerId::TurtleBean => modifier += joker.turtle_hand_mod,
+                _ => {}
+            }
+        }
+
+        (base + modifier).max(1) as usize
     }
 }
