@@ -447,6 +447,18 @@ impl JokerEnv for EnvService {
                                     }
                                 }
 
+                                // MidasMask: 打出人頭牌時變為 Gold 增強
+                                let has_midas = state.jokers.iter()
+                                    .any(|j| j.enabled && j.id == JokerId::MidasMask);
+                                if has_midas {
+                                    let selected_mask = state.selected_mask;
+                                    for (idx, card) in state.hand.iter_mut().enumerate() {
+                                        if ((selected_mask >> idx) & 1) == 1 && card.is_face() {
+                                            card.enhancement = Enhancement::Gold;
+                                        }
+                                    }
+                                }
+
                                 // ToDoList: 打出特定牌型時 +$4，然後重新隨機選擇
                                 let todo_matches: Vec<usize> = state.jokers.iter()
                                     .enumerate()

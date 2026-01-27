@@ -13,7 +13,7 @@ use super::hand_types::HandId;
 // ============================================================================
 
 /// Joker 總數
-pub const JOKER_COUNT: usize = 157;
+pub const JOKER_COUNT: usize = 158;
 
 /// Joker 唯一識別碼
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -195,6 +195,7 @@ pub enum JokerId {
     EightBall = 154,     // 打出 8 時創建 Tarot
     ToDoList = 155,      // 打出特定牌型時 +$4
     BurntJoker = 156,    // 棄牌時升級棄掉牌型的等級
+    MidasMask = 157,     // 打出人頭牌時變為 Gold 增強
 }
 
 impl JokerId {
