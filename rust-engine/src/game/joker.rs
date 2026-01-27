@@ -894,6 +894,21 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
                 bonus.mul_mult *= 2.0;
             }
         }
+        JokerId::Seeing_Double => {
+            // X2 Mult if hand contains a Club AND at least one other suit
+            let has_club = ctx.played_cards.iter().any(|c| c.suit == 0); // Club = 0
+            let has_other_suit = ctx.played_cards.iter().any(|c| c.suit != 0);
+            if has_club && has_other_suit {
+                bonus.mul_mult *= 2.0;
+            }
+        }
+        JokerId::Flower_Pot => {
+            // X3 Mult if hand contains all 4 suits (Diamond, Club, Heart, Spade)
+            let suits: std::collections::HashSet<u8> = ctx.played_cards.iter().map(|c| c.suit).collect();
+            if suits.len() >= 4 {
+                bonus.mul_mult *= 3.0;
+            }
+        }
         JokerId::Stone => {
             // +25 Chips for each Stone card in the full deck
             bonus.chip_bonus += ctx.stone_cards_in_deck as i64 * 25;
