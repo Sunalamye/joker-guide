@@ -640,4 +640,223 @@ impl EnvState {
 
         (base + modifier).max(1) as usize
     }
+
+    // =========================================================================
+    // 卡牌操作系統 (Card Manipulation System)
+    // =========================================================================
+
+    /// 銷毀手牌中指定索引的卡牌
+    ///
+    /// 觸發 Joker 效果:
+    /// - Canio/Caino: 銷毀人頭牌時 +X Mult
+    ///
+    /// 返回銷毀的人頭牌數量（用於 Joker 狀態更新）
+    pub fn destroy_cards_from_hand(&mut self, indices: &[usize]) -> i32 {
+        if indices.is_empty() {
+            return 0;
+        }
+
+        let mut face_cards_destroyed = 0;
+
+        // 計算銷毀的人頭牌數量
+        for &idx in indices {
+            if idx < self.hand.len() {
+                let card = &self.hand[idx];
+                if card.is_face() {
+                    face_cards_destroyed += 1;
+                }
+            }
+        }
+
+        // 從大到小排序，避免索引偏移問題
+        let mut sorted_indices: Vec<usize> = indices.to_vec();
+        sorted_indices.sort_unstable_by(|a, b| b.cmp(a));
+        sorted_indices.dedup();
+
+        // 移除卡牌
+        for idx in sorted_indices {
+            if idx < self.hand.len() {
+                self.hand.remove(idx);
+            }
+        }
+
+        // 更新 Joker 狀態（Canio/Caino）
+        if face_cards_destroyed > 0 {
+            for joker in &mut self.jokers {
+                if joker.enabled {
+                    joker.update_canio_on_face_destroyed(face_cards_destroyed);
+                }
+            }
+        }
+
+        face_cards_destroyed
+    }
+
+    /// 將新卡牌加入牌組
+    ///
+    /// 觸發 Joker 效果:
+    /// - Hologram: 每加入一張牌 +0.25 X Mult
+    ///
+    /// 返回實際加入的卡牌數量
+    pub fn add_cards_to_deck(&mut self, cards: Vec<Card>) -> usize {
+        let count = cards.len();
+
+        // 加入牌組
+        self.deck.extend(cards);
+
+        // 更新 Joker 狀態（Hologram）
+        if count > 0 {
+            for joker in &mut self.jokers {
+                if joker.enabled {
+                    joker.update_hologram_on_card_added(count as i32);
+                }
+            }
+        }
+
+        count
+    }
+
+    /// 增強手牌中指定索引的卡牌
+    ///
+    /// 用於 Tarot 卡效果:
+    /// - The Magician (Lucky), The Empress (Mult), The Hierophant (Bonus)
+    /// - The Lovers (Wild), The Chariot (Steel), Justice (Glass)
+    /// - The Tower (Stone), The Devil (Gold)
+    pub fn enhance_cards(&mut self, indices: &[usize], enhancement: Enhancement) {
+        for &idx in indices {
+            if idx < self.hand.len() {
+                self.hand[idx].enhancement = enhancement;
+            }
+        }
+    }
+
+    /// 為手牌中指定索引的卡牌添加封印
+    ///
+    /// 用於 Spectral 卡效果:
+    /// - Deja Vu (Red), Trance (Blue), Medium (Purple), Talisman (Gold)
+    pub fn add_seals_to_cards(&mut self, indices: &[usize], seal: Seal) {
+        for &idx in indices {
+            if idx < self.hand.len() {
+                self.hand[idx].seal = seal;
+            }
+        }
+    }
+
+    /// 轉換手牌中指定索引卡牌的花色
+    ///
+    /// 用於 Tarot 卡效果:
+    /// - The World (Spades), The Star (Diamonds)
+    /// - The Moon (Clubs), The Sun (Hearts)
+    pub fn change_card_suits(&mut self, indices: &[usize], suit: u8) {
+        for &idx in indices {
+            if idx < self.hand.len() {
+                self.hand[idx].suit = suit;
+            }
+        }
+    }
+
+    /// 轉換所有手牌為同一花色
+    ///
+    /// 用於 Spectral - Sigil
+    pub fn convert_all_hand_to_suit(&mut self, suit: u8) {
+        for card in &mut self.hand {
+            card.suit = suit;
+        }
+    }
+
+    /// 轉換所有手牌為同一點數
+    ///
+    /// 用於 Spectral - Ouija（會 -1 手牌大小）
+    pub fn convert_all_hand_to_rank(&mut self, rank: u8) {
+        for card in &mut self.hand {
+            card.rank = rank;
+        }
+        // 注意：Ouija 的 -1 手牌大小效果應在調用處處理
+        // self.hand_size_modifier -= 1;
+    }
+
+    /// 複製手牌中指定索引的卡牌（加入牌組）
+    ///
+    /// 用於 Spectral - Cryptid
+    /// 觸發 Hologram 效果
+    pub fn copy_cards_to_deck(&mut self, indices: &[usize]) -> usize {
+        let cards_to_copy: Vec<Card> = indices.iter()
+            .filter_map(|&idx| self.hand.get(idx).copied())
+            .collect();
+
+        self.add_cards_to_deck(cards_to_copy)
+    }
+
+    /// 銷毀手牌並添加隨機人頭牌到牌組
+    ///
+    /// 用於 Spectral - Familiar
+    /// 返回 (銷毀的人頭牌數, 添加的卡牌數)
+    pub fn familiar_effect(&mut self, destroy_idx: usize, add_count: usize) -> (i32, usize) {
+        let destroyed = self.destroy_cards_from_hand(&[destroy_idx]);
+
+        // 生成隨機人頭牌 (J=11, Q=12, K=13)
+        let face_ranks = [11u8, 12, 13];
+        let suits = [0u8, 1, 2, 3]; // Spades, Hearts, Diamonds, Clubs
+
+        let mut new_cards = Vec::with_capacity(add_count);
+        for _ in 0..add_count {
+            let rank = *face_ranks.choose(&mut self.rng).unwrap();
+            let suit = *suits.choose(&mut self.rng).unwrap();
+            new_cards.push(Card::new(rank, suit));
+        }
+
+        let added = self.add_cards_to_deck(new_cards);
+        (destroyed, added)
+    }
+
+    /// 銷毀手牌並添加隨機 Ace 到牌組
+    ///
+    /// 用於 Spectral - Grim
+    /// 返回 (銷毀的人頭牌數, 添加的卡牌數)
+    pub fn grim_effect(&mut self, destroy_idx: usize, add_count: usize) -> (i32, usize) {
+        let destroyed = self.destroy_cards_from_hand(&[destroy_idx]);
+
+        // 生成隨機 Ace
+        let suits = [0u8, 1, 2, 3];
+
+        let mut new_cards = Vec::with_capacity(add_count);
+        for _ in 0..add_count {
+            let suit = *suits.choose(&mut self.rng).unwrap();
+            new_cards.push(Card::new(1, suit)); // Ace = rank 1
+        }
+
+        let added = self.add_cards_to_deck(new_cards);
+        (destroyed, added)
+    }
+
+    /// 銷毀手牌並添加隨機數字牌到牌組
+    ///
+    /// 用於 Spectral - Incantation
+    /// 返回 (銷毀的人頭牌數, 添加的卡牌數)
+    pub fn incantation_effect(&mut self, destroy_idx: usize, add_count: usize) -> (i32, usize) {
+        let destroyed = self.destroy_cards_from_hand(&[destroy_idx]);
+
+        // 生成隨機數字牌 (2-10)
+        let number_ranks: Vec<u8> = (2..=10).collect();
+        let suits = [0u8, 1, 2, 3];
+
+        let mut new_cards = Vec::with_capacity(add_count);
+        for _ in 0..add_count {
+            let rank = *number_ranks.choose(&mut self.rng).unwrap();
+            let suit = *suits.choose(&mut self.rng).unwrap();
+            new_cards.push(Card::new(rank, suit));
+        }
+
+        let added = self.add_cards_to_deck(new_cards);
+        (destroyed, added)
+    }
+
+    /// Immolate 效果：銷毀 5 張手牌，獲得 $20
+    ///
+    /// 返回銷毀的人頭牌數量
+    pub fn immolate_effect(&mut self, indices: &[usize]) -> i32 {
+        let destroyed = self.destroy_cards_from_hand(indices);
+        self.money += 20;
+        destroyed
+    }
 }
