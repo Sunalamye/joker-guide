@@ -44,7 +44,7 @@ pub use shop::{Shop, ShopItem};
 pub use reward::{
     combo_score, joker_buy_reward, play_reward, blind_clear_reward,
     ante_progress_reward, game_end_reward, money_reward,
-    skip_blind_reward, consumable_use_reward, voucher_buy_reward,
+    skip_blind_reward, skip_blind_reward_v2, consumable_use_reward, voucher_buy_reward,
     card_enhancement_reward, reroll_reward, reroll_reward_with_ante,
     sell_joker_reward, discard_reward,
 };

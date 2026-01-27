@@ -516,31 +516,96 @@ pub fn money_reward(money: i64, ante: Ante) -> f32 {
 /// 2. 跳過 Big Blind 犧牲更多金幣，風險因子應更低
 /// 3. 後期跳過風險更高（已經累積資源，需要打過關），降低獎勵
 /// 4. 獎勵上限提升至 0.55，讓頂級 Tag 有合理空間
+///
+/// v3.1 改進（基於多專家分析）：
+/// - 動態 Tag 價值：HandyTag/GarbageTag 根據剩餘次數計算
+/// - Ante-aware 機會成本：後期金幣更有價值
+/// - 改進風險曲線：減緩後期下降，頂級 Tag 保底
 pub fn skip_blind_reward(tag: TagId, blind_type: BlindType, ante: Ante) -> f32 {
-    // Tag 基礎價值
-    let tag_value = tag_base_value(tag);
+    // 使用預設的 plays/discards（向後兼容）
+    skip_blind_reward_v2(tag, blind_type, ante, 4, 3)
+}
 
-    // 機會成本：跳過 Blind 放棄的金幣獎勵
-    // Small: $3 base, Big: $5 base（正常情況）
-    let opportunity_cost = match blind_type {
-        BlindType::Small => 0.05,  // 放棄較少金幣
-        BlindType::Big => 0.12,    // 放棄較多金幣 + 可能的 Boss 獎金
-        BlindType::Boss => 1.0,    // 不能跳過 Boss（設為極高懲罰）
-    };
+/// v3.1 完整版 Skip Blind 獎勵
+///
+/// 新增參數：
+/// - plays_left: 剩餘出牌次數（用於 HandyTag 動態計算）
+/// - discards_left: 剩餘棄牌次數（用於 GarbageTag 動態計算）
+pub fn skip_blind_reward_v2(
+    tag: TagId,
+    blind_type: BlindType,
+    ante: Ante,
+    plays_left: i32,
+    discards_left: i32,
+) -> f32 {
+    // v3.1: 動態 Tag 價值
+    let tag_value = tag_dynamic_value(tag, plays_left, discards_left);
 
-    // 風險調整：後期跳過更危險
-    // 早期：還有時間累積，跳過問題不大
-    // 後期：需要打過關才能贏，跳過失去練習機會
-    let risk_adjustment = match ante {
-        Ante::One | Ante::Two => 1.0,   // 早期風險低
-        Ante::Three | Ante::Four => 0.9,
-        Ante::Five | Ante::Six => 0.75, // 中後期謹慎
-        Ante::Seven | Ante::Eight => 0.5, // 後期非常謹慎
-    };
+    // v3.1: Ante-aware 機會成本
+    let opportunity_cost = skip_opportunity_cost(blind_type, ante);
+
+    // v3.1: 改進的風險調整（含頂級 Tag 保底）
+    let risk_adjustment = skip_risk_adjustment(tag_value, ante);
 
     // 最終計算：Tag 價值 × 風險調整 - 機會成本
     let reward = (tag_value * risk_adjustment) - opportunity_cost;
     reward.clamp(-0.15, 0.55)
+}
+
+/// 動態 Tag 價值計算
+///
+/// HandyTag 和 GarbageTag 的實際價值取決於剩餘次數
+fn tag_dynamic_value(tag: TagId, plays_left: i32, discards_left: i32) -> f32 {
+    match tag {
+        // 動態計算：$1 per hand/discard
+        TagId::HandyTag => 0.02 * plays_left as f32,      // 4 hands = 0.08
+        TagId::GarbageTag => 0.02 * discards_left as f32, // 3 discards = 0.06
+        // 其他 Tag 使用靜態基礎價值
+        _ => tag_base_value(tag),
+    }
+}
+
+/// Ante-aware 機會成本
+///
+/// 後期金幣更有價值，機會成本應更高
+fn skip_opportunity_cost(blind_type: BlindType, ante: Ante) -> f32 {
+    let base = match blind_type {
+        BlindType::Small => 0.05,  // 放棄較少金幣
+        BlindType::Big => 0.12,    // 放棄較多金幣 + 可能的 Boss 獎金
+        BlindType::Boss => 1.0,    // 不能跳過 Boss
+    };
+
+    // 後期金幣更有價值
+    let ante_mult = match ante {
+        Ante::One | Ante::Two => 1.0,
+        Ante::Three | Ante::Four => 1.1,
+        Ante::Five | Ante::Six => 1.25,
+        Ante::Seven | Ante::Eight => 1.4,
+    };
+
+    base * ante_mult
+}
+
+/// 改進的風險調整曲線
+///
+/// v3.1 改進：
+/// - 減緩後期下降（0.5 → 0.70）
+/// - 頂級 Tag（價值 > 0.35）保底 0.75，確保後期仍有吸引力
+fn skip_risk_adjustment(tag_value: f32, ante: Ante) -> f32 {
+    let base_risk: f32 = match ante {
+        Ante::One | Ante::Two => 1.0,
+        Ante::Three | Ante::Four => 0.95,
+        Ante::Five | Ante::Six => 0.85,   // 減緩下降（原 0.75）
+        Ante::Seven | Ante::Eight => 0.70, // 減緩下降（原 0.5）
+    };
+
+    // 頂級 Tag 保底：價值 > 0.35 的 Tag 風險係數不低於 0.75
+    // 確保 NegativeTag、PolychromeTag 等在後期仍有吸引力
+    if tag_value > 0.35 {
+        base_risk.max(0.75)
+    } else {
+        base_risk
+    }
 }
 
 /// Tag 基礎價值評估
@@ -1128,6 +1193,55 @@ mod tests {
         let r1 = skip_blind_reward(TagId::NegativeTag, BlindType::Small, Ante::One);
         let r2 = skip_blind_reward(TagId::EconomyTag, BlindType::Small, Ante::One);
         assert!(r1 > r2); // NegativeTag 價值更高
+    }
+
+    #[test]
+    fn test_skip_blind_reward_v2_dynamic_tags() {
+        // HandyTag 價值應該隨 plays_left 變化
+        let handy_4 = skip_blind_reward_v2(TagId::HandyTag, BlindType::Small, Ante::One, 4, 3);
+        let handy_2 = skip_blind_reward_v2(TagId::HandyTag, BlindType::Small, Ante::One, 2, 3);
+        assert!(handy_4 > handy_2, "More plays = higher HandyTag value");
+
+        // GarbageTag 價值應該隨 discards_left 變化
+        let garbage_3 = skip_blind_reward_v2(TagId::GarbageTag, BlindType::Small, Ante::One, 4, 3);
+        let garbage_1 = skip_blind_reward_v2(TagId::GarbageTag, BlindType::Small, Ante::One, 4, 1);
+        assert!(garbage_3 > garbage_1, "More discards = higher GarbageTag value");
+    }
+
+    #[test]
+    fn test_skip_blind_reward_v2_top_tier_floor() {
+        // 頂級 Tag（NegativeTag）在後期仍應有較高價值
+        let negative_early = skip_blind_reward_v2(TagId::NegativeTag, BlindType::Small, Ante::One, 4, 3);
+        let negative_late = skip_blind_reward_v2(TagId::NegativeTag, BlindType::Small, Ante::Eight, 4, 3);
+
+        // 後期價值應該 >= 0.25（保底機制）
+        assert!(negative_late >= 0.25, "Top-tier Tag should have floor: {}", negative_late);
+
+        // 後期價值不應下降超過 40%（相比早期）
+        let ratio = negative_late / negative_early;
+        assert!(ratio >= 0.6, "Late game ratio should be >= 0.6: {}", ratio);
+    }
+
+    #[test]
+    fn test_skip_blind_reward_v2_ante_aware_cost() {
+        // 相同 Tag，後期機會成本更高
+        let early = skip_blind_reward_v2(TagId::EconomyTag, BlindType::Big, Ante::One, 4, 3);
+        let late = skip_blind_reward_v2(TagId::EconomyTag, BlindType::Big, Ante::Eight, 4, 3);
+
+        // 後期獎勵應該更低（機會成本更高）
+        assert!(early > late, "Late game opportunity cost should be higher");
+    }
+
+    #[test]
+    fn test_skip_risk_adjustment() {
+        // 驗證風險調整曲線
+        let low_value_early = skip_risk_adjustment(0.15, Ante::One);
+        let low_value_late = skip_risk_adjustment(0.15, Ante::Eight);
+        assert!(low_value_early > low_value_late);
+
+        // 頂級 Tag 保底
+        let high_value_late = skip_risk_adjustment(0.50, Ante::Eight);
+        assert!(high_value_late >= 0.75, "Top-tier should have floor: {}", high_value_late);
     }
 
     #[test]
