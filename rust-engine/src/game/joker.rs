@@ -13,7 +13,7 @@ use super::hand_types::HandId;
 // ============================================================================
 
 /// Joker 總數
-pub const JOKER_COUNT: usize = 154;
+pub const JOKER_COUNT: usize = 155;
 
 /// Joker 唯一識別碼
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -192,6 +192,7 @@ pub enum JokerId {
     MailInRebate = 151,  // 棄 K 時 +$5
     BaseballCard = 152,  // X1.5 Mult for each Uncommon Joker held
     RaisedFist = 153,    // Lowest held card gives 2X its rank as Mult
+    EightBall = 154,     // 打出 8 時創建 Tarot
 }
 
 impl JokerId {

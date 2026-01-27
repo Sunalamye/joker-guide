@@ -431,6 +431,21 @@ impl JokerEnv for EnvService {
                                     }
                                 }
 
+                                // EightBall: 打出 8 時創建隨機 Tarot 卡
+                                let has_eight = selected.iter().any(|c| c.rank == 8);
+                                if has_eight {
+                                    let eight_ball_count = state.jokers.iter()
+                                        .filter(|j| j.enabled && j.id == JokerId::EightBall)
+                                        .count();
+                                    for _ in 0..eight_ball_count {
+                                        if !state.consumables.is_full() {
+                                            let all_tarots = TarotId::all();
+                                            let idx = state.rng.gen_range(0..all_tarots.len());
+                                            state.consumables.add(Consumable::Tarot(all_tarots[idx]));
+                                        }
+                                    }
+                                }
+
                                 // Seance: Straight Flush 或 Royal Flush 時生成 Spectral 卡
                                 // StraightFlush = 8, RoyalFlush = 9
                                 if hand_type_idx == 8 || hand_type_idx == 9 {
