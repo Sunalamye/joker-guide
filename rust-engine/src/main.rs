@@ -383,6 +383,12 @@ impl JokerEnv for EnvService {
                         .sum();
                     state.money += rocket_money;
 
+                    // Satellite: 每用過的 Planet +$1
+                    let satellite_count = state.jokers.iter()
+                        .filter(|j| j.enabled && j.id == JokerId::Satellite)
+                        .count() as i64;
+                    state.money += satellite_count * state.planets_used_this_run as i64;
+
                     state.stage = Stage::Shop;
                     state.refresh_shop();
                 }
