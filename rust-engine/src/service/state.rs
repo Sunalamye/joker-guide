@@ -293,11 +293,14 @@ impl EnvState {
 
     pub fn required_score(&self) -> i64 {
         let base = self.ante.base_score();
-        let multiplier = if self.blind_type == Some(BlindType::Boss) {
+        let blind_mult = if self.blind_type == Some(BlindType::Boss) {
             self.boss_blind.map(|b| b.score_multiplier()).unwrap_or(2.0)
         } else {
             self.blind_type.map(|b| b.score_multiplier()).unwrap_or(1.0)
         };
+
+        // Green Stake 及以上: +25% 分數需求
+        let stake_mult = self.stake.score_multiplier();
 
         // 無盡模式的額外倍數（每額外 Ante +50%）
         let endless_mult = if self.endless_mode && self.endless_ante > 0 {
@@ -306,7 +309,7 @@ impl EnvState {
             1.0
         };
 
-        (base as f32 * multiplier * endless_mult) as i64
+        (base as f32 * blind_mult * stake_mult * endless_mult) as i64
     }
 
     /// 進入下一個 Ante（支援無盡模式）
