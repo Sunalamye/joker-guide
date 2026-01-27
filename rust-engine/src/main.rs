@@ -811,6 +811,13 @@ impl JokerEnv for EnvService {
                                     }
                                 }
                             }
+
+                            // Yorick: 每棄 23 張牌 +X1 Mult
+                            for joker in &mut state.jokers {
+                                if joker.enabled && joker.id == JokerId::Yorick {
+                                    joker.update_yorick_on_discard(cards_discarded);
+                                }
+                            }
                         }
                     }
 
