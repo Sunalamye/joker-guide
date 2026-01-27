@@ -13,7 +13,7 @@ use super::hand_types::HandId;
 // ============================================================================
 
 /// Joker 總數
-pub const JOKER_COUNT: usize = 160;
+pub const JOKER_COUNT: usize = 161;
 
 /// Joker 唯一識別碼
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -198,6 +198,7 @@ pub enum JokerId {
     MidasMask = 157,     // 打出人頭牌時變為 Gold 增強
     OopsAll6s = 158,     // 所有 6 算作每種花色（用於 Flush）
     TheIdol = 159,       // 特定牌（每回合隨機選擇）X2 Mult
+    SquareJoker = 160,   // 牌組正好 52 張時，每張打出的牌 +4 Mult
 }
 
 impl JokerId {
@@ -654,6 +655,12 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
         JokerId::Erosion => {
             let cards_below_52 = (52 - ctx.deck_size).max(0);
             bonus.add_mult += cards_below_52 as i64 * 4;
+        }
+        JokerId::SquareJoker => {
+            // SquareJoker: 牌組正好 52 張時，每張打出的牌 +4 Mult
+            if ctx.deck_size == 52 {
+                bonus.add_mult += ctx.played_cards.len() as i64 * 4;
+            }
         }
 
         // ====== 卡牌計數類 ======
