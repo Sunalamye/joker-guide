@@ -1273,13 +1273,64 @@ impl JokerSlot {
 pub fn compute_joker_bonus(jokers: &[JokerSlot], ctx: &ScoringContext, rng_values: &[u8]) -> JokerBonus {
     let mut total = JokerBonus::new();
 
-    for (i, joker) in jokers.iter().filter(|j| j.enabled).enumerate() {
-        let rng_val = rng_values.get(i).copied().unwrap_or(0);
-        let effect = compute_joker_effect_with_state(joker, ctx, rng_val);
+    // 收集所有 enabled 的 Joker 及其原始索引
+    let enabled_jokers: Vec<(usize, &JokerSlot)> = jokers.iter()
+        .enumerate()
+        .filter(|(_, j)| j.enabled)
+        .collect();
+
+    for (idx_in_enabled, &(original_idx, joker)) in enabled_jokers.iter().enumerate() {
+        let rng_val = rng_values.get(idx_in_enabled).copied().unwrap_or(0);
+
+        // 檢查是否為複製類 Joker
+        let effect = match joker.id {
+            JokerId::Blueprint => {
+                // Blueprint: 複製右邊第一個非複製類 Joker 的能力
+                if let Some(target) = find_copy_target_right(jokers, original_idx) {
+                    compute_joker_effect_with_state(target, ctx, rng_val)
+                } else {
+                    JokerBonus::new() // 右邊沒有可複製的 Joker
+                }
+            }
+            JokerId::Brainstorm => {
+                // Brainstorm: 複製最左邊第一個非複製類 Joker 的能力
+                if let Some(target) = find_copy_target_leftmost(jokers) {
+                    compute_joker_effect_with_state(target, ctx, rng_val)
+                } else {
+                    JokerBonus::new() // 沒有可複製的 Joker
+                }
+            }
+            _ => compute_joker_effect_with_state(joker, ctx, rng_val),
+        };
         total.merge(&effect);
     }
 
     total
+}
+
+/// 找到 Blueprint 複製的目標（右邊第一個非複製類 Joker）
+fn find_copy_target_right(jokers: &[JokerSlot], start_idx: usize) -> Option<&JokerSlot> {
+    for joker in jokers.iter().skip(start_idx + 1) {
+        if joker.enabled && !is_copy_joker(joker.id) {
+            return Some(joker);
+        }
+    }
+    None
+}
+
+/// 找到 Brainstorm 複製的目標（最左邊第一個非複製類 Joker）
+fn find_copy_target_leftmost(jokers: &[JokerSlot]) -> Option<&JokerSlot> {
+    for joker in jokers.iter() {
+        if joker.enabled && !is_copy_joker(joker.id) {
+            return Some(joker);
+        }
+    }
+    None
+}
+
+/// 判斷是否為複製類 Joker
+fn is_copy_joker(id: JokerId) -> bool {
+    matches!(id, JokerId::Blueprint | JokerId::Brainstorm)
 }
 
 /// 計算單個 Joker 效果（使用 JokerSlot 狀態）
