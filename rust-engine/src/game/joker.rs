@@ -1391,6 +1391,12 @@ impl JokerSlot {
                     mult: 0,
                     x_mult: 2.0, // Ramen 起始 X2.0 Mult
                 },
+                // Target 狀態 Jokers
+                JokerId::AncientJoker => JokerState::Target {
+                    suit: 0, // 初始為 Diamonds，每回合隨機變化
+                    rank: 0,
+                    value: 0,
+                },
                 _ => JokerState::None,
             },
             trading_card_triggered: false,
@@ -1539,7 +1545,11 @@ impl JokerSlot {
     /// AncientJoker: 設置當前花色 (每回合開始時隨機調用)
     pub fn set_ancient_suit(&mut self, suit: u8) {
         if self.id == JokerId::AncientJoker {
-            self.ancient_suit = suit % 4; // 確保在 0-3 範圍內
+            let normalized_suit = suit % 4; // 確保在 0-3 範圍內
+            // 更新新的統一狀態
+            self.state.set_target_suit(normalized_suit);
+            // 暫時同步更新舊欄位（遷移完成後刪除）
+            self.ancient_suit = normalized_suit;
         }
     }
 
@@ -1700,10 +1710,12 @@ pub fn compute_joker_effect_with_state(
         }
         JokerId::AncientJoker => {
             // AncientJoker: 如果手牌包含指定花色，X1.5 Mult
+            // 優先使用新的統一狀態系統
+            let target_suit = joker.state.get_target_suit();
             let has_suit = ctx
                 .played_cards
                 .iter()
-                .any(|c| c.suit == joker.ancient_suit);
+                .any(|c| c.suit == target_suit);
             if has_suit {
                 bonus.mul_mult = 1.5;
             }

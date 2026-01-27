@@ -189,6 +189,30 @@ impl JokerState {
             *r = rank;
         }
     }
+
+    /// 獲取目標花色（如果適用）
+    pub fn get_target_suit(&self) -> u8 {
+        match self {
+            Self::Target { suit, .. } => *suit,
+            _ => 0,
+        }
+    }
+
+    /// 獲取目標點數（如果適用）
+    pub fn get_target_rank(&self) -> u8 {
+        match self {
+            Self::Target { rank, .. } => *rank,
+            _ => 0,
+        }
+    }
+
+    /// 獲取目標值（如果適用）
+    pub fn get_target_value(&self) -> i32 {
+        match self {
+            Self::Target { value, .. } => *value,
+            _ => 0,
+        }
+    }
 }
 
 // ============================================================================
