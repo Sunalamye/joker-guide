@@ -1167,14 +1167,169 @@ impl JokerEnv for EnvService {
                                     }
                                 }
                                 Consumable::Spectral(spectral_id) => {
-                                    // 處理 Spectral 效果
+                                    // 獲取選中的牌索引
+                                    let selected_indices: Vec<usize> = (0..state.hand.len())
+                                        .filter(|&i| ((state.selected_mask >> i) & 1) == 1)
+                                        .collect();
+
                                     match spectral_id {
                                         SpectralId::BlackHole => {
                                             // 所有牌型等級 +1
                                             state.hand_levels.upgrade_all();
                                         }
-                                        _ => {
-                                            // TODO: 實作其他 Spectral 效果
+                                        SpectralId::Familiar => {
+                                            // 銷毀 1 張選中牌，加 3 張隨機人頭牌到牌組
+                                            if let Some(&idx) = selected_indices.first() {
+                                                if idx < state.hand.len() {
+                                                    state.hand.remove(idx);
+                                                }
+                                                for _ in 0..3 {
+                                                    let rank = state.rng.gen_range(11..=13);
+                                                    let suit = state.rng.gen_range(0..4);
+                                                    state.deck.push(Card::new(rank, suit));
+                                                }
+                                            }
+                                        }
+                                        SpectralId::Grim => {
+                                            // 銷毀 1 張選中牌，加 2 張 Ace 到牌組
+                                            if let Some(&idx) = selected_indices.first() {
+                                                if idx < state.hand.len() {
+                                                    state.hand.remove(idx);
+                                                }
+                                                for _ in 0..2 {
+                                                    let suit = state.rng.gen_range(0..4);
+                                                    state.deck.push(Card::new(1, suit));
+                                                }
+                                            }
+                                        }
+                                        SpectralId::Incantation => {
+                                            // 銷毀 1 張選中牌，加 4 張隨機數字牌到牌組
+                                            if let Some(&idx) = selected_indices.first() {
+                                                if idx < state.hand.len() {
+                                                    state.hand.remove(idx);
+                                                }
+                                                for _ in 0..4 {
+                                                    let rank = state.rng.gen_range(2..=10);
+                                                    let suit = state.rng.gen_range(0..4);
+                                                    state.deck.push(Card::new(rank, suit));
+                                                }
+                                            }
+                                        }
+                                        SpectralId::Talisman => {
+                                            // 加 Gold Seal 到選中牌
+                                            if let Some(&idx) = selected_indices.first() {
+                                                state.hand[idx].seal = Seal::Gold;
+                                            }
+                                        }
+                                        SpectralId::Aura => {
+                                            // 加 Foil/Holo/Poly 到選中牌
+                                            if let Some(&idx) = selected_indices.first() {
+                                                let editions = Edition::all_common();
+                                                let edition = editions[state.rng.gen_range(0..editions.len())];
+                                                state.hand[idx].edition = edition;
+                                            }
+                                        }
+                                        SpectralId::Wraith => {
+                                            // 生成 Rare Joker，金幣歸零
+                                            if state.jokers.len() < state.joker_slot_limit {
+                                                let joker_id = JokerId::random_rare(&mut state.rng);
+                                                state.jokers.push(JokerSlot::new(joker_id));
+                                            }
+                                            state.money = 0;
+                                        }
+                                        SpectralId::Sigil => {
+                                            // 轉換所有手牌為隨機同一花色
+                                            let suit = state.rng.gen_range(0..4);
+                                            for card in &mut state.hand {
+                                                card.suit = suit;
+                                            }
+                                        }
+                                        SpectralId::Ouija => {
+                                            // 轉換所有手牌為隨機同一點數，-1 手牌大小
+                                            let rank = state.rng.gen_range(1..=13);
+                                            for card in &mut state.hand {
+                                                card.rank = rank;
+                                            }
+                                            state.hand_size_modifier -= 1;
+                                        }
+                                        SpectralId::Ectoplasm => {
+                                            // 加 Negative 到隨機 Joker，-1 手牌大小
+                                            state.hand_size_modifier -= 1;
+                                        }
+                                        SpectralId::Immolate => {
+                                            // 銷毀選中的牌（最多5張），得 $20
+                                            let to_remove = selected_indices.iter().take(5).copied().collect::<Vec<_>>();
+                                            let mut sorted = to_remove;
+                                            sorted.sort_by(|a, b| b.cmp(a));
+                                            for idx in sorted {
+                                                if idx < state.hand.len() {
+                                                    state.hand.remove(idx);
+                                                }
+                                            }
+                                            state.money += 20;
+                                        }
+                                        SpectralId::Ankh => {
+                                            // 複製隨機 Joker，銷毀其他
+                                            let enabled_jokers: Vec<usize> = state.jokers.iter()
+                                                .enumerate()
+                                                .filter(|(_, j)| j.enabled)
+                                                .map(|(i, _)| i)
+                                                .collect();
+                                            if !enabled_jokers.is_empty() {
+                                                let keep_idx = enabled_jokers[state.rng.gen_range(0..enabled_jokers.len())];
+                                                let kept = state.jokers[keep_idx].clone();
+                                                state.jokers.clear();
+                                                state.jokers.push(kept.clone());
+                                                state.jokers.push(kept);
+                                            }
+                                        }
+                                        SpectralId::DejaVu => {
+                                            // 加 Red Seal 到選中牌
+                                            if let Some(&idx) = selected_indices.first() {
+                                                state.hand[idx].seal = Seal::Red;
+                                            }
+                                        }
+                                        SpectralId::Hex => {
+                                            // 加 Polychrome 到隨機 Joker，銷毀其他
+                                            let enabled_jokers: Vec<usize> = state.jokers.iter()
+                                                .enumerate()
+                                                .filter(|(_, j)| j.enabled)
+                                                .map(|(i, _)| i)
+                                                .collect();
+                                            if !enabled_jokers.is_empty() {
+                                                let keep_idx = enabled_jokers[state.rng.gen_range(0..enabled_jokers.len())];
+                                                let mut kept = state.jokers[keep_idx].clone();
+                                                kept.edition = Edition::Polychrome;
+                                                state.jokers.clear();
+                                                state.jokers.push(kept);
+                                            }
+                                        }
+                                        SpectralId::Trance => {
+                                            // 加 Blue Seal 到選中牌
+                                            if let Some(&idx) = selected_indices.first() {
+                                                state.hand[idx].seal = Seal::Blue;
+                                            }
+                                        }
+                                        SpectralId::Medium => {
+                                            // 加 Purple Seal 到選中牌
+                                            if let Some(&idx) = selected_indices.first() {
+                                                state.hand[idx].seal = Seal::Purple;
+                                            }
+                                        }
+                                        SpectralId::Cryptid => {
+                                            // 複製 1 張選中牌到牌組（2 張複製）
+                                            if let Some(&idx) = selected_indices.first() {
+                                                let card = state.hand[idx];
+                                                state.deck.push(card);
+                                                state.deck.push(card);
+                                            }
+                                        }
+                                        SpectralId::TheSoul => {
+                                            // 生成 Legendary Joker
+                                            if state.jokers.len() < state.joker_slot_limit {
+                                                let joker_id = JokerId::random_legendary(&mut state.rng);
+                                                state.jokers.push(JokerSlot::new(joker_id));
+                                            }
                                         }
                                     }
                                 }

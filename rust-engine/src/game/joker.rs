@@ -5,7 +5,7 @@
 //! - Tier 2 (ConditionalJoker): 條件觸發類，使用 trait object
 //! - Tier 3: 複雜/動態 Joker，未來擴展
 
-use super::cards::{Card, Enhancement};
+use super::cards::{Card, Edition, Enhancement};
 use super::hand_types::HandId;
 
 // ============================================================================
@@ -412,6 +412,26 @@ impl JokerId {
             JokerId::GreenJoker, JokerId::Fibonacci,
         ];
         COMMON_JOKERS[rng.gen_range(0..COMMON_JOKERS.len())]
+    }
+
+    /// 隨機生成 Rare Joker
+    pub fn random_rare<R: rand::Rng>(rng: &mut R) -> Self {
+        const RARE_JOKERS: &[JokerId] = &[
+            JokerId::DNA, JokerId::Selzer, JokerId::Mime,
+            JokerId::Triboulet, JokerId::DriversLicense, JokerId::Hit_The_Road,
+            JokerId::Vampire, JokerId::Lucky_Cat, JokerId::Canio,
+            JokerId::Caino, JokerId::Yorick, JokerId::Madness,
+        ];
+        RARE_JOKERS[rng.gen_range(0..RARE_JOKERS.len())]
+    }
+
+    /// 隨機生成 Legendary Joker
+    pub fn random_legendary<R: rand::Rng>(rng: &mut R) -> Self {
+        const LEGENDARY_JOKERS: &[JokerId] = &[
+            JokerId::Canio, JokerId::Triboulet,
+            // 可以添加更多 Legendary Joker
+        ];
+        LEGENDARY_JOKERS[rng.gen_range(0..LEGENDARY_JOKERS.len())]
     }
 }
 
@@ -1067,6 +1087,7 @@ pub struct JokerSlot {
     pub counter: i32,
     pub is_eternal: bool,
     pub is_negative: bool,
+    pub edition: Edition,
     pub x_mult_accumulated: f32,
     // 觸發/經濟類 Joker 狀態
     pub trading_card_triggered: bool,  // TradingCard: 是否已觸發
@@ -1149,6 +1170,7 @@ impl JokerSlot {
             counter: 0,
             is_eternal: false,
             is_negative: false,
+            edition: Edition::Base,
             x_mult_accumulated: 1.0,
             trading_card_triggered: false,
             flash_card_mult: 0,

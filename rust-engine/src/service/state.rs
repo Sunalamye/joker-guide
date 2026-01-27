@@ -125,6 +125,12 @@ pub struct EnvState {
 
     // Obelisk: 牌型計數（用於確定最常打的牌型）
     pub hand_type_counts: [i32; 13],
+
+    // ThePillar: 追蹤已打過的牌 (rank, suit)
+    pub pillar_played_cards: std::collections::HashSet<(u8, u8)>,
+
+    // Spectral 永久效果
+    pub hand_size_modifier: i32, // Ouija/Ectoplasm: 永久手牌大小修改
 }
 
 impl EnvState {
@@ -171,6 +177,8 @@ impl EnvState {
             discards_used_this_blind: 0,
             hands_played_this_blind: 0,
             hand_type_counts: [0; 13],
+            pillar_played_cards: std::collections::HashSet::new(),
+            hand_size_modifier: 0,
         }
     }
 
@@ -221,6 +229,8 @@ impl EnvState {
             discards_used_this_blind: 0,
             hands_played_this_blind: 0,
             hand_type_counts: [0; 13],
+            pillar_played_cards: std::collections::HashSet::new(),
+            hand_size_modifier: 0,
         }
     }
 
@@ -527,6 +537,9 @@ impl EnvState {
         if self.boss_blind == Some(BossBlind::TheManacle) {
             modifier -= 1;
         }
+
+        // Spectral 永久效果 (Ouija, Ectoplasm)
+        modifier += self.hand_size_modifier;
 
         (base + modifier).max(1) as usize
     }
