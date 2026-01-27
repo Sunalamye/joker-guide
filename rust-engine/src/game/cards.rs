@@ -185,6 +185,17 @@ impl Card {
         self.rank >= 11 && self.rank <= 13
     }
 
+    /// 是否為面牌（考慮 Pareidolia 規則）
+    ///
+    /// Pareidolia (#172): 所有牌視為人頭牌
+    pub fn is_face_with_pareidolia(&self, pareidolia: bool) -> bool {
+        if pareidolia {
+            true
+        } else {
+            self.is_face()
+        }
+    }
+
     /// Wild 牌是否可匹配指定花色
     pub fn matches_suit(&self, target_suit: u8) -> bool {
         if self.enhancement == Enhancement::Wild {
@@ -205,6 +216,19 @@ impl Card {
             255 // 無效花色
         } else {
             self.suit
+        }
+    }
+
+    /// 獲取 Smeared 規則下的有效花色
+    ///
+    /// Smeared (#129):
+    /// - Hearts (2) 和 Diamonds (1) 視為同一花色（紅色）
+    /// - Spades (0) 和 Clubs (3) 視為同一花色（黑色）
+    pub fn effective_suit_smeared(&self) -> u8 {
+        match self.suit {
+            1 | 2 => 1, // 紅色花色 -> 統一為 1
+            0 | 3 => 0, // 黑色花色 -> 統一為 0
+            _ => self.suit,
         }
     }
 }
