@@ -312,8 +312,19 @@ impl EnvState {
         (base as f32 * blind_mult * stake_mult * endless_mult) as i64
     }
 
-    /// 進入下一個 Ante（支援無盡模式）
+    /// 進入下一個 Ante（支援無盡模式和 Voucher ante 減免）
     pub fn advance_ante(&mut self) -> bool {
+        // 計算目標 Ante（考慮 Hieroglyph/Petroglyph 減免）
+        // 正常: 需要通過 Ante 8
+        // -1 減免: 只需通過 Ante 7
+        // -2 減免: 只需通過 Ante 6
+        let target_ante = (8 - self.voucher_effects.ante_reduction).max(1);
+
+        if self.ante.to_int() >= target_ante && !self.endless_mode {
+            // 已達到目標 Ante，遊戲勝利
+            return false;
+        }
+
         if let Some(next_ante) = self.ante.next() {
             self.ante = next_ante;
             true

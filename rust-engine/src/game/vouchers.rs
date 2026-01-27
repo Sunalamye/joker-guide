@@ -44,7 +44,7 @@ pub enum VoucherId {
     Magic_Trick,
     /// 抽塔羅牌時可能出現負面牌
     Antimatter,
-    /// 每次 blind 後抽 1 張消耗品
+    /// -1 Ante 需求, -1 hand per round
     Hieroglyph,
 
     // ========== 升級 Voucher（需要先買基礎版）==========
@@ -76,7 +76,7 @@ pub enum VoucherId {
     Illusion,
     /// 所有 Joker 可以是負面（需要 Antimatter）
     Antimatter_Plus,
-    /// 每次 blind 後抽 2 張消耗品（需要 Hieroglyph）
+    /// -1 Ante 需求, -1 discard per round（需要 Hieroglyph）
     Petroglyph,
     /// 空白升級（需要 Blank）
     BlankPlus,
@@ -350,6 +350,8 @@ pub struct VoucherEffects {
     pub extra_shop_slots: i32,
     /// 額外 Joker 槽位 (Blank/Antimatter)
     pub joker_slot_bonus: i32,
+    /// Ante 減免 (Hieroglyph/Petroglyph)
+    pub ante_reduction: i32,
 }
 
 impl VoucherEffects {
@@ -369,6 +371,7 @@ impl VoucherEffects {
             extra_tarot_draw: 0,
             extra_shop_slots: 0,
             joker_slot_bonus: 0,
+            ante_reduction: 0,
         }
     }
 
@@ -423,6 +426,16 @@ impl VoucherEffects {
             VoucherId::BlankPlus => self.joker_slot_bonus += 1,
             VoucherId::Antimatter => self.joker_slot_bonus += 1,
             VoucherId::Antimatter_Plus => self.joker_slot_bonus += 1,
+            // Hieroglyph: -1 Ante, -1 hand per round
+            VoucherId::Hieroglyph => {
+                self.ante_reduction += 1;
+                self.extra_hands -= 1;
+            }
+            // Petroglyph: -1 Ante, -1 discard per round
+            VoucherId::Petroglyph => {
+                self.ante_reduction += 1;
+                self.extra_discards -= 1;
+            }
             // 其他 Voucher 的效果較為複雜，暫時不實作
             _ => {}
         }
