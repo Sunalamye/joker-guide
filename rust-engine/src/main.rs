@@ -22,6 +22,7 @@ use game::{
     ACTION_TYPE_REROLL, ACTION_TYPE_SELL_JOKER, ACTION_TYPE_SKIP_BLIND,
     ACTION_TYPE_USE_CONSUMABLE, ACTION_TYPE_BUY_VOUCHER, ACTION_TYPE_BUY_PACK,
     Stage, GameEnd, BlindType, BossBlind, JokerId, Card, Enhancement, Edition, Seal,
+    Consumable, TarotId,
 };
 
 // 從 service 模組導入
@@ -202,6 +203,18 @@ impl JokerEnv for EnvService {
                         for joker in &mut state.jokers {
                             if joker.enabled && joker.id == JokerId::RedCard {
                                 joker.red_card_mult += 3;
+                            }
+                        }
+
+                        // Cartomancer: 跳過 Blind 時生成隨機 Tarot 卡
+                        let cartomancer_count = state.jokers.iter()
+                            .filter(|j| j.enabled && j.id == JokerId::Cartomancer)
+                            .count();
+                        for _ in 0..cartomancer_count {
+                            if !state.consumables.is_full() {
+                                let all_tarots = TarotId::all();
+                                let idx = state.rng.gen_range(0..all_tarots.len());
+                                state.consumables.add(Consumable::Tarot(all_tarots[idx]));
                             }
                         }
                     }
