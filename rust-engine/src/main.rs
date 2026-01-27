@@ -249,6 +249,16 @@ impl JokerEnv for EnvService {
                             }
                         }
 
+                        // TheIdol: 每回合開始時隨機設置目標牌（rank + suit）
+                        let idol_random_rank: u8 = state.rng.gen_range(1..=13);
+                        let idol_random_suit: u8 = state.rng.gen_range(0..4);
+                        for joker in &mut state.jokers {
+                            if joker.enabled && joker.id == JokerId::TheIdol {
+                                joker.idol_rank = idol_random_rank;
+                                joker.idol_suit = idol_random_suit;
+                            }
+                        }
+
                         state.deal();
 
                         if state.boss_blind == Some(BossBlind::TheHook) {

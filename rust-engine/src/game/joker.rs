@@ -13,7 +13,7 @@ use super::hand_types::HandId;
 // ============================================================================
 
 /// Joker 總數
-pub const JOKER_COUNT: usize = 159;
+pub const JOKER_COUNT: usize = 160;
 
 /// Joker 唯一識別碼
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -197,6 +197,7 @@ pub enum JokerId {
     BurntJoker = 156,    // 棄牌時升級棄掉牌型的等級
     MidasMask = 157,     // 打出人頭牌時變為 Gold 增強
     OopsAll6s = 158,     // 所有 6 算作每種花色（用於 Flush）
+    TheIdol = 159,       // 特定牌（每回合隨機選擇）X2 Mult
 }
 
 impl JokerId {
@@ -1085,6 +1086,10 @@ pub struct JokerSlot {
     pub turtle_hand_mod: i32,
     /// ToDoList: 目標牌型索引 (0-12, 打出時 +$4, 然後重新隨機選擇)
     pub todo_hand_type: u8,
+    /// TheIdol: 目標牌的點數 (1-13, 每回合隨機變化)
+    pub idol_rank: u8,
+    /// TheIdol: 目標牌的花色 (0-3, 每回合隨機變化)
+    pub idol_suit: u8,
 }
 
 impl JokerSlot {
@@ -1125,6 +1130,8 @@ impl JokerSlot {
             obelisk_streak: 0,  // Obelisk: 連續非最常打牌型次數
             turtle_hand_mod: if id == JokerId::TurtleBean { 5 } else { 0 },  // TurtleBean: +5 手牌大小
             todo_hand_type: 0,  // ToDoList: 在購買時隨機初始化
+            idol_rank: 1,       // TheIdol: 初始點數 (1=Ace, 在購買時隨機初始化)
+            idol_suit: 0,       // TheIdol: 初始花色 (0-3, 在購買時隨機初始化)
         }
     }
 
@@ -1331,6 +1338,14 @@ pub fn compute_joker_effect_with_state(joker: &JokerSlot, ctx: &ScoringContext, 
             // Obelisk: X0.2 Mult per consecutive hand without most played type
             // streak 在 main.rs 打牌後更新
             bonus.mul_mult = 1.0 + (joker.obelisk_streak as f32 * 0.2);
+        }
+        JokerId::TheIdol => {
+            // TheIdol: 打出特定牌（rank + suit）時 X2 Mult
+            let has_idol_card = ctx.played_cards.iter()
+                .any(|c| c.rank == joker.idol_rank && c.suit == joker.idol_suit);
+            if has_idol_card {
+                bonus.mul_mult = 2.0;
+            }
         }
         _ => {}
     }
