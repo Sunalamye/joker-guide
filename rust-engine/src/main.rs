@@ -425,8 +425,12 @@ impl JokerEnv for EnvService {
                 match action_type {
                     ACTION_TYPE_BUY_JOKER => {
                         let index = action_id as usize;
+                        // CreditCard: 允許 $20 負債
+                        let has_credit_card = state.jokers.iter()
+                            .any(|j| j.enabled && j.id == JokerId::CreditCard);
+                        let debt_limit = if has_credit_card { 20 } else { 0 };
                         if let Some(item) = state.shop.items.get(index) {
-                            if item.cost <= state.money
+                            if item.cost <= state.money + debt_limit
                                 && state.jokers.len() < state.joker_slot_limit
                             {
                                 let cost = item.cost;
@@ -468,7 +472,11 @@ impl JokerEnv for EnvService {
 
                     ACTION_TYPE_REROLL => {
                         let reroll_cost = state.shop.current_reroll_cost();
-                        if reroll_cost <= state.money {
+                        // CreditCard: 允許 $20 負債
+                        let has_credit_card = state.jokers.iter()
+                            .any(|j| j.enabled && j.id == JokerId::CreditCard);
+                        let debt_limit = if has_credit_card { 20 } else { 0 };
+                        if reroll_cost <= state.money + debt_limit {
                             action_cost = reroll_cost;
                             state.money -= reroll_cost;
                             state.reroll_shop();
@@ -504,7 +512,11 @@ impl JokerEnv for EnvService {
                     ACTION_TYPE_BUY_VOUCHER => {
                         if let Some(voucher_id) = state.shop_voucher {
                             let cost = voucher_id.cost();
-                            if cost <= state.money {
+                            // CreditCard: 允許 $20 負債
+                            let has_credit_card = state.jokers.iter()
+                                .any(|j| j.enabled && j.id == JokerId::CreditCard);
+                            let debt_limit = if has_credit_card { 20 } else { 0 };
+                            if cost <= state.money + debt_limit {
                                 action_cost = cost;
                                 state.money -= cost;
                                 state.voucher_effects.buy(voucher_id);
@@ -515,8 +527,12 @@ impl JokerEnv for EnvService {
 
                     ACTION_TYPE_BUY_PACK => {
                         let index = action_id as usize;
+                        // CreditCard: 允許 $20 負債
+                        let has_credit_card = state.jokers.iter()
+                            .any(|j| j.enabled && j.id == JokerId::CreditCard);
+                        let debt_limit = if has_credit_card { 20 } else { 0 };
                         if let Some(pack) = state.shop_packs.get(index) {
-                            if pack.cost <= state.money {
+                            if pack.cost <= state.money + debt_limit {
                                 let cost = pack.cost;
                                 action_cost = cost;
                                 state.money -= cost;
