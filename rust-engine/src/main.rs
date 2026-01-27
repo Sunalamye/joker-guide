@@ -620,6 +620,15 @@ impl JokerEnv for EnvService {
                                     state.hand_levels.downgrade(hand_type_idx);
                                 }
 
+                                // TheOx (Boss Blind): 出 #(ante) 牌型時失去 $1
+                                // Ante 1 = High Card (0), Ante 2 = Pair (1), etc.
+                                if state.boss_blind == Some(BossBlind::TheOx) {
+                                    let ante_hand_idx = (state.ante.to_int() - 1) as usize;
+                                    if hand_type_idx == ante_hand_idx {
+                                        state.money = (state.money - 1).max(0);
+                                    }
+                                }
+
                                 // Vagabond: 出 ≤4 張牌時生成隨機 Tarot 卡
                                 if selected_count <= 4 {
                                     let vagabond_count = state.jokers.iter()
