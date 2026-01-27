@@ -290,7 +290,7 @@ impl JokerEnv for EnvService {
                         // GreenJoker: 每輪重置 Mult 計數器
                         for joker in &mut state.jokers {
                             if joker.enabled && joker.id == JokerId::GreenJoker {
-                                joker.green_mult = 0;
+                                joker.reset_green_joker();
                             }
                         }
 
@@ -311,8 +311,7 @@ impl JokerEnv for EnvService {
                         // Popcorn: 每輪 -4 Mult，到 0 時自毀
                         for joker in &mut state.jokers {
                             if joker.enabled && joker.id == JokerId::Popcorn {
-                                joker.popcorn_mult -= 4;
-                                if joker.popcorn_mult <= 0 {
+                                if joker.update_popcorn_on_round() {
                                     joker.enabled = false;
                                 }
                             }
@@ -904,8 +903,7 @@ impl JokerEnv for EnvService {
                                 // IceCream: 每手牌後 -5 Chips，到 0 時自毀
                                 for joker in &mut state.jokers {
                                     if joker.enabled && joker.id == JokerId::IceCream {
-                                        joker.ice_cream_chips -= 5;
-                                        if joker.ice_cream_chips <= 0 {
+                                        if joker.update_ice_cream_on_hand() {
                                             joker.enabled = false;
                                         }
                                     }
@@ -914,7 +912,7 @@ impl JokerEnv for EnvService {
                                 // GreenJoker: 每手牌 +1 Mult
                                 for joker in &mut state.jokers {
                                     if joker.enabled && joker.id == JokerId::GreenJoker {
-                                        joker.green_mult += 1;
+                                        joker.update_green_joker_on_hand();
                                     }
                                 }
 
@@ -923,9 +921,9 @@ impl JokerEnv for EnvService {
                                 for joker in &mut state.jokers {
                                     if joker.enabled && joker.id == JokerId::RideTheBus {
                                         if has_face {
-                                            joker.ride_the_bus_mult = 0;
+                                            joker.reset_ride_the_bus();
                                         } else {
-                                            joker.ride_the_bus_mult += 1;
+                                            joker.update_ride_the_bus_on_hand();
                                         }
                                     }
                                 }

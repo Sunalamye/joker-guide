@@ -1375,7 +1375,8 @@ impl JokerSlot {
                 JokerId::Vampire | JokerId::Canio | JokerId::Lucky_Cat |
                 JokerId::Hologram | JokerId::Constellation |
                 JokerId::Yorick | JokerId::GlassJoker | JokerId::Hit_The_Road |
-                JokerId::Campfire | JokerId::Wee | JokerId::Merry => JokerState::Accumulator {
+                JokerId::Campfire | JokerId::Wee | JokerId::Merry |
+                JokerId::GreenJoker | JokerId::RideTheBus => JokerState::Accumulator {
                     chips: 0,
                     mult: 0,
                     x_mult: 1.0,
@@ -1390,6 +1391,16 @@ impl JokerSlot {
                     chips: 0,
                     mult: 0,
                     x_mult: 2.0, // Ramen 起始 X2.0 Mult
+                },
+                JokerId::IceCream => JokerState::Accumulator {
+                    chips: 100, // IceCream 起始 100 Chips
+                    mult: 0,
+                    x_mult: 1.0,
+                },
+                JokerId::Popcorn => JokerState::Accumulator {
+                    chips: 0,
+                    mult: 20, // Popcorn 起始 20 Mult
+                    x_mult: 1.0,
                 },
                 // Target 狀態 Jokers
                 JokerId::AncientJoker => JokerState::Target {
@@ -1644,6 +1655,76 @@ impl JokerSlot {
             self.merry_mult += 3;
         }
     }
+
+    /// GreenJoker: 每回合重置 mult
+    pub fn reset_green_joker(&mut self) {
+        if self.id == JokerId::GreenJoker {
+            // 更新新的統一狀態
+            if let JokerState::Accumulator { mult, .. } = &mut self.state {
+                *mult = 0;
+            }
+            // 暫時同步更新舊欄位（遷移完成後刪除）
+            self.green_mult = 0;
+        }
+    }
+
+    /// GreenJoker: 每手牌增加 mult (+1 Mult per hand)
+    pub fn update_green_joker_on_hand(&mut self) {
+        if self.id == JokerId::GreenJoker {
+            // 更新新的統一狀態
+            self.state.add_mult(1);
+            // 暫時同步更新舊欄位（遷移完成後刪除）
+            self.green_mult += 1;
+        }
+    }
+
+    /// RideTheBus: 重置 mult（出現人頭牌時）
+    pub fn reset_ride_the_bus(&mut self) {
+        if self.id == JokerId::RideTheBus {
+            // 更新新的統一狀態
+            if let JokerState::Accumulator { mult, .. } = &mut self.state {
+                *mult = 0;
+            }
+            // 暫時同步更新舊欄位（遷移完成後刪除）
+            self.ride_the_bus_mult = 0;
+        }
+    }
+
+    /// RideTheBus: 增加 mult（無人頭牌時，+1 Mult per hand）
+    pub fn update_ride_the_bus_on_hand(&mut self) {
+        if self.id == JokerId::RideTheBus {
+            // 更新新的統一狀態
+            self.state.add_mult(1);
+            // 暫時同步更新舊欄位（遷移完成後刪除）
+            self.ride_the_bus_mult += 1;
+        }
+    }
+
+    /// IceCream: 每手牌減少 chips，返回是否應該銷毀
+    pub fn update_ice_cream_on_hand(&mut self) -> bool {
+        if self.id == JokerId::IceCream {
+            // 更新新的統一狀態
+            self.state.add_chips(-5);
+            // 暫時同步更新舊欄位（遷移完成後刪除）
+            self.ice_cream_chips -= 5;
+            // 檢查是否應該銷毀
+            return self.state.get_chips() <= 0;
+        }
+        false
+    }
+
+    /// Popcorn: 每輪減少 mult，返回是否應該銷毀
+    pub fn update_popcorn_on_round(&mut self) -> bool {
+        if self.id == JokerId::Popcorn {
+            // 更新新的統一狀態
+            self.state.add_mult(-4);
+            // 暫時同步更新舊欄位（遷移完成後刪除）
+            self.popcorn_mult -= 4;
+            // 檢查是否應該銷毀
+            return self.state.get_mult() <= 0;
+        }
+        false
+    }
 }
 
 /// 計算所有 Joker 的總加成
@@ -1809,11 +1890,13 @@ pub fn compute_joker_effect_with_state(
         }
         JokerId::IceCream => {
             // IceCream: 使用當前 chips 值 (每手 -5, 在 main.rs 更新)
-            bonus.chip_bonus = joker.ice_cream_chips as i64;
+            // 優先使用新的統一狀態系統
+            bonus.chip_bonus = joker.state.get_chips() as i64;
         }
         JokerId::Popcorn => {
             // Popcorn: 使用當前 mult 值 (每輪 -4, 在 main.rs 更新)
-            bonus.add_mult += joker.popcorn_mult as i64;
+            // 優先使用新的統一狀態系統
+            bonus.add_mult += joker.state.get_mult() as i64;
         }
         JokerId::Ramen => {
             // Ramen: 使用當前 X Mult 值 (每棄牌 -0.01, 在 main.rs 更新)
@@ -1839,11 +1922,13 @@ pub fn compute_joker_effect_with_state(
         }
         JokerId::GreenJoker => {
             // GreenJoker: 使用累積的 mult (每手 +1, 每輪重置, 在 main.rs 更新)
-            bonus.add_mult += joker.green_mult as i64;
+            // 優先使用新的統一狀態系統
+            bonus.add_mult += joker.state.get_mult() as i64;
         }
         JokerId::RideTheBus => {
             // RideTheBus: 使用累積的 mult (連續非人頭牌手 +1, 在 main.rs 更新)
-            bonus.add_mult += joker.ride_the_bus_mult as i64;
+            // 優先使用新的統一狀態系統
+            bonus.add_mult += joker.state.get_mult() as i64;
         }
         _ => {}
     }
