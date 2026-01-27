@@ -53,6 +53,8 @@ pub fn calculate_play_score(
     ctx.joker_slot_limit = joker_slot_limit;
     ctx.rerolls_this_run = rerolls_this_run;
     ctx.blinds_skipped = blinds_skipped;
+    // 計算 Uncommon Joker 數量 (rarity == 2)
+    ctx.uncommon_joker_count = jokers.iter().filter(|j| j.id.rarity() == 2).count();
 
     // 生成隨機值給需要隨機效果的 Joker（如 Misprint）
     let rng_values: Vec<u8> = (0..jokers.len()).map(|_| rng.gen()).collect();

@@ -13,7 +13,7 @@ use super::hand_types::HandId;
 // ============================================================================
 
 /// Joker 總數
-pub const JOKER_COUNT: usize = 152;
+pub const JOKER_COUNT: usize = 153;
 
 /// Joker 唯一識別碼
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -190,6 +190,7 @@ pub enum JokerId {
     TradingCard = 149,   // 首次棄人頭牌時創建 Tarot
     MarbleJoker = 150,   // 選擇 Blind 時加 Stone 卡到牌組
     MailInRebate = 151,  // 棄 K 時 +$5
+    BaseballCard = 152,  // X1.5 Mult for each Uncommon Joker held
 }
 
 impl JokerId {
@@ -453,6 +454,8 @@ pub struct ScoringContext<'a> {
     pub stone_cards_in_deck: i32,
     /// Joker 槽位上限 (Stencil)
     pub joker_slot_limit: usize,
+    /// Uncommon Joker 數量 (BaseballCard)
+    pub uncommon_joker_count: usize,
 }
 
 impl<'a> ScoringContext<'a> {
@@ -486,6 +489,7 @@ impl<'a> ScoringContext<'a> {
             boss_ability_triggered: false,
             stone_cards_in_deck: 0,
             joker_slot_limit: 5, // 默認 5 個槽位
+            uncommon_joker_count: 0,
         }
     }
 }
@@ -599,6 +603,12 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
         }
         JokerId::AbstractJoker => {
             bonus.add_mult += ctx.joker_count as i64 * 3;
+        }
+        JokerId::BaseballCard => {
+            // X1.5 Mult for each Uncommon Joker held
+            if ctx.uncommon_joker_count > 0 {
+                bonus.mul_mult *= (1.5_f32).powi(ctx.uncommon_joker_count as i32);
+            }
         }
 
         // ====== X Mult Jokers ======
