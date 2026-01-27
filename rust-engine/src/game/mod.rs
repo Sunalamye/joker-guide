@@ -25,6 +25,7 @@ pub mod blinds;
 pub mod hand_types;
 pub mod scoring;
 pub mod joker;
+pub mod joker_def;
 pub mod shop;
 pub mod tags;
 pub mod decks;
@@ -40,6 +41,12 @@ pub use blinds::{Stage, GameEnd, BlindType, BossBlind, Ante};
 pub use hand_types::{HandId, HandScore};
 pub use scoring::{score_hand, score_hand_with_rules, hand_potential, JokerRules};
 pub use joker::{JokerId, JokerSlot, JokerBonus, ScoringContext, compute_joker_bonus, JOKER_COUNT};
+pub use joker_def::{
+    JokerState, CardFilter, Condition, StateField, CompareOp,
+    BonusDef, EffectDef, CardScope, GameEvent, Rarity, TriggerContext,
+    JokerBonus as JokerBonusNew,
+    SPADE, DIAMOND, HEART, CLUB,
+};
 pub use shop::{Shop, ShopItem};
 pub use tags::{Tag, TagId, TAG_COUNT};
 pub use decks::{DeckType, DeckConfig, DECK_TYPE_COUNT};

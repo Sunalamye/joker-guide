@@ -2064,6 +2064,7 @@ impl JokerEnv for EnvService {
                             // Campfire: 每賣一張卡 +0.25 X Mult
                             for joker in &mut state.jokers {
                                 if joker.enabled && joker.id == JokerId::Campfire {
+                                    joker.state.add_x_mult(0.25);
                                     joker.campfire_mult += 0.25;
                                 }
                             }

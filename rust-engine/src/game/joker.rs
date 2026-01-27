@@ -7,6 +7,7 @@
 
 use super::cards::{Card, Edition, Enhancement};
 use super::hand_types::HandId;
+use super::joker_def::JokerState;
 
 // ============================================================================
 // Joker ID 系統 - 消除字串比對
@@ -1277,6 +1278,11 @@ pub struct JokerSlot {
     pub is_rental: bool,        // 每回合 $3，付不起則銷毀
     pub edition: Edition,
     pub x_mult_accumulated: f32,
+
+    /// 統一狀態系統（新架構）
+    /// 逐步遷移後將取代下方 30+ 個專屬狀態欄位
+    pub state: JokerState,
+
     // 觸發/經濟類 Joker 狀態
     pub trading_card_triggered: bool, // TradingCard: 是否已觸發
     pub flash_card_mult: i32,         // Flash: 累積 Mult (+2 per reroll)
@@ -1363,6 +1369,30 @@ impl JokerSlot {
             is_rental: false,
             edition: Edition::Base,
             x_mult_accumulated: 1.0,
+            // 根據 Joker 類型初始化統一狀態
+            state: match id {
+                // X Mult Accumulators (起始 X1.0)
+                JokerId::Vampire | JokerId::Canio | JokerId::Lucky_Cat |
+                JokerId::Hologram | JokerId::Constellation |
+                JokerId::Yorick | JokerId::GlassJoker | JokerId::Hit_The_Road |
+                JokerId::Campfire => JokerState::Accumulator {
+                    chips: 0,
+                    mult: 0,
+                    x_mult: 1.0,
+                },
+                // 特殊初始值的 Accumulators
+                JokerId::Madness => JokerState::Accumulator {
+                    chips: 0,
+                    mult: 0,
+                    x_mult: 0.5, // Madness 起始 X0.5 Mult
+                },
+                JokerId::Ramen => JokerState::Accumulator {
+                    chips: 0,
+                    mult: 0,
+                    x_mult: 2.0, // Ramen 起始 X2.0 Mult
+                },
+                _ => JokerState::None,
+            },
             trading_card_triggered: false,
             flash_card_mult: 0,
             red_card_mult: 0,
@@ -1430,42 +1460,58 @@ impl JokerSlot {
     /// Vampire: 吸收增強時調用 (+0.1 X Mult per enhancement)
     pub fn update_vampire_on_enhancement(&mut self, enhancements_absorbed: i32) {
         if self.id == JokerId::Vampire {
-            self.vampire_mult += enhancements_absorbed as f32 * 0.1;
+            let increment = enhancements_absorbed as f32 * 0.1;
+            // 更新新的統一狀態
+            self.state.add_x_mult(increment);
+            // 暫時同步更新舊欄位（遷移完成後刪除）
+            self.vampire_mult += increment;
         }
     }
 
     /// Canio: 銷毀人頭牌時調用 (+1.0 X Mult per face card)
     pub fn update_canio_on_face_destroyed(&mut self, face_cards_destroyed: i32) {
         if self.id == JokerId::Canio {
-            self.canio_mult += face_cards_destroyed as f32 * 1.0;
+            let increment = face_cards_destroyed as f32 * 1.0;
+            // 更新新的統一狀態
+            self.state.add_x_mult(increment);
+            // 暫時同步更新舊欄位（遷移完成後刪除）
+            self.canio_mult += increment;
         }
     }
 
     /// Lucky Cat: Lucky 牌觸發時調用 (+0.25 X Mult per trigger)
     pub fn update_lucky_cat_on_trigger(&mut self, triggers: i32) {
         if self.id == JokerId::Lucky_Cat {
-            self.lucky_cat_mult += triggers as f32 * 0.25;
+            let increment = triggers as f32 * 0.25;
+            self.state.add_x_mult(increment);
+            self.lucky_cat_mult += increment;
         }
     }
 
     /// Hologram: 加牌到牌組時調用 (+0.25 X Mult per card)
     pub fn update_hologram_on_card_added(&mut self, cards_added: i32) {
         if self.id == JokerId::Hologram {
-            self.hologram_mult += cards_added as f32 * 0.25;
+            let increment = cards_added as f32 * 0.25;
+            self.state.add_x_mult(increment);
+            self.hologram_mult += increment;
         }
     }
 
     /// Constellation: 使用行星牌時調用 (+0.1 X Mult per planet)
     pub fn update_constellation_on_planet_used(&mut self) {
         if self.id == JokerId::Constellation {
-            self.constellation_mult += 0.1;
+            let increment = 0.1;
+            self.state.add_x_mult(increment);
+            self.constellation_mult += increment;
         }
     }
 
     /// Madness: 銷毀 Joker 時調用 (+0.5 X Mult per Joker destroyed)
     pub fn update_madness_on_joker_destroyed(&mut self, jokers_destroyed: i32) {
         if self.id == JokerId::Madness {
-            self.madness_mult += jokers_destroyed as f32 * 0.5;
+            let increment = jokers_destroyed as f32 * 0.5;
+            self.state.add_x_mult(increment);
+            self.madness_mult += increment;
         }
     }
 
@@ -1475,6 +1521,7 @@ impl JokerSlot {
             self.yorick_discards += cards_discarded;
             while self.yorick_discards >= 23 {
                 self.yorick_discards -= 23;
+                self.state.add_x_mult(1.0);
                 self.yorick_mult += 1.0;
             }
         }
@@ -1483,7 +1530,9 @@ impl JokerSlot {
     /// Glass Joker: Glass 牌碎裂時調用 (+0.75 X Mult per glass broken)
     pub fn update_glass_on_break(&mut self, glass_broken: i32) {
         if self.id == JokerId::GlassJoker {
-            self.glass_mult += glass_broken as f32 * 0.75;
+            let increment = glass_broken as f32 * 0.75;
+            self.state.add_x_mult(increment);
+            self.glass_mult += increment;
         }
     }
 
@@ -1511,7 +1560,9 @@ impl JokerSlot {
     /// Hit The Road: 棄 Jack 時調用 (+0.5 X Mult per Jack)
     pub fn update_hit_the_road_on_jack_discard(&mut self, jacks_discarded: i32) {
         if self.id == JokerId::Hit_The_Road {
-            self.hit_the_road_mult += jacks_discarded as f32 * 0.5;
+            let increment = jacks_discarded as f32 * 0.5;
+            self.state.add_x_mult(increment);
+            self.hit_the_road_mult += increment;
         }
     }
 
@@ -1612,43 +1663,40 @@ pub fn compute_joker_effect_with_state(
     // 對於有狀態追蹤的 X Mult Jokers，使用 JokerSlot 中的狀態值
     match joker.id {
         JokerId::Vampire => {
-            // Vampire: 使用累積的 vampire_mult (吸收增強後)
-            bonus.mul_mult = joker.vampire_mult;
+            // Vampire: 優先使用新的統一狀態系統
+            bonus.mul_mult = joker.state.get_x_mult();
         }
         JokerId::Canio => {
-            // Canio: 使用累積的 canio_mult (銷毀人頭牌後)
-            bonus.mul_mult = joker.canio_mult;
+            // Canio: 優先使用新的統一狀態系統
+            bonus.mul_mult = joker.state.get_x_mult();
         }
         JokerId::Lucky_Cat => {
-            // Lucky Cat: 使用累積的 lucky_cat_mult (Lucky 牌觸發後)
-            bonus.mul_mult = joker.lucky_cat_mult;
+            // Lucky Cat: 優先使用新的統一狀態系統
+            bonus.mul_mult = joker.state.get_x_mult();
         }
         JokerId::Hologram => {
-            // Hologram: 使用累積的 hologram_mult (加牌後)
-            // 覆蓋 compute_core_joker_effect 中基於 ctx 的計算
-            bonus.mul_mult = joker.hologram_mult;
+            // Hologram: 優先使用新的統一狀態系統
+            bonus.mul_mult = joker.state.get_x_mult();
         }
         JokerId::Constellation => {
-            // Constellation: 使用累積的 constellation_mult (使用行星牌後)
-            // 覆蓋 compute_core_joker_effect 中基於 ctx 的計算
-            bonus.mul_mult = joker.constellation_mult;
+            // Constellation: 優先使用新的統一狀態系統
+            bonus.mul_mult = joker.state.get_x_mult();
         }
         JokerId::Madness => {
-            // Madness: 使用累積的 madness_mult (銷毀 Joker 後)
-            bonus.mul_mult = joker.madness_mult;
+            // Madness: 優先使用新的統一狀態系統
+            bonus.mul_mult = joker.state.get_x_mult();
         }
         JokerId::Ceremonial => {
             // Ceremonial: 使用 counter 中累積的 Mult (2x 銷毀 Joker 的售價)
             bonus.add_mult += joker.counter as i64;
         }
         JokerId::Yorick => {
-            // Yorick: 使用累積的 yorick_mult (每 23 張棄牌)
-            bonus.mul_mult = joker.yorick_mult;
+            // Yorick: 優先使用新的統一狀態系統
+            bonus.mul_mult = joker.state.get_x_mult();
         }
         JokerId::GlassJoker => {
-            // Glass Joker: 使用累積的 glass_mult (Glass 牌碎裂後)
-            // 覆蓋 compute_core_joker_effect 中基於 ctx 的計算
-            bonus.mul_mult = joker.glass_mult;
+            // Glass Joker: 優先使用新的統一狀態系統
+            bonus.mul_mult = joker.state.get_x_mult();
         }
         JokerId::AncientJoker => {
             // AncientJoker: 如果手牌包含指定花色，X1.5 Mult
@@ -1672,9 +1720,8 @@ pub fn compute_joker_effect_with_state(
             }
         }
         JokerId::Hit_The_Road => {
-            // Hit The Road: 使用累積的 hit_the_road_mult
-            // 每回合棄掉的 Jack +0.5 X Mult
-            bonus.mul_mult = joker.hit_the_road_mult;
+            // Hit The Road: 優先使用新的統一狀態系統
+            bonus.mul_mult = joker.state.get_x_mult();
         }
         JokerId::Obelisk => {
             // Obelisk: X0.2 Mult per consecutive hand without most played type
@@ -1704,8 +1751,8 @@ pub fn compute_joker_effect_with_state(
             bonus.mul_mult = joker.ramen_mult;
         }
         JokerId::Campfire => {
-            // Campfire: 使用累積的 X Mult (每賣卡 +0.25, 在 main.rs 更新)
-            bonus.mul_mult = joker.campfire_mult;
+            // Campfire: 優先使用新的統一狀態系統
+            bonus.mul_mult = joker.state.get_x_mult();
         }
         JokerId::Wee => {
             // Wee: 使用累積的 chips (每輪 +8, 在 main.rs 更新)
