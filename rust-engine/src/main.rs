@@ -598,6 +598,16 @@ impl JokerEnv for EnvService {
                                     }
                                 }
 
+                                // Cavendish: 每手牌後有 1/1000 機率自毀
+                                let cavendish_rng: u32 = state.rng.gen_range(0..1000);
+                                for joker in &mut state.jokers {
+                                    if joker.enabled && joker.id == JokerId::Cavendish {
+                                        if cavendish_rng == 0 {
+                                            joker.enabled = false;
+                                        }
+                                    }
+                                }
+
                                 let selected_mask = state.selected_mask;
                                 state.break_glass_cards(selected_mask, &score_result.glass_to_break);
 
@@ -839,6 +849,16 @@ impl JokerEnv for EnvService {
                             .filter(|j| j.enabled && j.id == JokerId::Delayed)
                             .count() as i64;
                         state.money += delayed_count * 2;
+                    }
+
+                    // Gros_Michel: 每輪結束有 1/15 機率自毀
+                    let gros_michel_rng: u32 = state.rng.gen_range(0..15);
+                    for joker in &mut state.jokers {
+                        if joker.enabled && joker.id == JokerId::Gros_Michel {
+                            if gros_michel_rng == 0 {
+                                joker.enabled = false;
+                            }
+                        }
                     }
 
                     state.stage = Stage::Shop;
