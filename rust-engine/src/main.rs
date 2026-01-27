@@ -22,7 +22,7 @@ use game::{
     ACTION_TYPE_REROLL, ACTION_TYPE_SELL_JOKER, ACTION_TYPE_SKIP_BLIND,
     ACTION_TYPE_USE_CONSUMABLE, ACTION_TYPE_BUY_VOUCHER, ACTION_TYPE_BUY_PACK,
     Stage, GameEnd, BlindType, BossBlind, JokerId, Card, Enhancement, Edition, Seal,
-    Consumable, TarotId, PlanetId,
+    Consumable, TarotId, PlanetId, SpectralId,
 };
 
 // 從 service 模組導入
@@ -393,6 +393,20 @@ impl JokerEnv for EnvService {
                                 }
                             }
                             state.money += money_bonus;
+
+                            // Sixth: 棄 6 張牌時銷毀自身並獲得 Spectral 卡
+                            if cards_discarded == 6 {
+                                if let Some(idx) = state.jokers.iter()
+                                    .position(|j| j.enabled && j.id == JokerId::Sixth)
+                                {
+                                    state.jokers[idx].enabled = false;
+                                    if !state.consumables.is_full() {
+                                        let all_spectrals = SpectralId::all();
+                                        let spec_idx = state.rng.gen_range(0..all_spectrals.len());
+                                        state.consumables.add(Consumable::Spectral(all_spectrals[spec_idx]));
+                                    }
+                                }
+                            }
                         }
                     }
 
