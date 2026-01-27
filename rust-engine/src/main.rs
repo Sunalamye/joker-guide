@@ -267,6 +267,13 @@ impl JokerEnv for EnvService {
                             }
                         }
 
+                        // GreenJoker: 每輪重置 Mult 計數器
+                        for joker in &mut state.jokers {
+                            if joker.enabled && joker.id == JokerId::GreenJoker {
+                                joker.green_mult = 0;
+                            }
+                        }
+
                         // Wee: 每輪 +8 Chips
                         for joker in &mut state.jokers {
                             if joker.enabled && joker.id == JokerId::Wee {
@@ -557,6 +564,25 @@ impl JokerEnv for EnvService {
                                         joker.ice_cream_chips -= 5;
                                         if joker.ice_cream_chips <= 0 {
                                             joker.enabled = false;
+                                        }
+                                    }
+                                }
+
+                                // GreenJoker: 每手牌 +1 Mult
+                                for joker in &mut state.jokers {
+                                    if joker.enabled && joker.id == JokerId::GreenJoker {
+                                        joker.green_mult += 1;
+                                    }
+                                }
+
+                                // RideTheBus: 連續非人頭牌手 +1 Mult，有人頭牌則重置
+                                let has_face = selected.iter().any(|c| c.is_face());
+                                for joker in &mut state.jokers {
+                                    if joker.enabled && joker.id == JokerId::RideTheBus {
+                                        if has_face {
+                                            joker.ride_the_bus_mult = 0;
+                                        } else {
+                                            joker.ride_the_bus_mult += 1;
                                         }
                                     }
                                 }

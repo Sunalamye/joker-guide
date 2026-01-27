@@ -1113,6 +1113,10 @@ pub struct JokerSlot {
     pub wee_chips: i32,
     /// Merry: Mult 累積 (起始 0, 每輪 +3)
     pub merry_mult: i32,
+    /// GreenJoker: Mult 累積 (起始 0, 每手 +1, 每輪重置)
+    pub green_mult: i32,
+    /// RideTheBus: 連續非人頭牌手數 (每出人頭牌重置)
+    pub ride_the_bus_mult: i32,
 }
 
 impl JokerSlot {
@@ -1162,6 +1166,8 @@ impl JokerSlot {
             campfire_mult: 1.0,  // Campfire: 起始 X1.0 Mult
             wee_chips: 0,        // Wee: 起始 0 Chips (每輪 +8)
             merry_mult: 0,       // Merry: 起始 0 Mult (每輪 +3)
+            green_mult: 0,       // GreenJoker: 起始 0 Mult (每手 +1, 每輪重置)
+            ride_the_bus_mult: 0, // RideTheBus: 起始 0 Mult (每連續非人頭牌手 +1)
         }
     }
 
@@ -1455,6 +1461,14 @@ pub fn compute_joker_effect_with_state(joker: &JokerSlot, ctx: &ScoringContext, 
         JokerId::SteakJoker => {
             // SteakJoker: X2 Mult (每輪售價 -$1, 售價在 main.rs 更新)
             bonus.mul_mult = 2.0;
+        }
+        JokerId::GreenJoker => {
+            // GreenJoker: 使用累積的 mult (每手 +1, 每輪重置, 在 main.rs 更新)
+            bonus.add_mult += joker.green_mult as i64;
+        }
+        JokerId::RideTheBus => {
+            // RideTheBus: 使用累積的 mult (連續非人頭牌手 +1, 在 main.rs 更新)
+            bonus.add_mult += joker.ride_the_bus_mult as i64;
         }
         _ => {}
     }
