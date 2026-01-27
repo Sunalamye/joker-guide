@@ -39,6 +39,7 @@ pub fn calculate_play_score(
     discards_remaining: i32,
     rerolls_this_run: i32,
     blinds_skipped: i32,
+    joker_slot_limit: usize,
     rng: &mut StdRng,
 ) -> CardScoreResult {
     // 從 Joker 構建規則（FourFingers, Shortcut, Splash, Smeared 等）
@@ -49,6 +50,7 @@ pub fn calculate_play_score(
     let mut ctx = ScoringContext::new(selected, hand_score.id);
     ctx.discards_remaining = discards_remaining;
     ctx.joker_count = jokers.len();
+    ctx.joker_slot_limit = joker_slot_limit;
     ctx.rerolls_this_run = rerolls_this_run;
     ctx.blinds_skipped = blinds_skipped;
 

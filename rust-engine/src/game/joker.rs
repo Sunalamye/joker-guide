@@ -451,6 +451,8 @@ pub struct ScoringContext<'a> {
     pub boss_ability_triggered: bool,
     /// 牌組中的 Stone 卡數量 (Stone Joker)
     pub stone_cards_in_deck: i32,
+    /// Joker 槽位上限 (Stencil)
+    pub joker_slot_limit: usize,
 }
 
 impl<'a> ScoringContext<'a> {
@@ -483,6 +485,7 @@ impl<'a> ScoringContext<'a> {
             rerolls_this_run: 0,
             boss_ability_triggered: false,
             stone_cards_in_deck: 0,
+            joker_slot_limit: 5, // 默認 5 個槽位
         }
     }
 }
@@ -912,6 +915,13 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
         JokerId::Stone => {
             // +25 Chips for each Stone card in the full deck
             bonus.chip_bonus += ctx.stone_cards_in_deck as i64 * 25;
+        }
+        JokerId::Stencil => {
+            // X1 Mult for each empty Joker slot
+            let empty_slots = ctx.joker_slot_limit.saturating_sub(ctx.joker_count);
+            if empty_slots > 0 {
+                bonus.mul_mult *= empty_slots as f32;
+            }
         }
 
         // ====== 特殊效果類 ======

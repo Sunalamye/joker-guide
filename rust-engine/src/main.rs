@@ -296,6 +296,7 @@ impl JokerEnv for EnvService {
                                     discards_remaining,
                                     state.rerolls_this_run,
                                     state.blinds_skipped,
+                                    state.joker_slot_limit,
                                     &mut state.rng,
                                 );
                                 let score_gained = score_result.score;
