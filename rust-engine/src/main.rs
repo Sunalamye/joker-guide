@@ -166,6 +166,7 @@ impl JokerEnv for EnvService {
                         state.score = 0;
                         state.played_hand_types.clear();
                         state.first_hand_type = None;
+                        state.discards_used_this_blind = 0;
 
                         // MarbleJoker: 選擇 Blind 時加 Stone 卡到牌組
                         let marble_joker_count = state.jokers.iter()
@@ -314,6 +315,7 @@ impl JokerEnv for EnvService {
                             cards_discarded = mask.count_ones() as i32;
                             let _purple_count = state.discard_with_seals(mask);
                             state.discards_left -= 1;
+                            state.discards_used_this_blind += 1;
                             state.selected_mask = 0;
 
                             // 經濟類 Joker 觸發 - 先計算獎勵，避免借用衝突
@@ -426,6 +428,14 @@ impl JokerEnv for EnvService {
                         .filter(|c| c.enhancement == Enhancement::Gold)
                         .count() as i64;
                     state.money += golden_ticket_count * gold_cards_in_full_deck * 3;
+
+                    // Delayed: 如果本輪沒有使用棄牌 +$2
+                    if state.discards_used_this_blind == 0 {
+                        let delayed_count = state.jokers.iter()
+                            .filter(|j| j.enabled && j.id == JokerId::Delayed)
+                            .count() as i64;
+                        state.money += delayed_count * 2;
+                    }
 
                     state.stage = Stage::Shop;
                     state.refresh_shop();
