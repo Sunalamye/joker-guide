@@ -457,6 +457,8 @@ impl JokerEnv for EnvService {
                                     .find(|j| j.enabled && j.id == JokerId::Selzer)
                                     .map(|j| j.selzer_charges)
                                     .unwrap_or(0);
+                                // 克隆 hand_levels 以避免借用檢查問題
+                                let hand_levels_clone = state.hand_levels.clone();
                                 let score_result = calculate_play_score(
                                     &selected,
                                     &jokers_clone,
@@ -469,6 +471,7 @@ impl JokerEnv for EnvService {
                                     is_first_hand,
                                     is_final_hand,
                                     selzer_charges,
+                                    &hand_levels_clone,
                                     &mut state.rng,
                                 );
                                 let score_gained = score_result.score;
@@ -887,9 +890,13 @@ impl JokerEnv for EnvService {
                     ACTION_TYPE_USE_CONSUMABLE => {
                         let index = action_id as usize;
                         if let Some(consumable) = state.consumables.use_item(index) {
-                            // 根據消耗品類型更新 Joker 狀態
+                            // 根據消耗品類型更新狀態
                             match &consumable {
-                                Consumable::Planet(_) => {
+                                Consumable::Planet(planet_id) => {
+                                    // 升級對應的牌型等級
+                                    let hand_type_idx = planet_id.hand_type_index();
+                                    state.hand_levels.upgrade(hand_type_idx);
+
                                     // Constellation: 每使用 Planet 卡 +0.1 X Mult
                                     for joker in &mut state.jokers {
                                         if joker.enabled && joker.id == JokerId::Constellation {
@@ -1178,9 +1185,13 @@ impl JokerEnv for EnvService {
                     ACTION_TYPE_USE_CONSUMABLE => {
                         let index = action_id as usize;
                         if let Some(consumable) = state.consumables.use_item(index) {
-                            // 根據消耗品類型更新 Joker 狀態
+                            // 根據消耗品類型更新狀態
                             match &consumable {
-                                Consumable::Planet(_) => {
+                                Consumable::Planet(planet_id) => {
+                                    // 升級對應的牌型等級
+                                    let hand_type_idx = planet_id.hand_type_index();
+                                    state.hand_levels.upgrade(hand_type_idx);
+
                                     // Constellation: 每使用 Planet 卡 +0.1 X Mult
                                     for joker in &mut state.jokers {
                                         if joker.enabled && joker.id == JokerId::Constellation {

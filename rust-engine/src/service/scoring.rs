@@ -4,7 +4,7 @@ use rand::rngs::StdRng;
 use rand::Rng;
 
 use crate::game::{
-    BossBlind, Card, Enhancement, HandId, JokerId, JokerSlot, Seal,
+    BossBlind, Card, Enhancement, HandId, HandLevels, JokerId, JokerSlot, Seal,
     ScoringContext, compute_joker_bonus, score_hand_with_rules, JokerRules,
 };
 
@@ -33,7 +33,7 @@ pub struct CardScoreResult {
     pub lucky_triggers: i32,        // Lucky 牌觸發次數 (for Lucky_Cat)
 }
 
-/// 計算出牌分數（考慮 Boss Blind debuff 和卡片增強）
+/// 計算出牌分數（考慮 Boss Blind debuff、卡片增強和牌型等級）
 pub fn calculate_play_score(
     selected: &[Card],
     jokers: &[JokerSlot],
@@ -46,11 +46,16 @@ pub fn calculate_play_score(
     is_first_hand: bool,
     is_final_hand: bool,
     selzer_charges: i32,
+    hand_levels: &HandLevels,
     rng: &mut StdRng,
 ) -> CardScoreResult {
     // 從 Joker 構建規則（FourFingers, Shortcut, Splash, Smeared 等）
     let rules = JokerRules::from_jokers(jokers);
     let hand_score = score_hand_with_rules(selected, &rules);
+
+    // 獲取牌型等級加成
+    let hand_type_idx = hand_score.id.to_index();
+    let (level_chips, level_mult) = hand_levels.bonus(hand_type_idx);
 
     // 創建計分上下文
     let mut ctx = ScoringContext::new(selected, hand_score.id);
@@ -73,8 +78,9 @@ pub fn calculate_play_score(
 
     let bonus = compute_joker_bonus(jokers, &ctx, &rng_values);
 
-    let mut total_chips = hand_score.base_chips + bonus.chip_bonus;
-    let mut total_mult = hand_score.base_mult + bonus.add_mult;
+    // 基礎值 + 等級加成 + Joker 加成
+    let mut total_chips = hand_score.base_chips + level_chips + bonus.chip_bonus;
+    let mut total_mult = hand_score.base_mult + level_mult + bonus.add_mult;
     let mut x_mult = bonus.mul_mult;
     let mut money_gained: i64 = 0;
     let mut glass_to_break = Vec::new();
