@@ -369,6 +369,13 @@ impl JokerEnv for EnvService {
                         }
                     }
 
+                    // Egg: 每輪 +$3 售價
+                    for joker in state.jokers.iter_mut() {
+                        if joker.enabled && joker.id == JokerId::Egg {
+                            joker.sell_value += 3;
+                        }
+                    }
+
                     state.stage = Stage::Shop;
                     state.refresh_shop();
                 }
