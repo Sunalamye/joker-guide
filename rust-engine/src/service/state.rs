@@ -361,10 +361,18 @@ impl EnvState {
         };
 
         // 利息（10%，最高 $5）
-        let interest = ((self.money as f32 * INTEREST_RATE).floor() as i64).min(MAX_INTEREST);
+        // Green Deck: 無利息
+        let interest = if self.deck_type.disables_interest() {
+            0
+        } else {
+            let base_cap = MAX_INTEREST + self.voucher_effects.interest_cap_bonus;
+            ((self.money as f32 * INTEREST_RATE).floor() as i64).min(base_cap)
+        };
 
         // 剩餘出牌獎勵
-        let hand_bonus = self.plays_left as i64 * MONEY_PER_REMAINING_HAND;
+        // Green Deck: 每剩餘手牌 +$2（預設 $1）
+        let money_per_hand = self.deck_type.money_per_remaining_hand();
+        let hand_bonus = self.plays_left as i64 * money_per_hand;
 
         // Gold 卡加成（手牌中每張 Gold 卡 +$3）
         let gold_bonus = self.gold_card_money();
