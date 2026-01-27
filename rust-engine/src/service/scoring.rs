@@ -5,7 +5,7 @@ use rand::Rng;
 
 use crate::game::{
     BossBlind, Card, Enhancement, HandId, JokerSlot, Seal,
-    ScoringContext, compute_joker_bonus, score_hand,
+    ScoringContext, compute_joker_bonus, score_hand_with_rules, JokerRules,
 };
 
 /// 從手牌中構建選中的牌
@@ -41,7 +41,9 @@ pub fn calculate_play_score(
     blinds_skipped: i32,
     rng: &mut StdRng,
 ) -> CardScoreResult {
-    let hand_score = score_hand(selected);
+    // 從 Joker 構建規則（FourFingers, Shortcut, Splash, Smeared 等）
+    let rules = JokerRules::from_jokers(jokers);
+    let hand_score = score_hand_with_rules(selected, &rules);
 
     // 創建計分上下文
     let mut ctx = ScoringContext::new(selected, hand_score.id);

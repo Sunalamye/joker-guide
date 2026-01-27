@@ -36,7 +36,7 @@ pub use constants::*;
 pub use cards::{Card, Enhancement, Seal, Edition, standard_deck, card_index};
 pub use blinds::{Stage, GameEnd, BlindType, BossBlind, Ante};
 pub use hand_types::{HandId, HandScore};
-pub use scoring::{score_hand, hand_potential};
+pub use scoring::{score_hand, score_hand_with_rules, hand_potential, JokerRules};
 pub use joker::{JokerId, JokerSlot, JokerBonus, ScoringContext, compute_joker_bonus, JOKER_COUNT};
 pub use shop::{Shop, ShopItem};
 pub use reward::{
