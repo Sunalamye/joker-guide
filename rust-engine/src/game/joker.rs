@@ -13,7 +13,7 @@ use super::hand_types::HandId;
 // ============================================================================
 
 /// Joker 總數
-pub const JOKER_COUNT: usize = 162;
+pub const JOKER_COUNT: usize = 163;
 
 /// Joker 唯一識別碼
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -200,6 +200,7 @@ pub enum JokerId {
     TheIdol = 159,       // 特定牌（每回合隨機選擇）X2 Mult
     SquareJoker = 160,   // 牌組正好 52 張時，每張打出的牌 +4 Mult
     DietCola = 161,      // 賣出時 +$100（實際獲得售價 + $100）
+    ChaosTheClown = 162, // 每回合 1 次免費 reroll
 }
 
 impl JokerId {
@@ -1098,6 +1099,8 @@ pub struct JokerSlot {
     pub idol_rank: u8,
     /// TheIdol: 目標牌的花色 (0-3, 每回合隨機變化)
     pub idol_suit: u8,
+    /// ChaosTheClown: 本回合是否已使用免費 reroll
+    pub chaos_free_reroll_used: bool,
 }
 
 impl JokerSlot {
@@ -1140,6 +1143,7 @@ impl JokerSlot {
             todo_hand_type: 0,  // ToDoList: 在購買時隨機初始化
             idol_rank: 1,       // TheIdol: 初始點數 (1=Ace, 在購買時隨機初始化)
             idol_suit: 0,       // TheIdol: 初始花色 (0-3, 在購買時隨機初始化)
+            chaos_free_reroll_used: false, // ChaosTheClown: 每回合重置
         }
     }
 

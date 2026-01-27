@@ -259,6 +259,13 @@ impl JokerEnv for EnvService {
                             }
                         }
 
+                        // ChaosTheClown: 每回合重置免費 reroll
+                        for joker in &mut state.jokers {
+                            if joker.id == JokerId::ChaosTheClown {
+                                joker.chaos_free_reroll_used = false;
+                            }
+                        }
+
                         state.deal();
 
                         if state.boss_blind == Some(BossBlind::TheHook) {
@@ -802,7 +809,20 @@ impl JokerEnv for EnvService {
                     }
 
                     ACTION_TYPE_REROLL => {
-                        let reroll_cost = state.shop.current_reroll_cost();
+                        let mut reroll_cost = state.shop.current_reroll_cost();
+
+                        // ChaosTheClown: 每回合 1 次免費 reroll
+                        let mut chaos_free_reroll = false;
+                        for joker in &state.jokers {
+                            if joker.enabled && joker.id == JokerId::ChaosTheClown && !joker.chaos_free_reroll_used {
+                                chaos_free_reroll = true;
+                                break;
+                            }
+                        }
+                        if chaos_free_reroll {
+                            reroll_cost = 0;
+                        }
+
                         // CreditCard: 允許 $20 負債
                         let has_credit_card = state.jokers.iter()
                             .any(|j| j.enabled && j.id == JokerId::CreditCard);
@@ -811,6 +831,16 @@ impl JokerEnv for EnvService {
                             action_cost = reroll_cost;
                             state.money -= reroll_cost;
                             state.reroll_shop();
+
+                            // 標記 ChaosTheClown 的免費 reroll 已使用
+                            if chaos_free_reroll {
+                                for joker in &mut state.jokers {
+                                    if joker.enabled && joker.id == JokerId::ChaosTheClown {
+                                        joker.chaos_free_reroll_used = true;
+                                        break;
+                                    }
+                                }
+                            }
 
                             // 更新全局計數器（用於 ScoringContext）
                             state.rerolls_this_run += 1;
