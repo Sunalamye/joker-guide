@@ -13,7 +13,7 @@ use super::hand_types::HandId;
 // ============================================================================
 
 /// Joker 總數
-pub const JOKER_COUNT: usize = 155;
+pub const JOKER_COUNT: usize = 156;
 
 /// Joker 唯一識別碼
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -193,6 +193,7 @@ pub enum JokerId {
     BaseballCard = 152,  // X1.5 Mult for each Uncommon Joker held
     RaisedFist = 153,    // Lowest held card gives 2X its rank as Mult
     EightBall = 154,     // 打出 8 時創建 Tarot
+    ToDoList = 155,      // 打出特定牌型時 +$4
 }
 
 impl JokerId {
@@ -1079,6 +1080,8 @@ pub struct JokerSlot {
     pub obelisk_streak: i32,
     /// TurtleBean: 手牌大小加成 (起始 5, 每輪 -1, 到 0 時自毀)
     pub turtle_hand_mod: i32,
+    /// ToDoList: 目標牌型索引 (0-12, 打出時 +$4, 然後重新隨機選擇)
+    pub todo_hand_type: u8,
 }
 
 impl JokerSlot {
@@ -1118,6 +1121,7 @@ impl JokerSlot {
             selzer_charges: if id == JokerId::Selzer { 10 } else { 0 },  // Selzer: 10 張牌重觸發
             obelisk_streak: 0,  // Obelisk: 連續非最常打牌型次數
             turtle_hand_mod: if id == JokerId::TurtleBean { 5 } else { 0 },  // TurtleBean: +5 手牌大小
+            todo_hand_type: 0,  // ToDoList: 在購買時隨機初始化
         }
     }
 

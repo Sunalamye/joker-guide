@@ -446,6 +446,18 @@ impl JokerEnv for EnvService {
                                     }
                                 }
 
+                                // ToDoList: 打出特定牌型時 +$4，然後重新隨機選擇
+                                let todo_matches: Vec<usize> = state.jokers.iter()
+                                    .enumerate()
+                                    .filter(|(_, j)| j.enabled && j.id == JokerId::ToDoList && hand_type_idx == j.todo_hand_type as usize)
+                                    .map(|(i, _)| i)
+                                    .collect();
+                                state.money += todo_matches.len() as i64 * 4;
+                                for idx in todo_matches {
+                                    // 重新隨機選擇牌型 (0-12)
+                                    state.jokers[idx].todo_hand_type = state.rng.gen_range(0..13) as u8;
+                                }
+
                                 // Seance: Straight Flush 或 Royal Flush 時生成 Spectral 卡
                                 // StraightFlush = 8, RoyalFlush = 9
                                 if hand_type_idx == 8 || hand_type_idx == 9 {
@@ -706,7 +718,12 @@ impl JokerEnv for EnvService {
                                 action_cost = cost;
                                 state.money -= cost;
                                 if let Some(bought) = state.shop.buy(index) {
-                                    state.jokers.push(bought.joker);
+                                    let mut joker = bought.joker;
+                                    // ToDoList: 購買時隨機設置目標牌型
+                                    if joker.id == JokerId::ToDoList {
+                                        joker.todo_hand_type = state.rng.gen_range(0..13) as u8;
+                                    }
+                                    state.jokers.push(joker);
                                 }
                             }
                         }
