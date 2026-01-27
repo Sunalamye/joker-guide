@@ -1402,6 +1402,11 @@ impl JokerSlot {
                     rank: 0,
                     value: 0, // 累積的 chips
                 },
+                JokerId::TheIdol => JokerState::Target {
+                    suit: 0,  // 初始花色，每回合隨機變化
+                    rank: 1,  // 初始點數 Ace，每回合隨機變化
+                    value: 0,
+                },
                 _ => JokerState::None,
             },
             trading_card_triggered: false,
@@ -1583,6 +1588,18 @@ impl JokerSlot {
         }
     }
 
+    /// TheIdol: 設置目標牌 (每回合開始時隨機調用)
+    pub fn set_idol_target(&mut self, rank: u8, suit: u8) {
+        if self.id == JokerId::TheIdol {
+            // 更新新的統一狀態
+            self.state.set_target_rank(rank);
+            self.state.set_target_suit(suit);
+            // 暫時同步更新舊欄位（遷移完成後刪除）
+            self.idol_rank = rank;
+            self.idol_suit = suit;
+        }
+    }
+
     /// Hit The Road: 棄 Jack 時調用 (+0.5 X Mult per Jack)
     pub fn update_hit_the_road_on_jack_discard(&mut self, jacks_discarded: i32) {
         if self.id == JokerId::Hit_The_Road {
@@ -1759,10 +1776,13 @@ pub fn compute_joker_effect_with_state(
         }
         JokerId::TheIdol => {
             // TheIdol: 打出特定牌（rank + suit）時 X2 Mult
+            // 優先使用新的統一狀態系統
+            let target_rank = joker.state.get_target_rank();
+            let target_suit = joker.state.get_target_suit();
             let has_idol_card = ctx
                 .played_cards
                 .iter()
-                .any(|c| c.rank == joker.idol_rank && c.suit == joker.idol_suit);
+                .any(|c| c.rank == target_rank && c.suit == target_suit);
             if has_idol_card {
                 bonus.mul_mult = 2.0;
             }

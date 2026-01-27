@@ -276,8 +276,7 @@ impl JokerEnv for EnvService {
                         let idol_random_suit: u8 = state.rng.gen_range(0..4);
                         for joker in &mut state.jokers {
                             if joker.enabled && joker.id == JokerId::TheIdol {
-                                joker.idol_rank = idol_random_rank;
-                                joker.idol_suit = idol_random_suit;
+                                joker.set_idol_target(idol_random_rank, idol_random_suit);
                             }
                         }
 
