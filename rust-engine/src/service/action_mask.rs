@@ -74,10 +74,11 @@ pub fn action_mask_from_state(state: &EnvState, done: bool) -> Tensor {
     offset += 3;
 
     // Shop joker purchase (2)
+    let effective_joker_slots = state.effective_joker_slot_limit();
     for i in 0..SHOP_JOKER_COUNT {
         let can_buy = in_shop
             && state.shop.items.get(i).map(|item| item.cost <= state.money).unwrap_or(false)
-            && state.jokers.len() < state.joker_slot_limit;
+            && state.jokers.len() < effective_joker_slots;
         data[offset + i] = if can_buy { 1.0 } else { 0.0 };
     }
     offset += SHOP_JOKER_COUNT;

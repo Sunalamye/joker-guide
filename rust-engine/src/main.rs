@@ -90,7 +90,7 @@ impl JokerEnv for EnvService {
 
             // Joker 狀態
             joker_count: state.jokers.len() as i32,
-            joker_slot_limit: state.joker_slot_limit as i32,
+            joker_slot_limit: state.effective_joker_slot_limit() as i32,
 
             // 遊戲結束狀態
             game_end: 0,
@@ -235,9 +235,10 @@ impl JokerEnv for EnvService {
                             .filter(|j| j.enabled && j.id == JokerId::RiffRaff)
                             .count();
                         let common_jokers = JokerId::by_rarity(1);
+                        let effective_slots = state.effective_joker_slot_limit();
                         for _ in 0..riff_raff_count {
                             for _ in 0..2 {
-                                if state.jokers.len() < state.joker_slot_limit && !common_jokers.is_empty() {
+                                if state.jokers.len() < effective_slots && !common_jokers.is_empty() {
                                     let idx = state.rng.gen_range(0..common_jokers.len());
                                     state.jokers.push(JokerSlot::new(common_jokers[idx]));
                                 }
@@ -1170,7 +1171,7 @@ impl JokerEnv for EnvService {
                                         }
                                         TarotId::Judgement => {
                                             // 生成隨機 Joker（如果有槽位）
-                                            if state.jokers.len() < state.joker_slot_limit {
+                                            if state.jokers.len() < state.effective_joker_slot_limit() {
                                                 // 創建一個隨機 common joker
                                                 let joker_id = JokerId::random_common(&mut state.rng);
                                                 state.jokers.push(JokerSlot::new(joker_id));
@@ -1272,7 +1273,7 @@ impl JokerEnv for EnvService {
                                         }
                                         SpectralId::Wraith => {
                                             // 生成 Rare Joker，金幣歸零
-                                            if state.jokers.len() < state.joker_slot_limit {
+                                            if state.jokers.len() < state.effective_joker_slot_limit() {
                                                 let joker_id = JokerId::random_rare(&mut state.rng);
                                                 state.jokers.push(JokerSlot::new(joker_id));
                                             }
@@ -1367,7 +1368,7 @@ impl JokerEnv for EnvService {
                                         }
                                         SpectralId::TheSoul => {
                                             // 生成 Legendary Joker
-                                            if state.jokers.len() < state.joker_slot_limit {
+                                            if state.jokers.len() < state.effective_joker_slot_limit() {
                                                 let joker_id = JokerId::random_legendary(&mut state.rng);
                                                 state.jokers.push(JokerSlot::new(joker_id));
                                             }
@@ -1536,7 +1537,7 @@ impl JokerEnv for EnvService {
                         let debt_limit = if has_credit_card { 20 } else { 0 };
                         if let Some(item) = state.shop.items.get(index) {
                             if item.cost <= state.money + debt_limit
-                                && state.jokers.len() < state.joker_slot_limit
+                                && state.jokers.len() < state.effective_joker_slot_limit()
                             {
                                 let cost = item.cost;
                                 action_cost = cost;
@@ -1644,7 +1645,7 @@ impl JokerEnv for EnvService {
                                     .filter(|(_, j)| j.enabled)
                                     .map(|(i, _)| i)
                                     .collect();
-                                if !enabled_jokers.is_empty() && state.jokers.len() < state.joker_slot_limit {
+                                if !enabled_jokers.is_empty() && state.jokers.len() < state.effective_joker_slot_limit() {
                                     let target_idx = enabled_jokers[state.rng.gen_range(0..enabled_jokers.len())];
                                     let copied = state.jokers[target_idx].clone();
                                     state.jokers.push(copied);
@@ -1821,7 +1822,7 @@ impl JokerEnv for EnvService {
 
             // Joker 狀態
             joker_count: state.jokers.len() as i32,
-            joker_slot_limit: state.joker_slot_limit as i32,
+            joker_slot_limit: state.effective_joker_slot_limit() as i32,
 
             // 遊戲結束狀態
             game_end,

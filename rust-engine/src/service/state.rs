@@ -517,6 +517,21 @@ impl EnvState {
 
     /// 計算有效手牌大小（考慮 Joker 修正）
     /// - Juggler: +1
+    /// 計算有效 Joker 槽位上限
+    ///
+    /// Negative edition 的 Joker 不佔槽位，等同於 +1 槽位
+    pub fn effective_joker_slot_limit(&self) -> usize {
+        let base = self.joker_slot_limit;
+        let negative_count = self.jokers.iter()
+            .filter(|j| j.is_negative)
+            .count();
+        base + negative_count
+    }
+
+    /// 計算有效手牌大小
+    ///
+    /// 考慮 Joker 效果:
+    /// - Juggler: +1
     /// - Troubadour: +2
     /// - Stuntman: -2
     /// - TurtleBean: 由 turtle_hand_mod 追蹤
