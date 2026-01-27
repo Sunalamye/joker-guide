@@ -945,6 +945,8 @@ pub struct JokerSlot {
     pub yorick_mult: f32,
     /// Glass Joker: X Mult 累積 (起始 1.0, 每碎 Glass 牌 +0.75)
     pub glass_mult: f32,
+    /// Rocket: 每回合獎勵金額 (起始 1, 每過 Boss +1)
+    pub rocket_money: i32,
 }
 
 impl JokerSlot {
@@ -976,6 +978,7 @@ impl JokerSlot {
             yorick_discards: 0,
             yorick_mult: 1.0,
             glass_mult: 1.0,
+            rocket_money: 1,  // Rocket: 初始每回合 +$1
         }
     }
 

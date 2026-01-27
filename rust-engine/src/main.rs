@@ -376,6 +376,13 @@ impl JokerEnv for EnvService {
                         }
                     }
 
+                    // Rocket: 每輪結束 +rocket_money 金幣
+                    let rocket_money: i64 = state.jokers.iter()
+                        .filter(|j| j.enabled && j.id == JokerId::Rocket)
+                        .map(|j| j.rocket_money as i64)
+                        .sum();
+                    state.money += rocket_money;
+
                     state.stage = Stage::Shop;
                     state.refresh_shop();
                 }
@@ -408,6 +415,13 @@ impl JokerEnv for EnvService {
                                 state.blind_type = None;
                                 state.stage = Stage::PreBlind;
                                 state.round += 1;
+
+                                // Rocket: 過 Boss Blind 後，每回合獎勵 +$1
+                                for joker in state.jokers.iter_mut() {
+                                    if joker.enabled && joker.id == JokerId::Rocket {
+                                        joker.rocket_money += 1;
+                                    }
+                                }
                             } else {
                                 // 遊戲勝利（非無盡模式）
                                 state.stage = Stage::End(GameEnd::Win);
