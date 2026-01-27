@@ -635,7 +635,44 @@ impl JokerEnv for EnvService {
                                 }
 
                                 let selected_mask = state.selected_mask;
+
+                                // GlassJoker: 記錄被破碎的 Glass 牌數量和人頭牌數量 (for Canio)
+                                let glass_broken_count = score_result.glass_to_break.len() as i32;
+                                let mut face_cards_destroyed = 0;
+                                if glass_broken_count > 0 {
+                                    // 計算被破碎的牌中有多少是人頭牌
+                                    let mut selected_idx = 0;
+                                    for (idx, card) in state.hand.iter().enumerate() {
+                                        if ((selected_mask >> idx) & 1) == 1 {
+                                            if score_result.glass_to_break.contains(&selected_idx) {
+                                                if card.is_face() {
+                                                    face_cards_destroyed += 1;
+                                                }
+                                            }
+                                            selected_idx += 1;
+                                        }
+                                    }
+                                }
+
                                 state.break_glass_cards(selected_mask, &score_result.glass_to_break);
+
+                                // GlassJoker: Glass 牌破碎時 +0.75 X Mult
+                                if glass_broken_count > 0 {
+                                    for joker in &mut state.jokers {
+                                        if joker.enabled && joker.id == JokerId::GlassJoker {
+                                            joker.update_glass_on_break(glass_broken_count);
+                                        }
+                                    }
+                                }
+
+                                // Canio: 人頭牌被銷毀時 +X1 Mult
+                                if face_cards_destroyed > 0 {
+                                    for joker in &mut state.jokers {
+                                        if joker.enabled && joker.id == JokerId::Canio {
+                                            joker.update_canio_on_face_destroyed(face_cards_destroyed);
+                                        }
+                                    }
+                                }
 
                                 let required = state.required_score();
 
