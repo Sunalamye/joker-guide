@@ -3,7 +3,7 @@
 use joker_env::proto::Tensor;
 
 use crate::game::{
-    BlindType, Stage,
+    BlindType, BossBlind, Stage,
     ACTION_MASK_SIZE, ACTION_TYPE_COUNT, HAND_SIZE, SHOP_JOKER_COUNT, JOKER_SLOTS,
     CONSUMABLE_SLOT_COUNT, SHOP_VOUCHER_COUNT, SHOP_PACK_COUNT,
 };
@@ -44,7 +44,9 @@ pub fn action_mask_from_state(state: &EnvState, done: bool) -> Tensor {
 
     // 新增的 action types
     let has_consumables = !state.consumables.items.is_empty();
-    data[10] = if (in_blind || in_shop) && has_consumables { 1.0 } else { 0.0 }; // USE_CONSUMABLE
+    // Amber Boss Blind: 無法使用消耗品
+    let amber_blocks = state.boss_blind == Some(BossBlind::Amber);
+    data[10] = if (in_blind || in_shop) && has_consumables && !amber_blocks { 1.0 } else { 0.0 }; // USE_CONSUMABLE
     data[11] = if in_shop && state.shop_voucher.is_some() { 1.0 } else { 0.0 }; // BUY_VOUCHER
     data[12] = if in_shop { 1.0 } else { 0.0 }; // BUY_PACK
     offset += ACTION_TYPE_COUNT as usize;
