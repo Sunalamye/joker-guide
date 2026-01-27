@@ -965,6 +965,8 @@ pub struct JokerSlot {
     pub glass_mult: f32,
     /// Rocket: 每回合獎勵金額 (起始 1, 每過 Boss +1)
     pub rocket_money: i32,
+    /// AncientJoker: 當前選定的花色 (0-3, 每回合隨機變化)
+    pub ancient_suit: u8,
 }
 
 impl JokerSlot {
@@ -997,6 +999,7 @@ impl JokerSlot {
             yorick_mult: 1.0,
             glass_mult: 1.0,
             rocket_money: 1,  // Rocket: 初始每回合 +$1
+            ancient_suit: 0,  // AncientJoker: 初始為 Diamonds (0)
         }
     }
 
@@ -1076,7 +1079,14 @@ impl JokerSlot {
             self.glass_mult += glass_broken as f32 * 0.75;
         }
     }
-    
+
+    /// AncientJoker: 設置當前花色 (每回合開始時隨機調用)
+    pub fn set_ancient_suit(&mut self, suit: u8) {
+        if self.id == JokerId::AncientJoker {
+            self.ancient_suit = suit % 4;  // 確保在 0-3 範圍內
+        }
+    }
+
     /// 獲取此 Joker 的 X Mult 值（用於計分）
     pub fn get_x_mult(&self) -> f32 {
         match self.id {
@@ -1146,6 +1156,13 @@ pub fn compute_joker_effect_with_state(joker: &JokerSlot, ctx: &ScoringContext, 
             // Glass Joker: 使用累積的 glass_mult (Glass 牌碎裂後)
             // 覆蓋 compute_core_joker_effect 中基於 ctx 的計算
             bonus.mul_mult = joker.glass_mult;
+        }
+        JokerId::AncientJoker => {
+            // AncientJoker: 如果手牌包含指定花色，X1.5 Mult
+            let has_suit = ctx.played_cards.iter().any(|c| c.suit == joker.ancient_suit);
+            if has_suit {
+                bonus.mul_mult = 1.5;
+            }
         }
         _ => {}
     }

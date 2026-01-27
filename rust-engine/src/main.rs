@@ -199,6 +199,14 @@ impl JokerEnv for EnvService {
                             }
                         }
 
+                        // AncientJoker: 每回合開始時隨機設置花色
+                        let ancient_joker_random_suit: u8 = state.rng.gen_range(0..4);
+                        for joker in &mut state.jokers {
+                            if joker.enabled && joker.id == JokerId::AncientJoker {
+                                joker.set_ancient_suit(ancient_joker_random_suit);
+                            }
+                        }
+
                         state.deal();
 
                         if state.boss_blind == Some(BossBlind::TheHook) {
