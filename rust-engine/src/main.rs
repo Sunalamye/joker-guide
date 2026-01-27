@@ -396,6 +396,15 @@ impl JokerEnv for EnvService {
                         .count() as i64;
                     state.money += satellite_count * state.planets_used_this_run as i64;
 
+                    // Certificate: 每張手中 Gold Seal 牌 +$1
+                    let certificate_count = state.jokers.iter()
+                        .filter(|j| j.enabled && j.id == JokerId::Certificate)
+                        .count() as i64;
+                    let gold_seal_count = state.hand.iter()
+                        .filter(|c| c.seal == Seal::Gold)
+                        .count() as i64;
+                    state.money += certificate_count * gold_seal_count;
+
                     state.stage = Stage::Shop;
                     state.refresh_shop();
                 }
