@@ -562,6 +562,7 @@ impl EnvState {
     /// - Stuntman: -2
     /// - TurtleBean: 由 turtle_hand_mod 追蹤
     /// - TheManacle (Boss): -1
+    /// - Purple Stake 及以上: -1
     pub fn effective_hand_size(&self) -> usize {
         let base = HAND_SIZE as i32;
         let mut modifier: i32 = 0;
@@ -586,6 +587,9 @@ impl EnvState {
 
         // Spectral 永久效果 (Ouija, Ectoplasm)
         modifier += self.hand_size_modifier;
+
+        // Purple Stake 及以上: -1 手牌大小
+        modifier += self.stake.hand_size_modifier();
 
         (base + modifier).max(1) as usize
     }
