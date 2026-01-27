@@ -267,6 +267,40 @@ impl JokerEnv for EnvService {
                             }
                         }
 
+                        // Wee: 每輪 +8 Chips
+                        for joker in &mut state.jokers {
+                            if joker.enabled && joker.id == JokerId::Wee {
+                                joker.wee_chips += 8;
+                            }
+                        }
+
+                        // Merry: 每輪 +3 Mult
+                        for joker in &mut state.jokers {
+                            if joker.enabled && joker.id == JokerId::Merry {
+                                joker.merry_mult += 3;
+                            }
+                        }
+
+                        // Popcorn: 每輪 -4 Mult，到 0 時自毀
+                        for joker in &mut state.jokers {
+                            if joker.enabled && joker.id == JokerId::Popcorn {
+                                joker.popcorn_mult -= 4;
+                                if joker.popcorn_mult <= 0 {
+                                    joker.enabled = false;
+                                }
+                            }
+                        }
+
+                        // SteakJoker: 每輪售價 -$1，到 0 時自毀
+                        for joker in &mut state.jokers {
+                            if joker.enabled && joker.id == JokerId::SteakJoker {
+                                joker.sell_value -= 1;
+                                if joker.sell_value <= 0 {
+                                    joker.enabled = false;
+                                }
+                            }
+                        }
+
                         state.deal();
 
                         if state.boss_blind == Some(BossBlind::TheHook) {
@@ -517,6 +551,16 @@ impl JokerEnv for EnvService {
                                     }
                                 }
 
+                                // IceCream: 每手牌後 -5 Chips，到 0 時自毀
+                                for joker in &mut state.jokers {
+                                    if joker.enabled && joker.id == JokerId::IceCream {
+                                        joker.ice_cream_chips -= 5;
+                                        if joker.ice_cream_chips <= 0 {
+                                            joker.enabled = false;
+                                        }
+                                    }
+                                }
+
                                 let selected_mask = state.selected_mask;
                                 state.break_glass_cards(selected_mask, &score_result.glass_to_break);
 
@@ -644,6 +688,17 @@ impl JokerEnv for EnvService {
                                 let hand_idx = discarded_hand.id.to_index();
                                 for _ in 0..burnt_count {
                                     state.hand_levels.upgrade(hand_idx);
+                                }
+                            }
+
+                            // Ramen: 每棄一張牌 -0.01 X Mult，低於 1.0 時自毀
+                            let discard_count = cards_discarded;
+                            for joker in &mut state.jokers {
+                                if joker.enabled && joker.id == JokerId::Ramen {
+                                    joker.ramen_mult -= discard_count as f32 * 0.01;
+                                    if joker.ramen_mult < 1.0 {
+                                        joker.enabled = false;
+                                    }
                                 }
                             }
                         }
@@ -880,6 +935,13 @@ impl JokerEnv for EnvService {
                             }
 
                             state.money += sell_value;
+
+                            // Campfire: 每賣一張卡 +0.25 X Mult
+                            for joker in &mut state.jokers {
+                                if joker.enabled && joker.id == JokerId::Campfire {
+                                    joker.campfire_mult += 0.25;
+                                }
+                            }
                         }
                     }
 

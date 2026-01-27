@@ -1101,6 +1101,18 @@ pub struct JokerSlot {
     pub idol_suit: u8,
     /// ChaosTheClown: 本回合是否已使用免費 reroll
     pub chaos_free_reroll_used: bool,
+    /// IceCream: 當前 Chips 加成 (起始 100, 每手 -5, 到 0 時自毀)
+    pub ice_cream_chips: i32,
+    /// Popcorn: 當前 Mult 加成 (起始 20, 每輪 -4, 到 0 時自毀)
+    pub popcorn_mult: i32,
+    /// Ramen: X Mult (起始 2.0, 每棄牌 -0.01, 到 1.0 以下時自毀)
+    pub ramen_mult: f32,
+    /// Campfire: X Mult (起始 1.0, 每賣卡 +0.25)
+    pub campfire_mult: f32,
+    /// Wee: Chips 累積 (起始 0, 每輪 +8)
+    pub wee_chips: i32,
+    /// Merry: Mult 累積 (起始 0, 每輪 +3)
+    pub merry_mult: i32,
 }
 
 impl JokerSlot {
@@ -1144,6 +1156,12 @@ impl JokerSlot {
             idol_rank: 1,       // TheIdol: 初始點數 (1=Ace, 在購買時隨機初始化)
             idol_suit: 0,       // TheIdol: 初始花色 (0-3, 在購買時隨機初始化)
             chaos_free_reroll_used: false, // ChaosTheClown: 每回合重置
+            ice_cream_chips: if id == JokerId::IceCream { 100 } else { 0 }, // IceCream: 起始 100 Chips
+            popcorn_mult: if id == JokerId::Popcorn { 20 } else { 0 },      // Popcorn: 起始 20 Mult
+            ramen_mult: if id == JokerId::Ramen { 2.0 } else { 1.0 },       // Ramen: 起始 X2 Mult
+            campfire_mult: 1.0,  // Campfire: 起始 X1.0 Mult
+            wee_chips: 0,        // Wee: 起始 0 Chips (每輪 +8)
+            merry_mult: 0,       // Merry: 起始 0 Mult (每輪 +3)
         }
     }
 
@@ -1409,6 +1427,34 @@ pub fn compute_joker_effect_with_state(joker: &JokerSlot, ctx: &ScoringContext, 
             if has_idol_card {
                 bonus.mul_mult = 2.0;
             }
+        }
+        JokerId::IceCream => {
+            // IceCream: 使用當前 chips 值 (每手 -5, 在 main.rs 更新)
+            bonus.chip_bonus = joker.ice_cream_chips as i64;
+        }
+        JokerId::Popcorn => {
+            // Popcorn: 使用當前 mult 值 (每輪 -4, 在 main.rs 更新)
+            bonus.add_mult += joker.popcorn_mult as i64;
+        }
+        JokerId::Ramen => {
+            // Ramen: 使用當前 X Mult 值 (每棄牌 -0.01, 在 main.rs 更新)
+            bonus.mul_mult = joker.ramen_mult;
+        }
+        JokerId::Campfire => {
+            // Campfire: 使用累積的 X Mult (每賣卡 +0.25, 在 main.rs 更新)
+            bonus.mul_mult = joker.campfire_mult;
+        }
+        JokerId::Wee => {
+            // Wee: 使用累積的 chips (每輪 +8, 在 main.rs 更新)
+            bonus.chip_bonus += joker.wee_chips as i64;
+        }
+        JokerId::Merry => {
+            // Merry: 使用累積的 mult (每輪 +3, 在 main.rs 更新)
+            bonus.add_mult += joker.merry_mult as i64;
+        }
+        JokerId::SteakJoker => {
+            // SteakJoker: X2 Mult (每輪售價 -$1, 售價在 main.rs 更新)
+            bonus.mul_mult = 2.0;
         }
         _ => {}
     }
