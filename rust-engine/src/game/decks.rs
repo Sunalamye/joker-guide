@@ -155,6 +155,14 @@ impl DeckType {
         matches!(self, DeckType::Plasma)
     }
 
+    /// Spectral 出現率倍數（Ghost Deck: x2）
+    pub fn spectral_rate_mult(&self) -> f32 {
+        match self {
+            DeckType::Ghost => 2.0,
+            _ => 1.0,
+        }
+    }
+
     /// to_index 用於 observation
     pub fn to_index(&self) -> usize {
         match self {
