@@ -1418,6 +1418,12 @@ impl JokerSlot {
                     rank: 1,  // 初始點數 Ace，每回合隨機變化
                     value: 0,
                 },
+                // Counter 狀態 Jokers
+                JokerId::Obelisk => JokerState::Counter {
+                    current: 0,     // 連續非最常打牌型次數
+                    threshold: 0,   // 不使用閾值
+                    bonus_mult: 1.0,
+                },
                 _ => JokerState::None,
             },
             trading_card_triggered: false,
@@ -1725,6 +1731,28 @@ impl JokerSlot {
         }
         false
     }
+
+    /// Obelisk: 重置連續計數（打出最常打牌型時）
+    pub fn reset_obelisk_streak(&mut self) {
+        if self.id == JokerId::Obelisk {
+            // 更新新的統一狀態
+            self.state.reset_counter();
+            // 暫時同步更新舊欄位（遷移完成後刪除）
+            self.obelisk_streak = 0;
+        }
+    }
+
+    /// Obelisk: 增加連續計數（打出非最常打牌型時）
+    pub fn increment_obelisk_streak(&mut self) {
+        if self.id == JokerId::Obelisk {
+            // 更新新的統一狀態
+            if let JokerState::Counter { current, .. } = &mut self.state {
+                *current += 1;
+            }
+            // 暫時同步更新舊欄位（遷移完成後刪除）
+            self.obelisk_streak += 1;
+        }
+    }
 }
 
 /// 計算所有 Joker 的總加成
@@ -1872,8 +1900,9 @@ pub fn compute_joker_effect_with_state(
         }
         JokerId::Obelisk => {
             // Obelisk: X0.2 Mult per consecutive hand without most played type
-            // streak 在 main.rs 打牌後更新
-            bonus.mul_mult = 1.0 + (joker.obelisk_streak as f32 * 0.2);
+            // 優先使用新的統一狀態系統
+            let streak = joker.state.get_counter();
+            bonus.mul_mult = 1.0 + (streak as f32 * 0.2);
         }
         JokerId::TheIdol => {
             // TheIdol: 打出特定牌（rank + suit）時 X2 Mult

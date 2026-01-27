@@ -682,9 +682,9 @@ impl JokerEnv for EnvService {
                                 for joker in &mut state.jokers {
                                     if joker.enabled && joker.id == JokerId::Obelisk {
                                         if is_most_played {
-                                            joker.obelisk_streak = 0; // 打了最常打的，重置
+                                            joker.reset_obelisk_streak(); // 打了最常打的，重置
                                         } else {
-                                            joker.obelisk_streak += 1; // 連續非最常打 +1
+                                            joker.increment_obelisk_streak(); // 連續非最常打 +1
                                         }
                                     }
                                 }
