@@ -923,6 +923,27 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
                 bonus.mul_mult *= empty_slots as f32;
             }
         }
+        JokerId::Triboulet => {
+            // Kings and Queens each give X2 Mult
+            let kq_count = ctx.played_cards.iter()
+                .filter(|c| c.rank == 13 || c.rank == 12)
+                .count();
+            if kq_count > 0 {
+                bonus.mul_mult *= (2.0_f32).powi(kq_count as i32);
+            }
+        }
+        JokerId::Bootstraps => {
+            // +2 Mult for each $5 above $0
+            let mult_bonus = (ctx.money_held / 5) as i64 * 2;
+            bonus.add_mult += mult_bonus;
+        }
+        JokerId::Blackboard => {
+            // X3 Mult if all held cards are Spades or Clubs (black suits)
+            let all_black = ctx.hand.iter().all(|c| c.suit == 0 || c.suit == 3); // Club=0, Spade=3
+            if all_black && !ctx.hand.is_empty() {
+                bonus.mul_mult *= 3.0;
+            }
+        }
 
         // ====== 特殊效果類 ======
         JokerId::Gros_Michel => {
