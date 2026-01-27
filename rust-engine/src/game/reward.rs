@@ -833,6 +833,8 @@ fn voucher_base_value(voucher: VoucherId) -> f32 {
         VoucherId::Petroglyph => 0.12,        // -1 Ante，+1 discard
         VoucherId::Blank => 0.0,              // 無效果
         VoucherId::BlankPlus => 0.0,
+        VoucherId::Observatory => 0.2,        // Planet 對應牌型 X1.5 Mult
+        VoucherId::ObservatoryPlus => 0.25,   // Planet 對應牌型 X2 Mult
     }
 }
 

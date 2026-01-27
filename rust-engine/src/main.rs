@@ -556,6 +556,9 @@ impl JokerEnv for EnvService {
                                 let hand_levels_clone = state.hand_levels.clone();
                                 // Plasma Deck 計分模式
                                 let uses_plasma_scoring = state.deck_type.uses_plasma_scoring();
+                                // Observatory Voucher 效果
+                                let observatory_x_mult = state.voucher_effects.observatory_x_mult;
+                                let planet_used_hand_types = state.planet_used_hand_types;
                                 let score_result = calculate_play_score(
                                     &selected,
                                     &jokers_clone,
@@ -570,6 +573,8 @@ impl JokerEnv for EnvService {
                                     selzer_charges,
                                     &hand_levels_clone,
                                     uses_plasma_scoring,
+                                    observatory_x_mult,
+                                    planet_used_hand_types,
                                     &mut state.rng,
                                 );
                                 let score_gained = score_result.score;
@@ -1018,6 +1023,9 @@ impl JokerEnv for EnvService {
                                     // 升級對應的牌型等級
                                     let hand_type_idx = planet_id.hand_type_index();
                                     state.hand_levels.upgrade(hand_type_idx);
+
+                                    // Observatory: 標記此牌型已使用 Planet
+                                    state.planet_used_hand_types |= 1 << hand_type_idx;
 
                                     // Constellation: 每使用 Planet 卡 +0.1 X Mult
                                     for joker in &mut state.jokers {
@@ -1707,6 +1715,9 @@ impl JokerEnv for EnvService {
                                     // 升級對應的牌型等級
                                     let hand_type_idx = planet_id.hand_type_index();
                                     state.hand_levels.upgrade(hand_type_idx);
+
+                                    // Observatory: 標記此牌型已使用 Planet
+                                    state.planet_used_hand_types |= 1 << hand_type_idx;
 
                                     // Constellation: 每使用 Planet 卡 +0.1 X Mult
                                     for joker in &mut state.jokers {

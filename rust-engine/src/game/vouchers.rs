@@ -7,7 +7,7 @@ use rand::prelude::*;
 use rand::rngs::StdRng;
 
 /// Voucher 數量
-pub const VOUCHER_COUNT: usize = 32;
+pub const VOUCHER_COUNT: usize = 34;
 
 /// Voucher ID
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -46,6 +46,8 @@ pub enum VoucherId {
     Antimatter,
     /// -1 Ante 需求, -1 hand per round
     Hieroglyph,
+    /// 計分牌符合 Planet 時 X1.5 Mult
+    Observatory,
 
     // ========== 升級 Voucher（需要先買基礎版）==========
     /// 再 +1 Joker 槽（需要 Overstock）
@@ -80,6 +82,8 @@ pub enum VoucherId {
     Petroglyph,
     /// 空白升級（需要 Blank）
     BlankPlus,
+    /// 計分牌符合 Planet 時 X2 Mult (升級版)
+    ObservatoryPlus,
 }
 
 impl VoucherId {
@@ -102,6 +106,7 @@ impl VoucherId {
             VoucherId::Magic_Trick,
             VoucherId::Antimatter,
             VoucherId::Hieroglyph,
+            VoucherId::Observatory,
         ]
     }
 
@@ -124,6 +129,7 @@ impl VoucherId {
             VoucherId::Antimatter_Plus => Some(VoucherId::Antimatter),
             VoucherId::Petroglyph => Some(VoucherId::Hieroglyph),
             VoucherId::BlankPlus => Some(VoucherId::Blank),
+            VoucherId::ObservatoryPlus => Some(VoucherId::Observatory),
             _ => None,
         }
     }
@@ -147,6 +153,7 @@ impl VoucherId {
             VoucherId::Antimatter => Some(VoucherId::Antimatter_Plus),
             VoucherId::Hieroglyph => Some(VoucherId::Petroglyph),
             VoucherId::Blank => Some(VoucherId::BlankPlus),
+            VoucherId::Observatory => Some(VoucherId::ObservatoryPlus),
             _ => None,
         }
     }
@@ -186,6 +193,8 @@ impl VoucherId {
             VoucherId::Antimatter_Plus => "Antimatter Plus",
             VoucherId::Petroglyph => "Petroglyph",
             VoucherId::BlankPlus => "Blank Plus",
+            VoucherId::Observatory => "Observatory",
+            VoucherId::ObservatoryPlus => "Observatory Plus",
         }
     }
 
@@ -208,7 +217,8 @@ impl VoucherId {
             | VoucherId::Planet_Merchant
             | VoucherId::Magic_Trick
             | VoucherId::Antimatter
-            | VoucherId::Hieroglyph => 10,
+            | VoucherId::Hieroglyph
+            | VoucherId::Observatory => 10,
             // 升級 Voucher: $10
             _ => 10,
         }
@@ -249,6 +259,8 @@ impl VoucherId {
             VoucherId::Antimatter_Plus => 29,
             VoucherId::Petroglyph => 30,
             VoucherId::BlankPlus => 31,
+            VoucherId::Observatory => 32,
+            VoucherId::ObservatoryPlus => 33,
         }
     }
 
@@ -287,6 +299,8 @@ impl VoucherId {
             29 => Some(VoucherId::Antimatter_Plus),
             30 => Some(VoucherId::Petroglyph),
             31 => Some(VoucherId::BlankPlus),
+            32 => Some(VoucherId::Observatory),
+            33 => Some(VoucherId::ObservatoryPlus),
             _ => None,
         }
     }
@@ -352,6 +366,8 @@ pub struct VoucherEffects {
     pub joker_slot_bonus: i32,
     /// Ante 減免 (Hieroglyph/Petroglyph)
     pub ante_reduction: i32,
+    /// Observatory 計分牌 Planet 對應牌型 X Mult 倍數
+    pub observatory_x_mult: f32,
 }
 
 impl VoucherEffects {
@@ -372,6 +388,7 @@ impl VoucherEffects {
             extra_shop_slots: 0,
             joker_slot_bonus: 0,
             ante_reduction: 0,
+            observatory_x_mult: 1.0,
         }
     }
 
@@ -435,6 +452,14 @@ impl VoucherEffects {
             VoucherId::Petroglyph => {
                 self.ante_reduction += 1;
                 self.extra_discards -= 1;
+            }
+            // Observatory: 計分牌 Planet 對應牌型時 X1.5 Mult
+            VoucherId::Observatory => {
+                self.observatory_x_mult = 1.5;
+            }
+            // ObservatoryPlus: 計分牌 Planet 對應牌型時 X2 Mult
+            VoucherId::ObservatoryPlus => {
+                self.observatory_x_mult = 2.0;
             }
             // 其他 Voucher 的效果較為複雜，暫時不實作
             _ => {}

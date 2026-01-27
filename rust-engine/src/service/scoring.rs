@@ -48,6 +48,8 @@ pub fn calculate_play_score(
     selzer_charges: i32,
     hand_levels: &HandLevels,
     uses_plasma_scoring: bool,
+    observatory_x_mult: f32,
+    planet_used_hand_types: u16,
     rng: &mut StdRng,
 ) -> CardScoreResult {
     // 從 Joker 構建規則（FourFingers, Shortcut, Splash, Smeared 等）
@@ -173,7 +175,17 @@ pub fn calculate_play_score(
         total_mult = (total_mult + 1) / 2;
     }
 
-    let final_mult = ((total_mult as f32) * x_mult).max(1.0) as i64;
+    // Observatory: 如果擁有並且打出的牌型曾用過對應 Planet，每張計分牌 X Mult
+    // 這裡簡化為整體 X Mult（而非每張牌）
+    let observatory_bonus = if observatory_x_mult > 1.0 && (planet_used_hand_types & (1 << hand_type_idx)) != 0 {
+        // 計分牌數量 (未被禁用的牌)
+        let scoring_cards = selected.iter().filter(|c| !c.face_down).count();
+        observatory_x_mult.powi(scoring_cards as i32)
+    } else {
+        1.0
+    };
+
+    let final_mult = ((total_mult as f32) * x_mult * observatory_bonus).max(1.0) as i64;
 
     // Plasma Deck: chips 和 mult 平衡後計算
     // 公式: balanced = (chips + mult) / 2, score = balanced * balanced

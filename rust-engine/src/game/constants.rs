@@ -40,7 +40,7 @@ pub const SHOP_FEATURES: usize = SHOP_JOKER_COUNT * (JOKER_ID_SIZE + 1); // id +
 pub const BOSS_BLIND_COUNT: usize = 27;
 pub const DECK_TYPE_FEATURES: usize = 12;    // DECK_TYPE_COUNT (one-hot)
 pub const STAKE_FEATURES: usize = 8;         // STAKE_COUNT (one-hot)
-pub const VOUCHER_FEATURES: usize = 32;      // VOUCHER_COUNT (binary flags for owned)
+pub const VOUCHER_FEATURES: usize = 34;      // VOUCHER_COUNT (binary flags for owned)
 pub const CONSUMABLE_FEATURES: usize = 52;   // CONSUMABLE_COUNT per slot
 pub const TAG_FEATURES: usize = 24;          // TAG_COUNT (count of each tag)
 

@@ -134,6 +134,9 @@ pub struct EnvState {
 
     // TheFool: 上一張使用的消耗品
     pub last_used_consumable: Option<Consumable>,
+
+    // Observatory: 追蹤使用過 Planet 的牌型 (bitmask)
+    pub planet_used_hand_types: u16,
 }
 
 impl EnvState {
@@ -183,6 +186,7 @@ impl EnvState {
             pillar_played_cards: std::collections::HashSet::new(),
             hand_size_modifier: 0,
             last_used_consumable: None,
+            planet_used_hand_types: 0,
         }
     }
 
@@ -236,6 +240,7 @@ impl EnvState {
             pillar_played_cards: std::collections::HashSet::new(),
             hand_size_modifier: 0,
             last_used_consumable: None,
+            planet_used_hand_types: 0,
         }
     }
 
