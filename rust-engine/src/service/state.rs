@@ -155,6 +155,7 @@ impl EnvState {
     }
 
     /// 創建指定牌組和難度的遊戲
+    #[allow(dead_code)]
     pub fn new_with_config(seed: u64, deck_type: DeckType, stake: Stake) -> Self {
         let mut rng = StdRng::seed_from_u64(seed);
         let deck_config = DeckConfig::from_deck_type(deck_type);
@@ -197,6 +198,7 @@ impl EnvState {
     }
 
     /// 創建無盡模式遊戲
+    #[allow(dead_code)]
     pub fn new_endless(seed: u64) -> Self {
         let mut state = Self::new(seed);
         state.endless_mode = true;
@@ -204,6 +206,7 @@ impl EnvState {
     }
 
     /// 創建指定配置的無盡模式遊戲
+    #[allow(dead_code)]
     pub fn new_endless_with_config(seed: u64, deck_type: DeckType, stake: Stake) -> Self {
         let mut state = Self::new_with_config(seed, deck_type, stake);
         state.endless_mode = true;
@@ -448,6 +451,7 @@ impl EnvState {
     }
 
     /// 計算 Steel 牌的 mult 加成
+    #[allow(dead_code)]
     pub fn steel_mult_bonus(&self) -> f32 {
         let mut x_mult = 1.0;
         for card in &self.hand {

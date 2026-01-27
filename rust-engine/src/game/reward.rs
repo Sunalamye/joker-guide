@@ -1,26 +1,63 @@
 //! 獎勵計算系統
 //!
-//! 為 RL 訓練提供形狀良好的獎勵信號
+//! 為 RL 訓練提供形狀良好的獎勵信號，支持完整遊戲（Ante 1-8）
 //!
-//! 獎勵範圍設計（v2.0 - 專家分析後調整）：
-//! - 遊戲結束獎勵: -0.5 ~ 1.0
-//! - 過關獎勵: 0.3 ~ 1.0
-//! - 出牌獎勵: 0.0 ~ 0.3
-//! - 購買決策: -0.3 ~ 0.5
-//! - Skip Blind: -0.15 ~ 0.55（頂級 Tag 需要足夠獎勵空間）
-//! - 其他小獎勵: -0.2 ~ 0.3
+//! ## 獎勵範圍設計（v3.0 - 多專家分析後調整）
+//!
+//! | 模組                     | 範圍             | 說明                           |
+//! |--------------------------|------------------|--------------------------------|
+//! | 遊戲結束 (game_end)      | -0.5 ~ 1.0       | 勝利=1.0，失敗依進度懲罰       |
+//! | 過關 (blind_clear)       | 0.3 ~ 1.0        | 含 Boss 難度加成、效率獎勵     |
+//! | 出牌 (play_reward)       | 0.0 ~ 0.35       | 含超額獎勵                     |
+//! | 棄牌 (discard_reward)    | 0.0 ~ 0.07       | 鼓勵精準棄牌                   |
+//! | 購買 Joker               | -0.4 ~ 0.6       | 含階段權重、非線性經濟懲罰     |
+//! | 購買 Voucher             | -0.3 ~ 0.5       | 早期購買更有價值               |
+//! | Skip Blind/Tag           | -0.15 ~ 0.55     | Tag 價值 - 機會成本 × 風險調整 |
+//! | 消耗品使用               | 0.0 ~ 0.35       | Spectral 後期乘數更強          |
+//! | 卡牌增強                 | 0.0 ~ 0.3        | 加總 enhance + seal + edition  |
+//! | 金幣狀態 (money_reward)  | 0.0 ~ 0.25       | 利息閾值階梯獎勵               |
+//! | Reroll 決策              | -0.15 ~ 0.15     | 考慮利息損失                   |
+//! | 出售 Joker               | -0.25 ~ 0.25     | 槽位壓力獎勵、相對損失懲罰     |
+//! | Ante 進度                | 0.0 ~ 0.4        | 非線性，後期更有價值           |
+//!
+//! ## v3.0 關鍵改進
+//!
+//! 1. **Baseline 修正**：空 Joker 返回 baseline 而非 0，避免第一個 Joker delta 異常
+//! 2. **壓縮函數**：改用 sqrt 壓縮，保留更多 xMult 區分度
+//! 3. **Joker 完整映射**：100+ Jokers 分類評估（含傳奇、S-tier）
+//! 4. **階段權重**：所有模組支持 Ante 1-8，早/晚期策略不同
+//! 5. **非線性經濟**：花超過 50% 資金加重懲罰
+//! 6. **利息閾值**：$5/$10/$15/$20/$25 各級獎勵
+//! 7. **槽位壓力**：滿槽時出售有額外獎勵
+//!
+//! ## 設計原則
+//!
+//! - **稀疏獎勵緩解**：小步驟也有獎勵（棄牌、金幣狀態）
+//! - **無衝突**：購買決策懲罰與金幣獎勵獨立計算
+//! - **可解釋性**：獎勵組成可追蹤（delta、penalty、bonus）
 
 use super::blinds::{Ante, BlindType, BossBlind, GameEnd};
 use super::joker::{JokerId, JokerSlot};
 use super::tags::TagId;
 use super::consumables::Consumable;
 use super::vouchers::VoucherId;
-use super::cards::{Card, Enhancement, Seal, Edition};
+use super::cards::{Enhancement, Seal, Edition};
+
+/// 基礎戰力（無 Joker 時的基礎分數）
+const BASELINE_SCORE: f32 = 150.0; // 50 chips * 3 mult
 
 /// 計算 Joker 組合的戰力分數（模擬實際得分公式）
+///
+/// v3.0 改進：
+/// - 空 Joker 返回 baseline 而非 0，避免第一個 Joker delta 異常
+/// - 改用 sqrt 壓縮，保留更多 xMult 區分度
+/// - 添加缺失的 S-tier Jokers
+/// - 調整條件性 Jokers 的期望值
 pub fn combo_score(jokers: &[JokerSlot]) -> f32 {
+    // 修正：空 Joker 返回 baseline 的壓縮值，而非 0
+    // 這避免了第一個 Joker 的 delta 異常（原本是 8.45，現在是 ~1.0）
     if jokers.is_empty() {
-        return 0.0;
+        return (BASELINE_SCORE.sqrt() - 12.0) / 10.0;
     }
 
     let mut chip_power = 0.0;
@@ -29,76 +66,336 @@ pub fn combo_score(jokers: &[JokerSlot]) -> f32 {
 
     for j in jokers.iter().filter(|j| j.enabled) {
         match j.id {
+            // ================================================================
+            // Chip Jokers（基礎，穩定）
+            // ================================================================
             JokerId::SlyJoker => chip_power += 50.0,
             JokerId::WilyJoker | JokerId::DeviousJoker => chip_power += 100.0,
             JokerId::CleverJoker | JokerId::CraftyJoker => chip_power += 80.0,
-            JokerId::Banner => chip_power += 60.0, // 假設 2 次棄牌
+            JokerId::Banner => chip_power += 60.0,
+            JokerId::ScaryFace => chip_power += 60.0,
+            JokerId::OddTodd => chip_power += 50.0,
+            JokerId::Arrowhead => chip_power += 80.0,
+            JokerId::Stuntman => chip_power += 200.0,
+            JokerId::Runner => chip_power += 40.0,
+            JokerId::Stone => chip_power += 75.0,
+            JokerId::Bull => chip_power += 40.0,
+
+            // ================================================================
+            // Mult Jokers（中階，靈活）
+            // ================================================================
             JokerId::Joker => mult_power += 4.0,
             JokerId::JollyJoker => mult_power += 8.0,
             JokerId::ZanyJoker | JokerId::CrazyJoker => mult_power += 12.0,
             JokerId::MadJoker | JokerId::DrollJoker => mult_power += 10.0,
-            JokerId::HalfJoker => mult_power += 20.0,
             JokerId::MysticSummit => mult_power += 15.0,
-            JokerId::Misprint => mult_power += 12.0, // 平均值
-            JokerId::AbstractJoker => mult_power += 6.0, // 假設 2 個 Joker
-            JokerId::RideTheBus => mult_power += 3.0,
-            JokerId::SteelJoker => x_mult_power *= 1.2,
-            JokerId::GlassJoker => x_mult_power *= 1.5,
-            JokerId::Hologram => x_mult_power *= 1.25,
-            // Tier 2+ Jokers with higher impact
-            JokerId::Blueprint => x_mult_power *= 1.5,
-            JokerId::Brainstorm => x_mult_power *= 1.3,
-            JokerId::The_Duo => x_mult_power *= 2.0,
-            JokerId::The_Trio => x_mult_power *= 3.0,
-            JokerId::The_Family => x_mult_power *= 4.0,
-            JokerId::The_Order => x_mult_power *= 3.0,
-            JokerId::The_Tribe => x_mult_power *= 2.0,
-            _ => chip_power += 10.0,
+            JokerId::Misprint => mult_power += 12.0,
+            JokerId::AbstractJoker => mult_power += 9.0,
+            JokerId::GreenJoker => mult_power += 6.0,
+            JokerId::Fibonacci => mult_power += 10.0,
+            JokerId::EvenSteven => mult_power += 6.0,
+            JokerId::Scholar => mult_power += 8.0,
+            JokerId::Supernova => mult_power += 8.0,
+            JokerId::Smiley => mult_power += 8.0,
+            JokerId::FortuneTeller => mult_power += 6.0,
+            JokerId::ShootTheMoon => mult_power += 10.0,
+            JokerId::Walkie => mult_power += 8.0,
+            JokerId::Spare_Trousers => mult_power += 6.0,
+            JokerId::Trousers => mult_power += 8.0,
+            JokerId::Bootstraps => mult_power += 8.0,
+            JokerId::Flash => mult_power += 6.0,
+            JokerId::RedCard => mult_power += 6.0,
+            JokerId::Erosion => mult_power += 8.0,
+
+            // 條件性 Mult（降低期望值，因為不總是觸發）
+            JokerId::HalfJoker => mult_power += 10.0,  // 原 20，條件：≤3 張
+            JokerId::RideTheBus => mult_power += 8.0,  // 可 scaling
+
+            // ================================================================
+            // xMult Jokers（高階，後期強）
+            // ================================================================
+            // 基礎 xMult
+            JokerId::SteelJoker => x_mult_power *= 1.3,
+            JokerId::GlassJoker => x_mult_power *= 1.4,
+            JokerId::Hologram => x_mult_power *= 1.35,
+            JokerId::Photograph => x_mult_power *= 1.5,
+            JokerId::DuskJoker => x_mult_power *= 1.4,
+            JokerId::Acrobat => x_mult_power *= 1.8,
+            JokerId::Bloodstone => x_mult_power *= 1.25,
+            JokerId::Opal => x_mult_power *= 1.3,
+            JokerId::Lucky_Cat => x_mult_power *= 1.25,
+
+            // 條件性 xMult（調低期望值）
+            JokerId::The_Duo => x_mult_power *= 1.6,      // 原 2.0，需要 Pair
+            JokerId::The_Trio => x_mult_power *= 1.8,     // 原 3.0，需要 Three of a Kind
+            JokerId::The_Family => x_mult_power *= 2.2,   // 原 4.0，需要 Four of a Kind
+            JokerId::The_Order => x_mult_power *= 1.8,    // 原 3.0，需要 Straight
+            JokerId::The_Tribe => x_mult_power *= 1.6,    // 原 2.0，需要 Flush
+            JokerId::Seeing_Double => x_mult_power *= 1.5,
+            JokerId::Flower_Pot => x_mult_power *= 1.8,
+            JokerId::DriversLicense => x_mult_power *= 1.8,
+            JokerId::Card_Sharp => x_mult_power *= 1.8,
+
+            // ================================================================
+            // S-Tier Jokers（頂級，被嚴重低估的）
+            // ================================================================
+            JokerId::Throwback => x_mult_power *= 1.8,    // 可 scaling 到 x4+
+            JokerId::Cavendish => x_mult_power *= 2.8,    // 無條件 x3，極強
+            JokerId::Vampire => x_mult_power *= 1.6,      // scaling xMult
+            JokerId::Baron => x_mult_power *= 1.8,        // 每張 King x1.5
+            JokerId::Constellation => x_mult_power *= 1.5,
+            JokerId::Campfire => x_mult_power *= 1.4,
+            JokerId::Obelisk => x_mult_power *= 1.4,
+            JokerId::Hit_The_Road => x_mult_power *= 1.5,
+            JokerId::SteakJoker => x_mult_power *= 1.8,
+            JokerId::Ramen => x_mult_power *= 1.7,
+            JokerId::Madness => x_mult_power *= 1.3,
+
+            // ================================================================
+            // 傳奇 Jokers（遊戲改變級）
+            // ================================================================
+            JokerId::Canio | JokerId::Caino => x_mult_power *= 2.5,
+            JokerId::Triboulet => x_mult_power *= 2.2,
+            JokerId::Yorick => x_mult_power *= 1.8,
+            JokerId::Chicot => mult_power += 25.0,  // 禁用 Boss = 大幅降低難度
+            JokerId::Perkeo => x_mult_power *= 2.0,
+
+            // ================================================================
+            // 複製類（動態價值，取保守估計）
+            // ================================================================
+            JokerId::Blueprint => x_mult_power *= 1.6,
+            JokerId::Brainstorm => x_mult_power *= 1.5,
+
+            // ================================================================
+            // 重觸發類（間接增強）
+            // ================================================================
+            JokerId::SockAndBuskin => mult_power += 12.0,
+            JokerId::Hack => mult_power += 10.0,
+            JokerId::HangingChad => mult_power += 8.0,
+            JokerId::Mime => mult_power += 10.0,
+            JokerId::DNA => mult_power += 15.0,
+            JokerId::Selzer => mult_power += 8.0,
+
+            // ================================================================
+            // 經濟類（間接價值，給中等評分）
+            // ================================================================
+            JokerId::GoldenJoker => chip_power += 30.0,
+            JokerId::Egg => chip_power += 20.0,
+            JokerId::Rocket => chip_power += 25.0,
+            JokerId::ToTheMoon => chip_power += 30.0,
+            JokerId::CloudNine | JokerId::Cloud9 => chip_power += 25.0,
+            JokerId::Satellite => chip_power += 25.0,
+            JokerId::Delayed => chip_power += 20.0,
+            JokerId::Matador => chip_power += 30.0,
+            JokerId::Golden_Ticket => chip_power += 25.0,
+            JokerId::Certificate => chip_power += 20.0,
+            JokerId::Ticket => chip_power += 20.0,
+            JokerId::RoughGem => chip_power += 20.0,
+            JokerId::Faceless => chip_power += 20.0,
+            JokerId::CreditCard => chip_power += 15.0,
+
+            // ================================================================
+            // 工具類（改變規則，難以量化）
+            // ================================================================
+            JokerId::FourFingers => mult_power += 8.0,
+            JokerId::Shortcut => mult_power += 6.0,
+            JokerId::Splash => mult_power += 10.0,
+            JokerId::Pareidolia => mult_power += 8.0,
+            JokerId::Smeared => mult_power += 6.0,
+            JokerId::MrBones => chip_power += 50.0,  // 防死機制，極有價值
+            JokerId::Stencil => x_mult_power *= 1.3,
+            JokerId::Ring_Master => mult_power += 5.0,
+
+            // ================================================================
+            // 消耗品生成類
+            // ================================================================
+            JokerId::Cartomancer => chip_power += 35.0,
+            JokerId::Astronomer => chip_power += 40.0,
+            JokerId::Vagabond => chip_power += 30.0,
+            JokerId::SpaceJoker => chip_power += 35.0,
+            JokerId::Seance => chip_power += 30.0,
+            JokerId::Sixth => chip_power += 25.0,
+
+            // ================================================================
+            // 其他/未分類（基於稀有度給予合理默認值）
+            // ================================================================
+            JokerId::IceCream => chip_power += 60.0,
+            JokerId::BlueJoker => chip_power += 40.0,
+            JokerId::Hiker => chip_power += 30.0,
+            JokerId::Popcorn => mult_power += 12.0,
+            JokerId::AncientJoker => x_mult_power *= 1.3,
+            JokerId::Castle => chip_power += 40.0,
+            JokerId::Swashbuckler => mult_power += 6.0,
+            JokerId::Troubadour => chip_power += 30.0,
+            JokerId::Ceremonial => chip_power += 20.0,
+            JokerId::Wee => chip_power += 60.0,
+            JokerId::Merry => mult_power += 10.0,
+            JokerId::Square => chip_power += 50.0,
+            JokerId::RiffRaff => chip_power += 30.0,
+            JokerId::InvisibleJoker => chip_power += 40.0,
+            JokerId::Gros_Michel => mult_power += 12.0,
+            JokerId::Even_Steven => x_mult_power *= 1.4,
+            JokerId::Odd_Todd_2 => x_mult_power *= 1.4,
+            JokerId::Juggler => chip_power += 25.0,
+            JokerId::Courier => chip_power += 40.0,
+            JokerId::Drunkard => chip_power += 20.0,
+            JokerId::BusinessCard => chip_power += 20.0,
+
+            // 套利/經濟 Jokers
+            JokerId::GreedyJoker | JokerId::LustyJoker |
+            JokerId::WrathfulJoker | JokerId::GluttonousJoker => chip_power += 25.0,
+            JokerId::Onyx => mult_power += 10.0,
+
+            // 預留/未使用
+            JokerId::BluePrint | JokerId::Perkeo_2 | JokerId::Stuntman_2 |
+            JokerId::Cloud9 | JokerId::Rough_Gem_2 |
+            JokerId::Reserved_1 | JokerId::Reserved_2 | JokerId::Reserved_3 |
+            JokerId::Reserved_4 | JokerId::Reserved_5 | JokerId::Reserved_6 |
+            JokerId::Reserved_7 | JokerId::Reserved_8 => chip_power += 10.0,
+
+            // 真正的默認（應該很少觸發）
+            #[allow(unreachable_patterns)]
+            _ => chip_power += 20.0,
         }
     }
 
-    // 模擬實際得分公式：(base_chips + chip_bonus) * (base_mult + mult_bonus) * x_mult
-    // 假設基礎牌型給 50 chips, 3 mult
+    // 模擬實際得分公式
     let simulated: f32 = (50.0 + chip_power) * (3.0 + mult_power) * x_mult_power;
 
-    // 用 log2 壓縮範圍，避免極端值
-    simulated.max(1.0).log2()
+    // v3.0: 改用 sqrt 壓縮，保留更多區分度
+    // 正規化到約 0~4 範圍，與其他獎勵尺度一致
+    (simulated.max(BASELINE_SCORE).sqrt() - 12.0) / 10.0
 }
 
 /// 買 Joker 獎勵：基於組合分數變化
+///
+/// v3.0 改進：
+/// - 非線性經濟懲罰（花超過 50% 資金加重懲罰）
+/// - 階段權重（早期購買更重要）
+/// - 利息潛力損失懲罰
+/// - 擴展範圍到 -0.4 ~ 0.6
 pub fn joker_buy_reward(
     old_jokers: &[JokerSlot],
     new_jokers: &[JokerSlot],
     cost: i64,
     money_before: i64,
 ) -> f32 {
+    joker_buy_reward_with_ante(old_jokers, new_jokers, cost, money_before, Ante::One)
+}
+
+/// 帶階段參數的 Joker 購買獎勵
+pub fn joker_buy_reward_with_ante(
+    old_jokers: &[JokerSlot],
+    new_jokers: &[JokerSlot],
+    cost: i64,
+    money_before: i64,
+    ante: Ante,
+) -> f32 {
     let score_delta = combo_score(new_jokers) - combo_score(old_jokers);
 
-    // 考慮經濟成本：花費佔總資金的比例
+    // 非線性經濟懲罰：花越多比例，懲罰越重
     let cost_ratio = if money_before > 0 {
         (cost as f32 / money_before as f32).min(1.0)
     } else {
         1.0
     };
 
-    // 獎勵 = 分數提升 - 經濟成本懲罰
-    // 分數提升大且花費佔比小 = 好的購買
-    let reward = score_delta * 0.3 - cost_ratio * 0.1;
-    reward.clamp(-0.3, 0.5)
+    // 花超過 50% 資金開始加重懲罰
+    let economic_penalty = if cost_ratio > 0.5 {
+        0.1 + (cost_ratio - 0.5) * 0.3  // 0.1 ~ 0.25
+    } else {
+        cost_ratio * 0.2  // 0 ~ 0.1
+    };
+
+    // 利息潛力損失（保持 $25 可獲最大利息）
+    let interest_loss = if money_before >= 25 && (money_before - cost) < 25 {
+        0.05
+    } else {
+        0.0
+    };
+
+    // 階段調整：早期購買 Joker 更重要（有更多時間發揮效果）
+    let stage_mult = match ante {
+        Ante::One | Ante::Two => 1.3,
+        Ante::Three | Ante::Four => 1.1,
+        Ante::Five | Ante::Six => 1.0,
+        Ante::Seven | Ante::Eight => 0.8,
+    };
+
+    // 獎勵 = 戰力提升 × 階段權重 - 經濟懲罰 - 利息損失
+    let reward = score_delta * 0.4 * stage_mult - economic_penalty - interest_loss;
+    reward.clamp(-0.4, 0.6)
 }
 
-/// 出牌獎勵：正規化到 0~0.3
+/// 出牌獎勵：正規化到 0~0.35
+///
+/// v3.0 改進：
+/// - 超額獎勵（得分超過目標有額外獎勵）
+/// - 非線性獎勵曲線（獎勵高效出牌）
 pub fn play_reward(score_gained: i64, required: i64) -> f32 {
     if required <= 0 || score_gained <= 0 {
         return 0.0;
     }
-    let ratio = (score_gained as f32 / required as f32).min(1.0);
-    ratio * 0.3
+
+    let ratio = score_gained as f32 / required as f32;
+
+    let reward = if ratio >= 1.0 {
+        // 超額獎勵：一次出牌達標或超標
+        // ratio = 1.0 → 0.3, ratio = 2.0 → 0.35（有上限避免極端值）
+        let base = 0.3;
+        let overkill_bonus = ((ratio - 1.0) * 0.05).min(0.05);
+        base + overkill_bonus
+    } else {
+        // 未達標：線性獎勵進度
+        ratio * 0.3
+    };
+
+    // 確保浮點精度不導致超出範圍
+    reward.min(0.35)
+}
+
+/// 棄牌獎勵：策略性棄牌可獲得小獎勵
+///
+/// 設計原則：
+/// - 棄牌是策略的一部分，但不應過度鼓勵
+/// - 改善手牌質量的棄牌是好的
+/// - 浪費棄牌機會是不好的
+pub fn discard_reward(cards_discarded: usize, discards_left: i32) -> f32 {
+    if cards_discarded == 0 {
+        return 0.0;
+    }
+
+    // 棄牌越少（更精準），獎勵越高
+    // 但完全不棄牌不在這裡處理
+    let efficiency = match cards_discarded {
+        1..=2 => 0.05,  // 精準棄牌
+        3..=4 => 0.03,  // 中等
+        _ => 0.01,      // 大量棄牌
+    };
+
+    // 如果這是最後的棄牌機會，給予小獎勵（鼓勵使用）
+    let urgency_bonus = if discards_left == 0 { 0.02 } else { 0.0 };
+
+    efficiency + urgency_bonus
 }
 
 /// 過關獎勵：正規化到 0.3~1.0
 /// 考慮 Boss Blind debuff 增加獎勵
 pub fn blind_clear_reward(plays_left: i32, blind_type: BlindType, boss_blind: Option<BossBlind>) -> f32 {
+    blind_clear_reward_with_ante(plays_left, blind_type, boss_blind, Ante::One)
+}
+
+/// 帶階段參數的過關獎勵
+///
+/// v3.0 改進：
+/// - 後期過關獎勵更高（接近勝利）
+/// - Boss 難度加成與階段結合
+pub fn blind_clear_reward_with_ante(
+    plays_left: i32,
+    blind_type: BlindType,
+    boss_blind: Option<BossBlind>,
+    ante: Ante,
+) -> f32 {
     let base = match blind_type {
         BlindType::Small => 0.3,
         BlindType::Big => 0.5,
@@ -115,7 +412,15 @@ pub fn blind_clear_reward(plays_left: i32, blind_type: BlindType, boss_blind: Op
     // 效率獎勵：剩餘出牌次數越多越好
     let efficiency = plays_left as f32 * 0.05;
 
-    (base + boss_bonus + efficiency).min(1.0)
+    // 階段權重：後期過關更有價值（接近勝利）
+    let stage_mult = match ante {
+        Ante::One | Ante::Two => 0.9,
+        Ante::Three | Ante::Four => 1.0,
+        Ante::Five | Ante::Six => 1.1,
+        Ante::Seven | Ante::Eight => 1.2,
+    };
+
+    ((base + boss_bonus + efficiency) * stage_mult).min(1.0)
 }
 
 /// Boss Blind 難度獎勵加成
@@ -167,20 +472,35 @@ pub fn game_end_reward(end: GameEnd, ante: Ante) -> f32 {
     }
 }
 
-/// 金幣獎勵：考慮遊戲階段
+/// 金幣獎勵：考慮遊戲階段和利息最優化
+///
+/// v3.0 改進：
+/// - 考慮利息閾值（$5, $10, $15, $20, $25 各級）
+/// - 接近下一閾值時給予額外獎勵（鼓勵湊整）
+/// - 後期保持適度存款仍有價值（緊急情況需要資金）
 pub fn money_reward(money: i64, ante: Ante) -> f32 {
-    // 利息潛力：維持 $25+ 可獲最大利息
-    let interest_potential = (money as f32 / 25.0).min(1.0);
+    // 利息閾值獎勵：每 $5 一級，最高 $25
+    let interest_tier = ((money as f32 / 5.0).floor() as i32).clamp(0, 5);
+    let base_interest = interest_tier as f32 * 0.03;  // 0~0.15
 
-    // 階段權重：早期存錢更重要
-    let stage_weight = match ante {
-        Ante::One | Ante::Two => 1.5,
-        Ante::Three | Ante::Four => 1.0,
-        Ante::Five | Ante::Six => 0.7,
-        Ante::Seven | Ante::Eight => 0.3, // 後期錢不重要了
+    // 接近下一閾值獎勵（鼓勵存到整數）
+    let next_threshold = (interest_tier + 1) * 5;
+    let gap_to_next = (next_threshold as i64 - money).max(0) as f32;
+    let threshold_bonus = if interest_tier < 5 && gap_to_next <= 2.0 {
+        0.02 // 距離下一閾值 $2 內，給小獎勵
+    } else {
+        0.0
     };
 
-    interest_potential * 0.15 * stage_weight
+    // 階段權重：早期存錢很重要，後期仍有價值（但降低）
+    let stage_weight = match ante {
+        Ante::One | Ante::Two => 1.4,
+        Ante::Three | Ante::Four => 1.1,
+        Ante::Five | Ante::Six => 0.8,
+        Ante::Seven | Ante::Eight => 0.5, // 後期仍保留一些價值
+    };
+
+    ((base_interest + threshold_bonus) * stage_weight).min(0.25)
 }
 
 // ============================================================================
@@ -267,50 +587,75 @@ fn tag_base_value(tag: TagId) -> f32 {
 }
 
 /// 使用消耗品獎勵
+///
+/// v3.0 改進：
+/// - 加入階段權重（Spectral 後期更強）
+/// - 擴展上限到 0.35（頂級 Spectral 需要空間）
 pub fn consumable_use_reward(consumable: &Consumable, ante: Ante) -> f32 {
-    use super::consumables::{TarotId, PlanetId, SpectralId};
-
     let base_value = match consumable {
-        Consumable::Tarot(id) => tarot_value(*id),
+        Consumable::Tarot(id) => tarot_value(*id, ante),
         Consumable::Planet(id) => planet_value(*id, ante),
-        Consumable::Spectral(id) => spectral_value(*id),
+        Consumable::Spectral(id) => spectral_value(*id, ante),
     };
 
-    base_value.clamp(0.0, 0.3)
+    base_value.clamp(0.0, 0.35)
 }
 
-/// Tarot 卡價值評估
-fn tarot_value(id: super::consumables::TarotId) -> f32 {
+/// Tarot 卡價值評估（考慮遊戲階段）
+///
+/// v3.0 改進：
+/// - 加入階段權重（增強類早期更有價值）
+/// - 調整 Death 價值（複製強牌可以非常強）
+fn tarot_value(id: super::consumables::TarotId, ante: Ante) -> f32 {
     use super::consumables::TarotId;
 
-    match id {
+    // 增強類 Tarot 早期更有價值（有更多時間受益）
+    let enhance_mult = match ante {
+        Ante::One | Ante::Two => 1.2,
+        Ante::Three | Ante::Four => 1.1,
+        Ante::Five | Ante::Six => 1.0,
+        Ante::Seven | Ante::Eight => 0.9,
+    };
+
+    let base = match id {
         // 高價值（創造資源或強效增強）
-        TarotId::Judgement => 0.25,        // 創造 Joker
-        TarotId::TheChariot => 0.2,        // Steel 增強
+        TarotId::Judgement => 0.28,        // 創造 Joker（提升：0.25→0.28）
+        TarotId::TheChariot => 0.22,       // Steel 增強（提升：0.2→0.22）
         TarotId::Justice => 0.18,          // Glass 增強
-        TarotId::TheDevil => 0.18,         // Gold 增強
+        TarotId::TheDevil => 0.16,         // Gold 增強
         TarotId::TheEmpress => 0.15,       // Mult 增強
 
         // 中等價值
         TarotId::TheHermit => 0.15,        // 金幣翻倍
         TarotId::Temperance => 0.12,       // 獲得 Joker 售價
-        TarotId::TheWheelOfFortune => 0.15, // 可能加版本
-        TarotId::Strength => 0.1,          // +1 點數
-        TarotId::TheHighPriestess => 0.12, // 創造 Planet
-        TarotId::TheEmperor => 0.1,        // 創造 Tarot
+        TarotId::TheWheelOfFortune => 0.18, // 可能加版本（提升）
+        TarotId::Strength => 0.12,         // +1 點數（對特定 build 有用）
+        TarotId::TheHighPriestess => 0.14, // 創造 Planet（提升）
+        TarotId::TheEmperor => 0.12,       // 創造 Tarot
 
-        // 花色轉換
-        TarotId::TheWorld | TarotId::TheStar | TarotId::TheMoon | TarotId::TheSun => 0.1,
+        // 花色轉換（對 Flush build 重要）
+        TarotId::TheWorld | TarotId::TheStar | TarotId::TheMoon | TarotId::TheSun => 0.12,
 
         // 其他增強
-        TarotId::TheMagician | TarotId::TheHierophant | TarotId::TheLovers | TarotId::TheTower => 0.1,
+        TarotId::TheMagician => 0.1,       // Lucky
+        TarotId::TheHierophant => 0.08,    // Bonus（較弱）
+        TarotId::TheLovers => 0.1,         // Wild
+        TarotId::TheTower => 0.08,         // Stone（較弱）
 
-        // 風險類
-        TarotId::TheHangedMan => 0.05,     // 銷毀牌
-        TarotId::Death => 0.08,            // 複製牌
+        // 風險類（需要謹慎使用但潛力大）
+        TarotId::TheHangedMan => 0.06,     // 銷毀牌
+        TarotId::Death => 0.15,            // 複製牌（提升：0.08→0.15，複製強牌可以極強）
 
         // 特殊
-        TarotId::TheFool => 0.1,           // 複製上次使用的
+        TarotId::TheFool => 0.12,          // 複製上次使用的（提升）
+    };
+
+    // 增強類 Tarot 應用階段權重
+    match id {
+        TarotId::TheChariot | TarotId::Justice | TarotId::TheDevil |
+        TarotId::TheEmpress | TarotId::TheMagician | TarotId::TheHierophant |
+        TarotId::TheLovers | TarotId::TheTower | TarotId::Death => base * enhance_mult,
+        _ => base,
     }
 }
 
@@ -347,47 +692,77 @@ fn planet_value(id: super::consumables::PlanetId, ante: Ante) -> f32 {
     base * stage_mult
 }
 
-/// Spectral 卡價值評估
-fn spectral_value(id: super::consumables::SpectralId) -> f32 {
+/// Spectral 卡價值評估（考慮遊戲階段）
+///
+/// v3.0 改進：
+/// - 加入階段權重（xMult 類後期更強）
+/// - 提升頂級 Spectral 價值（TheSoul、BlackHole）
+fn spectral_value(id: super::consumables::SpectralId, ante: Ante) -> f32 {
     use super::consumables::SpectralId;
 
-    match id {
-        // 高價值（強效效果）
-        SpectralId::TheSoul => 0.3,       // 創造傳奇 Joker
-        SpectralId::BlackHole => 0.25,    // 全部牌型升級
-        SpectralId::Wraith => 0.2,        // 創造稀有 Joker
-        SpectralId::Aura => 0.18,         // 加版本
-        SpectralId::Ectoplasm => 0.2,     // Negative
+    // Spectral 的 xMult 效果後期更強（與 Joker 組合）
+    let late_game_mult = match ante {
+        Ante::One | Ante::Two => 0.9,
+        Ante::Three | Ante::Four => 1.0,
+        Ante::Five | Ante::Six => 1.1,
+        Ante::Seven | Ante::Eight => 1.2,
+    };
 
-        // 中等價值
-        SpectralId::DejaVu => 0.15,       // Red Seal
-        SpectralId::Trance => 0.15,       // Blue Seal
-        SpectralId::Medium => 0.12,       // Purple Seal
-        SpectralId::Talisman => 0.15,     // Gold Seal
-        SpectralId::Cryptid => 0.12,      // 複製牌
+    let base = match id {
+        // 頂級價值（遊戲改變級）
+        SpectralId::TheSoul => 0.35,       // 創造傳奇 Joker（提升：0.3→0.35）
+        SpectralId::BlackHole => 0.30,     // 全部牌型升級（提升：0.25→0.30）
+        SpectralId::Wraith => 0.22,        // 創造稀有 Joker（提升）
+        SpectralId::Aura => 0.20,          // 加版本（提升）
+        SpectralId::Ectoplasm => 0.25,     // Negative（提升：非常強，增加槽位）
 
-        // 風險類（可能有負面效果）
-        SpectralId::Immolate => 0.1,      // 銷毀 5 張，得 $20
-        SpectralId::Ankh => 0.08,         // 複製 1 個 Joker，銷毀其他
-        SpectralId::Hex => 0.1,           // Poly 但銷毀其他
+        // Seal 類（穩定價值）
+        SpectralId::DejaVu => 0.15,        // Red Seal（重觸發）
+        SpectralId::Trance => 0.16,        // Blue Seal（Planet 牌）
+        SpectralId::Medium => 0.12,        // Purple Seal（Tarot 牌）
+        SpectralId::Talisman => 0.14,      // Gold Seal（$3）
+        SpectralId::Cryptid => 0.15,       // 複製牌（提升：對好牌非常強）
+
+        // 風險類（需要謹慎但潛力大）
+        SpectralId::Immolate => 0.12,      // 銷毀 5 張，得 $20（提升：可啟用 Glass 等）
+        SpectralId::Ankh => 0.10,          // 複製 1 個 Joker（提升：對好 Joker 極強）
+        SpectralId::Hex => 0.12,           // Poly 但銷毀其他（提升）
 
         // 牌組修改
-        SpectralId::Sigil => 0.1,         // 統一花色
-        SpectralId::Ouija => 0.08,        // 統一點數
-        SpectralId::Familiar | SpectralId::Grim | SpectralId::Incantation => 0.1,
+        SpectralId::Sigil => 0.12,         // 統一花色（對 Flush build 重要）
+        SpectralId::Ouija => 0.10,         // 統一點數（對特定 build）
+        SpectralId::Familiar => 0.12,      // 增強人頭牌（提升）
+        SpectralId::Grim => 0.10,          // 增強 Ace
+        SpectralId::Incantation => 0.12,   // 增強數字牌（提升）
+    };
+
+    // xMult 相關的 Spectral 應用後期權重
+    match id {
+        SpectralId::Aura | SpectralId::Ectoplasm | SpectralId::Hex => base * late_game_mult,
+        _ => base,
     }
 }
 
 /// Voucher 購買獎勵（長期價值）
+///
+/// v3.0 改進：
+/// - 非線性經濟懲罰（與 Joker 購買一致）
+/// - 擴展範圍到 -0.3 ~ 0.5
 pub fn voucher_buy_reward(voucher: VoucherId, cost: i64, money_before: i64, ante: Ante) -> f32 {
     // Voucher 價值評估
     let voucher_value = voucher_base_value(voucher);
 
-    // 經濟成本
+    // 非線性經濟懲罰（與 Joker 購買一致）
     let cost_ratio = if money_before > 0 {
         (cost as f32 / money_before as f32).min(1.0)
     } else {
         1.0
+    };
+
+    let economic_penalty = if cost_ratio > 0.5 {
+        0.1 + (cost_ratio - 0.5) * 0.25
+    } else {
+        cost_ratio * 0.15
     };
 
     // 階段考慮：早期買 Voucher 更有價值（效果累積時間長）
@@ -398,36 +773,60 @@ pub fn voucher_buy_reward(voucher: VoucherId, cost: i64, money_before: i64, ante
         Ante::Seven | Ante::Eight => 0.7,
     };
 
-    let reward = voucher_value * stage_mult - cost_ratio * 0.1;
-    reward.clamp(-0.2, 0.4)
+    let reward = voucher_value * stage_mult - economic_penalty;
+    reward.clamp(-0.3, 0.5)
 }
 
 /// Voucher 基礎價值
+///
+/// v3.0 改進：
+/// - 提升核心 Voucher 價值（Grabber、Overstock）
+/// - Plus 版本應該比基礎版本更有價值
 fn voucher_base_value(voucher: VoucherId) -> f32 {
     match voucher {
-        // 高價值（直接戰力提升或效率提升）
-        VoucherId::Grabber | VoucherId::GrabberPlus => 0.3,  // +1/+2 出牌
-        VoucherId::Wasteful | VoucherId::WastefulPlus => 0.2, // +1/+2 棄牌
-        VoucherId::Overstock | VoucherId::OverstockPlus => 0.25, // +1/+2 Joker 槽
-        VoucherId::CrystalBall | VoucherId::OmenGlobe => 0.2, // +1/+2 消耗品槽
+        // 頂級價值（直接戰力提升）
+        VoucherId::Grabber => 0.28,           // +1 出牌
+        VoucherId::GrabberPlus => 0.35,       // +2 出牌（提升：Plus 更強）
+        VoucherId::Overstock => 0.25,         // +1 Joker 槽
+        VoucherId::OverstockPlus => 0.32,     // +2 Joker 槽（提升）
 
-        // 經濟類
-        VoucherId::ClearanceSale | VoucherId::Liquidation => 0.2, // 折扣
-        VoucherId::RerollSurplus | VoucherId::RerollGlut => 0.15, // Reroll 折扣
-        VoucherId::SeedMoney | VoucherId::MoneyTree => 0.15, // 利息上限
+        // 高價值
+        VoucherId::Wasteful => 0.18,          // +1 棄牌
+        VoucherId::WastefulPlus => 0.22,      // +2 棄牌
+        VoucherId::CrystalBall => 0.18,       // +1 消耗品槽
+        VoucherId::OmenGlobe => 0.22,         // +2 消耗品槽
+
+        // 經濟類（長期回報）
+        VoucherId::ClearanceSale => 0.2,      // 25% 折扣
+        VoucherId::Liquidation => 0.25,       // 50% 折扣（提升）
+        VoucherId::SeedMoney => 0.15,         // 利息上限 +$10
+        VoucherId::MoneyTree => 0.2,          // 利息上限 +$20（提升）
+        VoucherId::RerollSurplus => 0.12,     // Reroll -$1
+        VoucherId::RerollGlut => 0.15,        // Reroll -$2
 
         // 稀有度提升
-        VoucherId::Hone | VoucherId::GlowUp => 0.15,    // 版本出現率
-        VoucherId::Telescope | VoucherId::Nadir => 0.12, // Planet 出現率
+        VoucherId::Hone => 0.15,              // 版本出現率
+        VoucherId::GlowUp => 0.2,             // 更高版本率（提升）
+        VoucherId::Telescope => 0.12,         // Planet 出現率
+        VoucherId::Nadir => 0.15,             // 更高 Planet 率
+
+        // 消耗品商店
+        VoucherId::Tarot_Merchant => 0.12,
+        VoucherId::Tarot_Tycoon => 0.15,
+        VoucherId::Planet_Merchant => 0.1,
+        VoucherId::Planet_Tycoon => 0.12,
+        VoucherId::Magic_Trick => 0.1,        // 牌可從商店購買
+        VoucherId::Illusion => 0.12,
 
         // 其他
-        VoucherId::PaintBrush | VoucherId::Palette => 0.1, // Joker 售價
-        VoucherId::Tarot_Merchant | VoucherId::Tarot_Tycoon => 0.12,
-        VoucherId::Planet_Merchant | VoucherId::Planet_Tycoon => 0.1,
-        VoucherId::Magic_Trick | VoucherId::Illusion => 0.1,
-        VoucherId::Antimatter | VoucherId::Antimatter_Plus => 0.15,
-        VoucherId::Hieroglyph | VoucherId::Petroglyph => 0.12,
-        VoucherId::Blank | VoucherId::BlankPlus => 0.0, // 無效果
+        VoucherId::PaintBrush => 0.08,        // Joker 售價提升
+        VoucherId::Palette => 0.1,
+        VoucherId::Antimatter => 0.18,        // +1 Joker 槽（提升：實際上很強）
+        VoucherId::Antimatter_Plus => 0.22,   // +2 Joker 槽
+        VoucherId::Hieroglyph => 0.1,         // -1 Ante，+1 hand
+        VoucherId::Petroglyph => 0.12,        // -1 Ante，+1 discard
+        VoucherId::Blank => 0.0,              // 無效果
+        VoucherId::BlankPlus => 0.0,
     }
 }
 
@@ -470,31 +869,84 @@ pub fn card_enhancement_reward(
 }
 
 /// Reroll 獎勵（考慮是否值得）
+///
+/// v3.0 改進：
+/// - 更細緻的結果評估（好/一般/差）
+/// - 考慮 reroll 對利息的影響
+/// - 考慮遊戲階段（早期探索更有價值）
 pub fn reroll_reward(
     found_good_joker: bool,
     reroll_cost: i64,
     money: i64,
 ) -> f32 {
-    if found_good_joker {
-        // 找到好 Joker，獎勵
-        0.1
-    } else {
-        // 花錢沒找到，小懲罰
-        let cost_ratio = if money > 0 {
-            (reroll_cost as f32 / money as f32).min(1.0)
-        } else {
-            1.0
-        };
-        -0.05 * cost_ratio
-    }
+    reroll_reward_with_ante(found_good_joker, reroll_cost, money, Ante::One)
 }
 
-/// 出售 Joker 獎勵（考慮時機）
+/// 帶階段參數的 Reroll 獎勵
+pub fn reroll_reward_with_ante(
+    found_good_joker: bool,
+    reroll_cost: i64,
+    money: i64,
+    ante: Ante,
+) -> f32 {
+    let cost_ratio = if money > 0 {
+        (reroll_cost as f32 / money as f32).min(1.0)
+    } else {
+        1.0
+    };
+
+    // 利息損失懲罰：reroll 導致跌破 $5 閾值
+    let money_after = money - reroll_cost;
+    let interest_before = (money / 5).min(5);
+    let interest_after = (money_after / 5).min(5);
+    let interest_loss_penalty = if interest_after < interest_before {
+        0.03 * (interest_before - interest_after) as f32
+    } else {
+        0.0
+    };
+
+    // 階段權重：早期 reroll 探索更有價值
+    let stage_mult = match ante {
+        Ante::One | Ante::Two => 1.2,
+        Ante::Three | Ante::Four => 1.0,
+        Ante::Five | Ante::Six => 0.8,
+        Ante::Seven | Ante::Eight => 0.6,
+    };
+
+    let base_reward = if found_good_joker {
+        // 找到好 Joker，根據花費給予獎勵
+        0.12 - cost_ratio * 0.04  // 0.08 ~ 0.12
+    } else {
+        // 沒找到，懲罰與花費成比例
+        -0.03 - cost_ratio * 0.05  // -0.03 ~ -0.08
+    };
+
+    (base_reward * stage_mult - interest_loss_penalty).clamp(-0.15, 0.15)
+}
+
+/// 出售 Joker 獎勵（考慮時機和槽位壓力）
+///
+/// v3.0 改進：
+/// - 考慮槽位壓力（5/5 時出售騰出空間有額外價值）
+/// - 考慮 Joker 間的協同效應損失
+/// - 考慮階段（後期整理弱牌是好策略）
 pub fn sell_joker_reward(
     sold_joker: &JokerSlot,
     remaining_jokers: &[JokerSlot],
     money_gained: i64,
     ante: Ante,
+) -> f32 {
+    sell_joker_reward_with_slots(sold_joker, remaining_jokers, money_gained, ante, 5, 5)
+}
+
+/// 帶槽位資訊的出售 Joker 獎勵
+pub fn sell_joker_reward_with_slots(
+    sold_joker: &JokerSlot,
+    remaining_jokers: &[JokerSlot],
+    money_gained: i64,
+    ante: Ante,
+    joker_slots: usize,
+    current_jokers: usize,
 ) -> f32 {
     let old_jokers: Vec<JokerSlot> = remaining_jokers
         .iter()
@@ -502,15 +954,54 @@ pub fn sell_joker_reward(
         .chain(std::iter::once(sold_joker.clone()))
         .collect();
 
-    // 戰力損失
-    let power_loss = combo_score(&old_jokers) - combo_score(remaining_jokers);
+    // 戰力損失（使用 delta 而非絕對值）
+    let power_before = combo_score(&old_jokers);
+    let power_after = combo_score(remaining_jokers);
+    let power_loss = power_before - power_after;
 
-    // 金幣收益價值（考慮階段）
-    let money_value = money_reward(money_gained, ante);
+    // 相對戰力損失（與當前戰力相比）
+    let relative_loss = if power_before > 0.0 {
+        power_loss / power_before
+    } else {
+        0.0
+    };
 
-    // 如果戰力損失小且金幣收益大，是好的出售決策
-    let reward = money_value * 2.0 - power_loss * 0.2;
-    reward.clamp(-0.2, 0.2)
+    // 槽位壓力獎勵：滿槽時出售騰出空間有價值
+    let slot_pressure_bonus = if current_jokers >= joker_slots {
+        0.1  // 滿槽時出售有額外價值
+    } else if current_jokers >= joker_slots - 1 {
+        0.03  // 接近滿槽
+    } else {
+        0.0
+    };
+
+    // 金幣收益價值
+    let money_value = (money_gained as f32 / 10.0).min(0.15);  // $10 = 0.1, 上限 0.15
+
+    // 利息潛力考量（出售後是否跨過利息閾值）
+    // 這裡簡化處理，實際需要知道出售前的金額
+    let interest_bonus = if money_gained >= 5 {
+        0.02  // 賣掉可能幫助達到利息閾值
+    } else {
+        0.0
+    };
+
+    // 階段調整
+    // 早期：Joker 珍貴，不鼓勵出售
+    // 後期：整理弱牌、優化組合是好策略
+    let stage_mult = match ante {
+        Ante::One | Ante::Two => 0.7,   // 早期不鼓勵出售
+        Ante::Three | Ante::Four => 0.9,
+        Ante::Five | Ante::Six => 1.0,
+        Ante::Seven | Ante::Eight => 1.2, // 後期整理是好的
+    };
+
+    // 出售弱 Joker（相對損失小）應該獎勵
+    // 出售強 Joker（相對損失大）應該懲罰
+    let loss_penalty = relative_loss * 0.3;
+
+    let reward = (money_value + interest_bonus + slot_pressure_bonus - loss_penalty) * stage_mult;
+    reward.clamp(-0.25, 0.25)
 }
 
 // ============================================================================
@@ -523,21 +1014,83 @@ mod tests {
 
     #[test]
     fn test_combo_score_empty() {
-        assert_eq!(combo_score(&[]), 0.0);
+        // v3.0: 空 Joker 返回 baseline 而非 0，避免第一個 Joker delta 異常
+        let empty_score = combo_score(&[]);
+        let expected = (BASELINE_SCORE.sqrt() - 12.0) / 10.0;
+        assert!((empty_score - expected).abs() < 0.001);
     }
 
     #[test]
     fn test_combo_score_single() {
         let jokers = vec![JokerSlot::new(JokerId::Joker)];
         let score = combo_score(&jokers);
-        assert!(score > 0.0);
+        let empty_score = combo_score(&[]);
+        // 單個 Joker 應該比空狀態得分更高
+        assert!(score > empty_score);
+    }
+
+    #[test]
+    fn test_combo_score_delta_normalized() {
+        // 驗證第一個 Joker 的 delta 已被正規化（不再是異常的 8.45）
+        let empty_score = combo_score(&[]);
+        let single_score = combo_score(&vec![JokerSlot::new(JokerId::Joker)]);
+        let delta = single_score - empty_score;
+        // delta 應該在合理範圍內（約 0.5~2.0），而非原本的 8.45
+        assert!(delta > 0.0 && delta < 3.0, "delta = {}", delta);
+    }
+
+    #[test]
+    fn test_combo_score_xmult_scaling() {
+        // 驗證 xMult Jokers 的區分度
+        let duo = vec![JokerSlot::new(JokerId::The_Duo)];
+        let family = vec![JokerSlot::new(JokerId::The_Family)];
+        let duo_score = combo_score(&duo);
+        let family_score = combo_score(&family);
+        // The_Family (x2.2) 應該明顯高於 The_Duo (x1.6)
+        assert!(family_score > duo_score);
+    }
+
+    #[test]
+    fn test_combo_score_legendary() {
+        // 驗證傳奇 Joker 得到正確評估
+        let canio = vec![JokerSlot::new(JokerId::Canio)];
+        let basic = vec![JokerSlot::new(JokerId::Joker)];
+        let empty = combo_score(&[]);
+        let canio_score = combo_score(&canio);
+        let basic_score = combo_score(&basic);
+        // 傳奇 Joker 應該高於基礎 Joker
+        // 注意：xMult Jokers (Canio x2.5) 在基礎 mult 較低時效果不如 +mult Jokers
+        // 但傳奇 Joker 的 delta 應該明顯更大
+        let canio_delta = canio_score - empty;
+        let basic_delta = basic_score - empty;
+        assert!(canio_delta > basic_delta, "canio_delta={}, basic_delta={}", canio_delta, basic_delta);
     }
 
     #[test]
     fn test_play_reward_basic() {
+        // 未達標：線性獎勵
         assert!((play_reward(100, 1000) - 0.03).abs() < 0.001);
+
+        // 剛好達標
         assert!((play_reward(1000, 1000) - 0.3).abs() < 0.001);
-        assert!((play_reward(2000, 1000) - 0.3).abs() < 0.001); // capped
+
+        // 超額：有額外獎勵但有上限
+        let overkill = play_reward(2000, 1000);
+        assert!(overkill > 0.3);      // 超額應該比達標高
+        assert!(overkill <= 0.35);    // 但不超過上限
+    }
+
+    #[test]
+    fn test_discard_reward() {
+        // 精準棄牌
+        assert!(discard_reward(1, 2) > 0.0);
+        assert!(discard_reward(2, 2) > 0.0);
+
+        // 大量棄牌獎勵較低
+        assert!(discard_reward(1, 2) > discard_reward(5, 2));
+
+        // 不棄牌沒有獎勵
+        assert_eq!(discard_reward(0, 2), 0.0);
     }
 
     #[test]
@@ -589,5 +1142,92 @@ mod tests {
         assert!(tarot_reward > 0.0);
         assert!(planet_reward > 0.0);
         assert!(spectral_reward > 0.0);
+    }
+
+    #[test]
+    fn test_money_reward_interest_tiers() {
+        // 測試利息閾值邏輯
+        let r0 = money_reward(0, Ante::One);
+        let r5 = money_reward(5, Ante::One);
+        let r10 = money_reward(10, Ante::One);
+        let r25 = money_reward(25, Ante::One);
+
+        // 更多錢應該有更高獎勵
+        assert!(r5 > r0);
+        assert!(r10 > r5);
+        assert!(r25 > r10);
+
+        // 但有上限
+        let r100 = money_reward(100, Ante::One);
+        assert!(r100 <= 0.25);
+    }
+
+    #[test]
+    fn test_money_reward_stage_scaling() {
+        // 早期存錢更重要
+        let early = money_reward(20, Ante::One);
+        let late = money_reward(20, Ante::Eight);
+        assert!(early > late);
+    }
+
+    #[test]
+    fn test_reroll_reward_found_good() {
+        // 找到好 Joker 應該獲得正獎勵
+        let r = reroll_reward(true, 5, 50);
+        assert!(r > 0.0);
+    }
+
+    #[test]
+    fn test_reroll_reward_not_found() {
+        // 沒找到應該有小懲罰
+        let r = reroll_reward(false, 5, 50);
+        assert!(r < 0.0);
+    }
+
+    #[test]
+    fn test_reroll_reward_cost_matters() {
+        // 花費越高，獎勵/懲罰應該越顯著
+        let cheap_good = reroll_reward_with_ante(true, 2, 100, Ante::One);
+        let expensive_good = reroll_reward_with_ante(true, 10, 100, Ante::One);
+        // 便宜找到好的 > 貴的找到好的
+        assert!(cheap_good > expensive_good);
+    }
+
+    #[test]
+    fn test_sell_joker_reward_slot_pressure() {
+        let weak_joker = JokerSlot::new(JokerId::Joker);
+        let remaining = vec![
+            JokerSlot::new(JokerId::Canio),
+            JokerSlot::new(JokerId::The_Family),
+            JokerSlot::new(JokerId::The_Duo),
+            JokerSlot::new(JokerId::The_Trio),
+        ];
+
+        // 滿槽時出售弱 Joker 應該有獎勵（騰出空間）
+        let full_slot = sell_joker_reward_with_slots(&weak_joker, &remaining, 5, Ante::Five, 5, 5);
+        // 有空槽時出售
+        let has_space = sell_joker_reward_with_slots(&weak_joker, &remaining, 5, Ante::Five, 5, 4);
+        // 滿槽時出售應該有更高獎勵（槽位壓力獎勵）
+        assert!(full_slot > has_space);
+    }
+
+    #[test]
+    fn test_sell_joker_reward_stage_timing() {
+        // 使用更強的 remaining 陣容，讓出售弱 Joker 的相對損失更小
+        let weak_joker = JokerSlot::new(JokerId::Joker);
+        let remaining = vec![
+            JokerSlot::new(JokerId::Canio),        // x2.5
+            JokerSlot::new(JokerId::The_Family),   // x2.2
+            JokerSlot::new(JokerId::The_Duo),      // x1.6
+        ];
+
+        // 後期出售弱 Joker 應該比早期更受鼓勵
+        // 滿槽情況下，確保有足夠的正向獎勵
+        let early = sell_joker_reward_with_slots(&weak_joker, &remaining, 6, Ante::One, 5, 5);
+        let late = sell_joker_reward_with_slots(&weak_joker, &remaining, 6, Ante::Eight, 5, 5);
+
+        // 在滿槽且出售價格較高的情況下，後期獎勵應該更高
+        // 因為：slot_pressure_bonus + money_value > loss_penalty（弱 Joker 損失小）
+        assert!(late > early, "early={}, late={}", early, late);
     }
 }

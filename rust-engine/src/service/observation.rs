@@ -18,7 +18,7 @@
 use joker_env::proto::Tensor;
 
 use crate::game::{
-    card_index, score_hand, HandId, Stage, TagId,
+    card_index, score_hand, HandId, Stage,
     BOSS_BLIND_COUNT, CARD_FEATURES, DECK_FEATURES, DISCARDS_PER_BLIND,
     HAND_SIZE, HAND_TYPE_COUNT, JOKER_SLOTS, JOKER_ID_SIZE, JOKER_SINGLE_FEATURES,
     MAX_STEPS, OBS_SIZE, PLAYS_PER_BLIND, SHOP_JOKER_COUNT, SCALAR_COUNT,

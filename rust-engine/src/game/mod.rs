@@ -15,6 +15,8 @@
 //! - `vouchers`: Voucher 永久升級系統
 //! - `consumables`: 消耗品系統 (Tarot/Planet/Spectral)
 
+#![allow(unused_imports)]
+
 pub mod constants;
 pub mod cards;
 pub mod blinds;
@@ -29,7 +31,7 @@ pub mod stakes;
 pub mod vouchers;
 pub mod consumables;
 
-// Re-export 常用類型
+// Re-export 常用類型（公開 API，可能未在內部使用）
 pub use constants::*;
 pub use cards::{Card, Enhancement, Seal, standard_deck, card_index};
 pub use blinds::{Stage, GameEnd, BlindType, BossBlind, Ante};

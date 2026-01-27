@@ -11,6 +11,7 @@ pub const VOUCHER_COUNT: usize = 32;
 
 /// Voucher ID
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[allow(non_camel_case_types)]
 pub enum VoucherId {
     // ========== 基礎 Voucher ==========
     /// 商店 +1 Joker 槽

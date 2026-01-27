@@ -17,6 +17,7 @@ pub const JOKER_COUNT: usize = 150;
 
 /// Joker 唯一識別碼
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[allow(non_camel_case_types)]
 pub enum JokerId {
     // ========================================================================
     // Tier 1: Basic Mult/Chip Jokers (索引 0-19)

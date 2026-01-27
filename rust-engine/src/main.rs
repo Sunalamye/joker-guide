@@ -20,7 +20,7 @@ use game::{
     ACTION_TYPE_CASH_OUT, ACTION_TYPE_BUY_JOKER, ACTION_TYPE_NEXT_ROUND,
     ACTION_TYPE_REROLL, ACTION_TYPE_SELL_JOKER, ACTION_TYPE_SKIP_BLIND,
     ACTION_TYPE_USE_CONSUMABLE, ACTION_TYPE_BUY_VOUCHER, ACTION_TYPE_BUY_PACK,
-    Stage, GameEnd, BlindType, BossBlind, VoucherId,
+    Stage, GameEnd, BlindType, BossBlind,
     hand_potential,
     joker_buy_reward, play_reward, blind_clear_reward,
     ante_progress_reward, game_end_reward, money_reward,
