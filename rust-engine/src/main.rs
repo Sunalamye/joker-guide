@@ -416,6 +416,17 @@ impl JokerEnv for EnvService {
                         .count() as i64;
                     state.money += cloud_nine_count * nines_in_deck;
 
+                    // Golden_Ticket: 牌組中每張 Gold 增強牌 +$3
+                    let golden_ticket_count = state.jokers.iter()
+                        .filter(|j| j.enabled && j.id == JokerId::Golden_Ticket)
+                        .count() as i64;
+                    let gold_cards_in_full_deck = state.deck.iter()
+                        .chain(state.hand.iter())
+                        .chain(state.discarded.iter())
+                        .filter(|c| c.enhancement == Enhancement::Gold)
+                        .count() as i64;
+                    state.money += golden_ticket_count * gold_cards_in_full_deck * 3;
+
                     state.stage = Stage::Shop;
                     state.refresh_shop();
                 }
