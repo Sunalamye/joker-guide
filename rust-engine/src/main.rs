@@ -405,6 +405,17 @@ impl JokerEnv for EnvService {
                         .count() as i64;
                     state.money += certificate_count * gold_seal_count;
 
+                    // CloudNine: 每張牌組中的 9 +$1
+                    let cloud_nine_count = state.jokers.iter()
+                        .filter(|j| j.enabled && j.id == JokerId::CloudNine)
+                        .count() as i64;
+                    let nines_in_deck = state.deck.iter()
+                        .chain(state.hand.iter())
+                        .chain(state.discarded.iter())
+                        .filter(|c| c.rank == 9)
+                        .count() as i64;
+                    state.money += cloud_nine_count * nines_in_deck;
+
                     state.stage = Stage::Shop;
                     state.refresh_shop();
                 }
