@@ -40,6 +40,7 @@ pub fn calculate_play_score(
     rerolls_this_run: i32,
     blinds_skipped: i32,
     joker_slot_limit: usize,
+    enhanced_cards_in_deck: i32,
     rng: &mut StdRng,
 ) -> CardScoreResult {
     // 從 Joker 構建規則（FourFingers, Shortcut, Splash, Smeared 等）
@@ -55,6 +56,8 @@ pub fn calculate_play_score(
     ctx.blinds_skipped = blinds_skipped;
     // 計算 Uncommon Joker 數量 (rarity == 2)
     ctx.uncommon_joker_count = jokers.iter().filter(|j| j.id.rarity() == 2).count();
+    // 牌組中增強牌數量 (DriversLicense)
+    ctx.enhanced_cards_in_deck = enhanced_cards_in_deck;
 
     // 生成隨機值給需要隨機效果的 Joker（如 Misprint）
     let rng_values: Vec<u8> = (0..jokers.len()).map(|_| rng.gen()).collect();

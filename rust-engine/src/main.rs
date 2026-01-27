@@ -289,6 +289,10 @@ impl JokerEnv for EnvService {
                                 let jokers_clone = state.jokers.clone();
                                 let boss_blind = state.boss_blind;
                                 let discards_remaining = state.discards_left;
+                                // 計算增強牌數量 (DriversLicense)
+                                let enhanced_cards_in_deck = state.deck.iter()
+                                    .filter(|c| c.enhancement != Enhancement::None)
+                                    .count() as i32;
                                 let score_result = calculate_play_score(
                                     &selected,
                                     &jokers_clone,
@@ -297,6 +301,7 @@ impl JokerEnv for EnvService {
                                     state.rerolls_this_run,
                                     state.blinds_skipped,
                                     state.joker_slot_limit,
+                                    enhanced_cards_in_deck,
                                     &mut state.rng,
                                 );
                                 let score_gained = score_result.score;

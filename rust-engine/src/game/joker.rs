@@ -457,6 +457,8 @@ pub struct ScoringContext<'a> {
     pub joker_slot_limit: usize,
     /// Uncommon Joker 數量 (BaseballCard)
     pub uncommon_joker_count: usize,
+    /// 牌組中增強牌數量 (DriversLicense)
+    pub enhanced_cards_in_deck: i32,
 }
 
 impl<'a> ScoringContext<'a> {
@@ -491,6 +493,7 @@ impl<'a> ScoringContext<'a> {
             stone_cards_in_deck: 0,
             joker_slot_limit: 5, // 默認 5 個槽位
             uncommon_joker_count: 0,
+            enhanced_cards_in_deck: 0,
         }
     }
 }
@@ -936,6 +939,12 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
         JokerId::Stone => {
             // +25 Chips for each Stone card in the full deck
             bonus.chip_bonus += ctx.stone_cards_in_deck as i64 * 25;
+        }
+        JokerId::DriversLicense => {
+            // X3 Mult if you have 16+ enhanced cards in deck
+            if ctx.enhanced_cards_in_deck >= 16 {
+                bonus.mul_mult *= 3.0;
+            }
         }
         JokerId::Stencil => {
             // X1 Mult for each empty Joker slot
