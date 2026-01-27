@@ -63,8 +63,36 @@ message Action {
 }
 
 message EnvInfo {
+  // 基本狀態
   int32 episode_step = 1;
-  int64 chips = 2;
-  int64 mult = 3;
-  int64 blind_target = 4;
+  int64 chips = 2;           // 當前分數 (score)
+  int64 mult = 3;            // 預留給 mult 顯示
+  int64 blind_target = 4;    // 目標分數
+
+  // 擴展狀態 - Python 端計算獎勵需要
+  int32 ante = 5;            // 當前 Ante (1-8)
+  int32 stage = 6;           // 0=PreBlind, 1=Blind, 2=PostBlind, 3=Shop, 4=End
+  int32 blind_type = 7;      // 0=Small, 1=Big, 2=Boss, -1=None
+  int32 plays_left = 8;      // 剩餘出牌次數
+  int32 discards_left = 9;   // 剩餘棄牌次數
+  int32 money = 10;          // 當前金幣
+
+  // 事件追蹤 - 用於計算 delta
+  int64 score_delta = 11;    // 這次行動獲得的分數
+  int32 money_delta = 12;    // 這次行動的金幣變化
+  int32 last_action_type = 13;  // 上一個動作類型
+  int32 last_action_cost = 14;  // 上一個動作花費（買 Joker/Reroll 等）
+
+  // Joker 狀態
+  int32 joker_count = 15;       // 目前擁有的 Joker 數量
+  int32 joker_slot_limit = 16;  // Joker 槽位上限
+
+  // 遊戲結束狀態
+  int32 game_end = 17;       // 0=None, 1=Win, 2=Lose
+  bool blind_cleared = 18;   // 這次行動是否過關
+
+  // 動作細節 - 用於精確獎勵計算
+  int32 cards_played = 19;      // 這次出牌的卡片數量
+  int32 cards_discarded = 20;   // 這次棄牌的卡片數量
+  int32 hand_type = 21;         // 打出的牌型 ID (-1 = 無)
 }

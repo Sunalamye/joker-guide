@@ -9,6 +9,7 @@ import numpy as np
 from gymnasium import spaces
 
 from joker_env.client import JokerEnvClient
+from joker_env.reward import RewardCalculator
 
 
 # ============================================================================
@@ -498,6 +499,9 @@ class JokerGymEnv(gym.Env):
         self._last_done = False
         self._last_obs = None
 
+        # 獎勵計算器（Python 端計算獎勵）
+        self._reward_calculator = RewardCalculator()
+
         # Metrics 追蹤
         self._track_metrics = track_metrics
         self._episode_metrics: Optional[EpisodeMetrics] = None
@@ -519,6 +523,9 @@ class JokerGymEnv(gym.Env):
         self._last_obs = observation
         self._last_action_type = -1
 
+        # 重置獎勵計算器
+        self._reward_calculator.reset()
+
         # 開始新的 episode metrics
         if self._track_metrics:
             self._episode_metrics = EpisodeMetrics()
@@ -533,6 +540,9 @@ class JokerGymEnv(gym.Env):
         terminated = response.done
         truncated = False
 
+        # Python 端計算獎勵
+        reward = self._reward_calculator.calculate(info)
+
         self._last_done = terminated
         self._last_obs = observation
         self._last_action_type = action_type
@@ -541,7 +551,7 @@ class JokerGymEnv(gym.Env):
         if self._track_metrics and self._episode_metrics is not None:
             scalars = observation[:SCALAR_COUNT]
             self._episode_metrics.update_from_obs(
-                scalars, action_type, response.reward, terminated
+                scalars, action_type, reward, terminated
             )
 
             # 如果 episode 結束，將詳細 metrics 加入 info
@@ -552,7 +562,7 @@ class JokerGymEnv(gym.Env):
                 agg_info = self._aggregated_metrics.to_dict()
                 info.update(agg_info)
 
-        return observation, response.reward, terminated, truncated, info
+        return observation, reward, terminated, truncated, info
 
     def action_masks(self) -> np.ndarray:
         if self._last_done:
@@ -633,6 +643,9 @@ class JokerGymDictEnv(gym.Env):
         self._last_done = False
         self._last_obs = None
 
+        # 獎勵計算器（Python 端計算獎勵）
+        self._reward_calculator = RewardCalculator()
+
         # Metrics 追蹤
         self._track_metrics = track_metrics
         self._episode_metrics: Optional[EpisodeMetrics] = None
@@ -656,6 +669,9 @@ class JokerGymDictEnv(gym.Env):
         self._last_action_mask = _action_mask_from_scalars(observation["scalars"])
         self._last_action_type = -1
 
+        # 重置獎勵計算器
+        self._reward_calculator.reset()
+
         # 開始新的 episode metrics
         if self._track_metrics:
             self._episode_metrics = EpisodeMetrics()
@@ -671,6 +687,9 @@ class JokerGymDictEnv(gym.Env):
         terminated = response.done
         truncated = False
 
+        # Python 端計算獎勵
+        reward = self._reward_calculator.calculate(info)
+
         self._last_done = terminated
         self._last_obs = flat
         self._last_action_mask = _action_mask_from_scalars(observation["scalars"])
@@ -680,7 +699,7 @@ class JokerGymDictEnv(gym.Env):
         if self._track_metrics and self._episode_metrics is not None:
             scalars = observation["scalars"]
             self._episode_metrics.update_from_obs(
-                scalars, action_type, response.reward, terminated
+                scalars, action_type, reward, terminated
             )
 
             # 如果 episode 結束，將詳細 metrics 加入 info
@@ -691,7 +710,7 @@ class JokerGymDictEnv(gym.Env):
                 agg_info = self._aggregated_metrics.to_dict()
                 info.update(agg_info)
 
-        return observation, response.reward, terminated, truncated, info
+        return observation, reward, terminated, truncated, info
 
     def action_masks(self) -> np.ndarray:
         if self._last_done:
@@ -799,13 +818,42 @@ def _split_observation(flat: np.ndarray) -> Dict[str, np.ndarray]:
 
 
 def _info_to_dict(info) -> Dict[str, Any]:
+    """從 gRPC EnvInfo 提取所有字段"""
     if info is None:
         return {}
     return {
+        # 基本狀態
         "episode_step": info.episode_step,
         "chips": info.chips,
         "mult": info.mult,
         "blind_target": info.blind_target,
+
+        # 擴展狀態 - 用於獎勵計算
+        "ante": info.ante,
+        "stage": info.stage,
+        "blind_type": info.blind_type,
+        "plays_left": info.plays_left,
+        "discards_left": info.discards_left,
+        "money": info.money,
+
+        # 事件追蹤
+        "score_delta": info.score_delta,
+        "money_delta": info.money_delta,
+        "last_action_type": info.last_action_type,
+        "last_action_cost": info.last_action_cost,
+
+        # Joker 狀態
+        "joker_count": info.joker_count,
+        "joker_slot_limit": info.joker_slot_limit,
+
+        # 遊戲結束狀態
+        "game_end": info.game_end,
+        "blind_cleared": info.blind_cleared,
+
+        # 動作細節
+        "cards_played": info.cards_played,
+        "cards_discarded": info.cards_discarded,
+        "hand_type": info.hand_type,
     }
 
 

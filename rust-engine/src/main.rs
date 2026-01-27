@@ -21,9 +21,6 @@ use game::{
     ACTION_TYPE_REROLL, ACTION_TYPE_SELL_JOKER, ACTION_TYPE_SKIP_BLIND,
     ACTION_TYPE_USE_CONSUMABLE, ACTION_TYPE_BUY_VOUCHER, ACTION_TYPE_BUY_PACK,
     Stage, GameEnd, BlindType, BossBlind,
-    hand_potential,
-    joker_buy_reward, play_reward, blind_clear_reward,
-    ante_progress_reward, game_end_reward, money_reward,
 };
 
 // 從 service 模組導入
@@ -68,10 +65,38 @@ impl JokerEnv for EnvService {
         };
 
         let info = EnvInfo {
+            // 基本狀態
             episode_step: state.episode_step,
             chips: state.score,
             mult: 1,
             blind_target: state.required_score(),
+
+            // 擴展狀態
+            ante: state.ante.to_int(),
+            stage: 0,  // PreBlind
+            blind_type: -1,  // None
+            plays_left: state.plays_left as i32,
+            discards_left: state.discards_left as i32,
+            money: state.money as i32,
+
+            // 事件追蹤（reset 時無 delta）
+            score_delta: 0,
+            money_delta: 0,
+            last_action_type: -1,
+            last_action_cost: 0,
+
+            // Joker 狀態
+            joker_count: state.jokers.len() as i32,
+            joker_slot_limit: state.joker_slot_limit as i32,
+
+            // 遊戲結束狀態
+            game_end: 0,
+            blind_cleared: false,
+
+            // 動作細節（reset 時無動作）
+            cards_played: 0,
+            cards_discarded: 0,
+            hand_type: -1,
         };
 
         Ok(Response::new(ResetResponse {
@@ -96,8 +121,17 @@ impl JokerEnv for EnvService {
         let action_type = action.action_type;
         let action_id = action.action_id as u32;
 
-        let mut reward = 0.0;
+        // 記錄動作前狀態（用於計算 delta）
+        let score_before = state.score;
+        let money_before = state.money;
+
+        let reward = 0.0;  // 獎勵由 Python 端計算
         let mut done = false;
+        let mut action_cost = 0i64;
+        let mut blind_cleared = false;
+        let mut cards_played = 0i32;
+        let mut cards_discarded = 0i32;
+        let mut hand_type_id = -1i32;
 
         match state.stage {
             Stage::PreBlind => {
@@ -132,12 +166,8 @@ impl JokerEnv for EnvService {
                     }
 
                     ACTION_TYPE_SKIP_BLIND => {
-                        // 跳過 Blind 並獲得 Tag
-                        if let Some(_tag) = state.skip_blind() {
-                            // Tag 獎勵已在 skip_blind 中處理
-                            // 小獎勵鼓勵跳過（節省時間但犧牲金錢）
-                            reward += 0.05;
-                        }
+                        let _blind_type = state.blind_type.unwrap_or(BlindType::Small);
+                        state.skip_blind();
                     }
 
                     _ => {}
@@ -158,6 +188,7 @@ impl JokerEnv for EnvService {
                         if state.plays_left > 0 {
                             let selected = build_selected_hand(&state.hand, state.selected_mask);
                             let selected_count = selected.len();
+                            cards_played = selected_count as i32;
 
                             let psychic_ok = !state.boss_blind
                                 .map(|b| b.requires_five_cards() && selected_count != 5)
@@ -177,6 +208,7 @@ impl JokerEnv for EnvService {
                                 let score_gained = score_result.score;
                                 let hand_id = score_result.hand_id;
                                 let hand_type_idx = hand_id.to_index();
+                                hand_type_id = hand_type_idx as i32;
 
                                 let eye_ok = !state.boss_blind
                                     .map(|b| matches!(b, BossBlind::TheEye) && state.played_hand_types.contains(&hand_type_idx))
@@ -188,9 +220,8 @@ impl JokerEnv for EnvService {
                                          state.first_hand_type != Some(hand_type_idx))
                                     .unwrap_or(false);
 
-                                if !eye_ok || !mouth_ok {
-                                    reward -= 0.1;
-                                }
+                                // Boss Blind 限制檢查（Python 端計算獎勵懲罰）
+                                let _violated_boss_rule = !eye_ok || !mouth_ok;
 
                                 state.played_hand_types.push(hand_type_idx);
                                 if state.first_hand_type.is_none() {
@@ -205,16 +236,15 @@ impl JokerEnv for EnvService {
                                 state.break_glass_cards(selected_mask, &score_result.glass_to_break);
 
                                 let required = state.required_score();
-                                reward += play_reward(score_gained, required);
 
                                 if state.score >= required {
-                                    let blind = state.blind_type.unwrap_or(BlindType::Small);
-                                    reward += blind_clear_reward(state.plays_left, blind, state.boss_blind);
+                                    // Blind 過關
+                                    blind_cleared = true;
                                     state.reward = state.calc_reward();
                                     state.stage = Stage::PostBlind;
                                 } else if state.plays_left == 0 {
+                                    // 出牌次數耗盡，遊戲失敗
                                     state.stage = Stage::End(GameEnd::Lose);
-                                    reward += game_end_reward(GameEnd::Lose, state.ante);
                                     done = true;
                                 } else {
                                     state.deal();
@@ -233,13 +263,9 @@ impl JokerEnv for EnvService {
 
                     ACTION_TYPE_DISCARD => {
                         if state.discards_left > 0 && state.selected_mask > 0 {
-                            let old_potential = hand_potential(&state.hand);
                             let mask = state.selected_mask;
-
+                            cards_discarded = mask.count_ones() as i32;
                             let _purple_count = state.discard_with_seals(mask);
-
-                            let new_potential = hand_potential(&state.hand);
-                            reward += (new_potential - old_potential).clamp(-0.3, 0.5);
                             state.discards_left -= 1;
                             state.selected_mask = 0;
                         }
@@ -249,8 +275,6 @@ impl JokerEnv for EnvService {
                         let index = action_id as usize;
                         if let Some(_consumable) = state.consumables.use_item(index) {
                             // TODO: 實作消耗品效果
-                            // 根據消耗品類型執行不同效果
-                            reward += 0.1;
                         }
                     }
 
@@ -263,8 +287,6 @@ impl JokerEnv for EnvService {
                     state.money += state.reward;
                     state.reward = 0;
                     state.stage = Stage::Shop;
-
-                    reward += money_reward(state.money, state.ante);
                     state.refresh_shop();
                 }
             }
@@ -277,14 +299,11 @@ impl JokerEnv for EnvService {
                             if item.cost <= state.money
                                 && state.jokers.len() < state.joker_slot_limit
                             {
-                                let old_jokers = state.jokers.clone();
-                                let money_before = state.money;
                                 let cost = item.cost;
-
+                                action_cost = cost;
                                 state.money -= cost;
                                 if let Some(bought) = state.shop.buy(index) {
                                     state.jokers.push(bought.joker);
-                                    reward += joker_buy_reward(&old_jokers, &state.jokers, cost, money_before);
                                 }
                             }
                         }
@@ -294,17 +313,14 @@ impl JokerEnv for EnvService {
                         let current_blind = state.blind_type.unwrap_or(BlindType::Small);
 
                         if current_blind == BlindType::Boss {
-                            let old_ante = state.ante;
                             if state.advance_ante() {
                                 // 成功進入下一個 Ante（或無盡模式繼續）
-                                reward += ante_progress_reward(old_ante, state.ante);
                                 state.blind_type = None;
                                 state.stage = Stage::PreBlind;
                                 state.round += 1;
                             } else {
                                 // 遊戲勝利（非無盡模式）
                                 state.stage = Stage::End(GameEnd::Win);
-                                reward += game_end_reward(GameEnd::Win, state.ante);
                                 done = true;
                             }
                         } else {
@@ -316,21 +332,18 @@ impl JokerEnv for EnvService {
                     ACTION_TYPE_REROLL => {
                         let reroll_cost = state.shop.current_reroll_cost();
                         if reroll_cost <= state.money {
+                            action_cost = reroll_cost;
                             state.money -= reroll_cost;
                             state.reroll_shop();
-                            // 小懲罰以鼓勵謹慎使用 reroll
-                            reward -= 0.05;
                         }
                     }
 
                     ACTION_TYPE_SELL_JOKER => {
                         let index = action_id as usize;
                         if index < state.jokers.len() {
-                            let joker = state.jokers.remove(index);
-                            let sell_value = joker.sell_value;
+                            let sold_joker = state.jokers.remove(index);
+                            let sell_value = sold_joker.sell_value;
                             state.money += sell_value;
-                            // 賣出 Joker 通常是負面的，除非組合不佳
-                            reward -= 0.1;
                         }
                     }
 
@@ -338,8 +351,6 @@ impl JokerEnv for EnvService {
                         let index = action_id as usize;
                         if let Some(_consumable) = state.consumables.use_item(index) {
                             // TODO: 實作消耗品效果
-                            // 根據消耗品類型執行不同效果
-                            reward += 0.1; // 基礎使用獎勵
                         }
                     }
 
@@ -347,11 +358,10 @@ impl JokerEnv for EnvService {
                         if let Some(voucher_id) = state.shop_voucher {
                             let cost = voucher_id.cost();
                             if cost <= state.money {
+                                action_cost = cost;
                                 state.money -= cost;
                                 state.voucher_effects.buy(voucher_id);
                                 state.shop_voucher = None;
-                                // Voucher 提供永久加成，給予獎勵
-                                reward += 0.5;
                             }
                         }
                     }
@@ -361,10 +371,10 @@ impl JokerEnv for EnvService {
                         if let Some(pack) = state.shop_packs.get(index) {
                             if pack.cost <= state.money {
                                 let cost = pack.cost;
+                                action_cost = cost;
                                 state.money -= cost;
                                 // TODO: 實作卡包開啟邏輯
                                 state.shop_packs.remove(index);
-                                reward += 0.1;
                             }
                         }
                     }
@@ -384,16 +394,61 @@ impl JokerEnv for EnvService {
             done = true;
         }
 
+        // 計算 delta
+        let score_delta = state.score - score_before;
+        let money_delta = state.money - money_before;
+
+        // 計算遊戲結束狀態
+        let game_end = match state.stage {
+            Stage::End(GameEnd::Win) => 1,
+            Stage::End(GameEnd::Lose) => 2,
+            _ => 0,
+        };
+
         let observation = Observation {
             features: Some(observation_from_state(&state)),
             action_mask: Some(action_mask_from_state(&state, done)),
         };
 
         let info = EnvInfo {
+            // 基本狀態
             episode_step: state.episode_step,
             chips: state.score,
             mult: 1,
             blind_target: state.required_score(),
+
+            // 擴展狀態
+            ante: state.ante.to_int(),
+            stage: match state.stage {
+                Stage::PreBlind => 0,
+                Stage::Blind => 1,
+                Stage::PostBlind => 2,
+                Stage::Shop => 3,
+                Stage::End(_) => 4,
+            },
+            blind_type: state.blind_type.map(|b| b.to_int()).unwrap_or(-1),
+            plays_left: state.plays_left as i32,
+            discards_left: state.discards_left as i32,
+            money: state.money as i32,
+
+            // 事件追蹤
+            score_delta,
+            money_delta: money_delta as i32,
+            last_action_type: action_type,
+            last_action_cost: action_cost as i32,
+
+            // Joker 狀態
+            joker_count: state.jokers.len() as i32,
+            joker_slot_limit: state.joker_slot_limit as i32,
+
+            // 遊戲結束狀態
+            game_end,
+            blind_cleared,
+
+            // 動作細節
+            cards_played,
+            cards_discarded,
+            hand_type: hand_type_id,
         };
 
         Ok(Response::new(StepResponse {
