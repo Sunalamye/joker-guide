@@ -887,6 +887,13 @@ impl JokerEnv for EnvService {
                         }
                     }
 
+                    // InvisibleJoker: 每回合計數 +1，達到 2 時賣出可複製隨機 Joker
+                    for joker in &mut state.jokers {
+                        if joker.enabled && joker.id == JokerId::InvisibleJoker {
+                            joker.counter += 1;
+                        }
+                    }
+
                     state.stage = Stage::Shop;
                     state.refresh_shop();
 
@@ -1015,6 +1022,20 @@ impl JokerEnv for EnvService {
                             // DietCola: 賣出時 +$100
                             if sold_joker.id == JokerId::DietCola {
                                 sell_value += 100;
+                            }
+
+                            // InvisibleJoker: counter >= 2 時賣出可複製隨機 Joker
+                            if sold_joker.id == JokerId::InvisibleJoker && sold_joker.counter >= 2 {
+                                let enabled_jokers: Vec<usize> = state.jokers.iter()
+                                    .enumerate()
+                                    .filter(|(_, j)| j.enabled)
+                                    .map(|(i, _)| i)
+                                    .collect();
+                                if !enabled_jokers.is_empty() && state.jokers.len() < state.joker_slot_limit {
+                                    let target_idx = enabled_jokers[state.rng.gen_range(0..enabled_jokers.len())];
+                                    let copied = state.jokers[target_idx].clone();
+                                    state.jokers.push(copied);
+                                }
                             }
 
                             state.money += sell_value;
