@@ -339,7 +339,12 @@ impl EnvState {
         let blind = self.blind_type.unwrap_or(BlindType::Small);
 
         // 基礎獎勵（根據 Blind 類型）
-        let base = blind.reward();
+        // Red Stake 及以上：Small Blind 不給基礎獎勵
+        let base = if blind == BlindType::Small && !self.stake.small_blind_gives_reward() {
+            0
+        } else {
+            blind.reward()
+        };
 
         // 利息（10%，最高 $5）
         let interest = ((self.money as f32 * INTEREST_RATE).floor() as i64).min(MAX_INTEREST);
