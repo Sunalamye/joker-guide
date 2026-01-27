@@ -22,7 +22,7 @@ use game::{
     ACTION_TYPE_REROLL, ACTION_TYPE_SELL_JOKER, ACTION_TYPE_SKIP_BLIND,
     ACTION_TYPE_USE_CONSUMABLE, ACTION_TYPE_BUY_VOUCHER, ACTION_TYPE_BUY_PACK,
     Stage, GameEnd, BlindType, BossBlind, JokerId, Card, Enhancement, Edition, Seal,
-    Consumable, TarotId,
+    Consumable, TarotId, PlanetId,
 };
 
 // 從 service 模組導入
@@ -215,6 +215,18 @@ impl JokerEnv for EnvService {
                                 let all_tarots = TarotId::all();
                                 let idx = state.rng.gen_range(0..all_tarots.len());
                                 state.consumables.add(Consumable::Tarot(all_tarots[idx]));
+                            }
+                        }
+
+                        // Astronomer: 跳過 Blind 時生成隨機 Planet 卡
+                        let astronomer_count = state.jokers.iter()
+                            .filter(|j| j.enabled && j.id == JokerId::Astronomer)
+                            .count();
+                        for _ in 0..astronomer_count {
+                            if !state.consumables.is_full() {
+                                let all_planets = PlanetId::all();
+                                let idx = state.rng.gen_range(0..all_planets.len());
+                                state.consumables.add(Consumable::Planet(all_planets[idx]));
                             }
                         }
                     }
