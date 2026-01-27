@@ -722,6 +722,11 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
                 bonus.mul_mult *= 1.5f32.powi(diamonds as i32);
             }
         }
+        JokerId::RoughGem => {
+            // +$1 per Diamond played
+            let diamonds = ctx.played_cards.iter().filter(|c| c.suit == 1).count();
+            bonus.money_bonus += diamonds as i64;
+        }
 
         // ====== Walkie Talkie ======
         JokerId::Walkie => {
