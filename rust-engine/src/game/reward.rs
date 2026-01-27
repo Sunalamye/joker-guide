@@ -585,6 +585,10 @@ fn tag_base_value(tag: TagId) -> f32 {
 
         // 陷阱類（看似有價值但有嚴重缺點）
         TagId::SpeedTag => 0.06,        // +$25 但跳過商店是災難（修正：0.15→0.06）
+
+        // 動態經濟類（基於 hands/discards）
+        TagId::HandyTag => 0.08,        // $4 (1 per hand) - 小額但穩定
+        TagId::GarbageTag => 0.06,      // $3 (1 per discard) - 小額穩定
     }
 }
 

@@ -32,6 +32,9 @@ pub enum TagId {
     SpeedTag,     // +$25 並跳過商店
     OrbitalTag,   // 升級一種牌型
     EconomyTag,   // +$10 (簡單經濟獎勵)
+    // 動態獎勵類
+    HandyTag,     // $1 per hand played (跳過時根據剩餘出牌次數給錢)
+    GarbageTag,   // $1 per unused discard (跳過時根據剩餘棄牌次數給錢)
 }
 
 impl TagId {
@@ -66,6 +69,8 @@ impl TagId {
             TagId::SpeedTag,
             TagId::OrbitalTag,
             TagId::EconomyTag,
+            TagId::HandyTag,
+            TagId::GarbageTag,
         ]
     }
 
@@ -78,6 +83,8 @@ impl TagId {
             TagId::StandardTag,
             TagId::BuffoonTag,
             TagId::InvestmentTag,
+            TagId::HandyTag,
+            TagId::GarbageTag,
         ]
     }
 
@@ -87,6 +94,8 @@ impl TagId {
             TagId::EconomyTag => 10,
             TagId::SpeedTag => 25,
             TagId::InvestmentTag => 0, // 回合結束時給
+            TagId::HandyTag => 4,      // $1 per hand (base: 4 hands)
+            TagId::GarbageTag => 3,    // $1 per discard (base: 3 discards)
             _ => 0,
         }
     }
@@ -116,6 +125,8 @@ impl TagId {
             TagId::SpeedTag => 19,
             TagId::OrbitalTag => 20,
             TagId::EconomyTag => 21,
+            TagId::HandyTag => 22,
+            TagId::GarbageTag => 23,
         }
     }
 }
@@ -143,7 +154,7 @@ impl Tag {
 }
 
 /// Tag 常量
-pub const TAG_COUNT: usize = 22;
+pub const TAG_COUNT: usize = 24;
 
 // ============================================================================
 // 單元測試

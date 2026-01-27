@@ -42,7 +42,7 @@ pub const DECK_TYPE_FEATURES: usize = 12;    // DECK_TYPE_COUNT (one-hot)
 pub const STAKE_FEATURES: usize = 8;         // STAKE_COUNT (one-hot)
 pub const VOUCHER_FEATURES: usize = 32;      // VOUCHER_COUNT (binary flags for owned)
 pub const CONSUMABLE_FEATURES: usize = 52;   // CONSUMABLE_COUNT per slot
-pub const TAG_FEATURES: usize = 22;          // TAG_COUNT (count of each tag)
+pub const TAG_FEATURES: usize = 24;          // TAG_COUNT (count of each tag)
 
 pub const OBS_SIZE: i32 = (SCALAR_COUNT
     + SELECTION_FEATURES
