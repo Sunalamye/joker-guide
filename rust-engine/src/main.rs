@@ -156,6 +156,13 @@ impl JokerEnv for EnvService {
                         }
 
                         state.discards_left = DISCARDS_PER_BLIND;
+
+                        // Drunkard: +1 棄牌次數每輪
+                        let drunkard_count = state.jokers.iter()
+                            .filter(|j| j.enabled && j.id == JokerId::Drunkard)
+                            .count() as i32;
+                        state.discards_left += drunkard_count;
+
                         state.score = 0;
                         state.played_hand_types.clear();
                         state.first_hand_type = None;
