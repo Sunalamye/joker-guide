@@ -831,6 +831,11 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
             let queens_in_hand = ctx.hand.iter().filter(|c| c.rank == 12).count();
             bonus.add_mult += queens_in_hand as i64 * 13;
         }
+        JokerId::Swashbuckler => {
+            // Each card below 8 held in hand gives +2 Mult (ranks 2-7)
+            let below_8_count = ctx.hand.iter().filter(|c| c.rank >= 2 && c.rank <= 7).count();
+            bonus.add_mult += below_8_count as i64 * 2;
+        }
         JokerId::Card_Sharp => {
             if ctx.hands_played_this_round > 0 {
                 bonus.mul_mult *= 3.0;
