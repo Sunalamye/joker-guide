@@ -170,6 +170,15 @@ impl JokerEnv for EnvService {
                             .count() as i32;
                         state.plays_left = (state.plays_left - troubadour_count).max(1);
 
+                        // Burglar: +3 出牌次數，無法棄牌
+                        let burglar_count = state.jokers.iter()
+                            .filter(|j| j.enabled && j.id == JokerId::Burglar)
+                            .count() as i32;
+                        if burglar_count > 0 {
+                            state.plays_left += 3 * burglar_count;
+                            state.discards_left = 0;
+                        }
+
                         state.score = 0;
                         state.played_hand_types.clear();
                         state.first_hand_type = None;
