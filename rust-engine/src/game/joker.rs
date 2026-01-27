@@ -13,7 +13,7 @@ use super::hand_types::HandId;
 // ============================================================================
 
 /// Joker 總數
-pub const JOKER_COUNT: usize = 150;
+pub const JOKER_COUNT: usize = 152;
 
 /// Joker 唯一識別碼
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -180,14 +180,16 @@ pub enum JokerId {
     Caino = 139,         // X1 Mult, gains X0.1 for every face card destroyed
     Flash = 140,         // +2 Mult per reroll used
     Trousers = 141,      // +4 Mult if hand has Two Pair
-    Reserved_1 = 142,
-    Reserved_2 = 143,
-    Reserved_3 = 144,
-    Reserved_4 = 145,
-    Reserved_5 = 146,
-    Reserved_6 = 147,
-    Reserved_7 = 148,
-    Reserved_8 = 149,
+    LoyaltyCard = 142,   // 每 6 手 X4 Mult
+    Blackboard = 143,    // 全黑牌 X3 Mult
+    TurtleBean = 144,    // +5 手牌大小，每輪 -1
+    Burglar = 145,       // 選 Blind +3 hands, 無 discards
+    GiftCard = 146,      // 回合結束 Joker +$1 售價
+    Luchador = 147,      // Sell to disable current Boss Blind effect
+    ReservedParking = 148, // 手中人頭牌 1/2 機率 +$1 (回合結束)
+    TradingCard = 149,   // 首次棄人頭牌時創建 Tarot
+    MarbleJoker = 150,   // 選擇 Blind 時加 Stone 卡到牌組
+    MailInRebate = 151,  // 棄 K 時 +$5
 }
 
 impl JokerId {
@@ -349,9 +351,7 @@ impl JokerId {
         (0..JOKER_COUNT)
             .filter_map(|i| JokerId::from_index(i))
             .filter(|j| !matches!(j,
-                JokerId::Reserved_1 | JokerId::Reserved_2 | JokerId::Reserved_3 |
-                JokerId::Reserved_4 | JokerId::Reserved_5 | JokerId::Reserved_6 |
-                JokerId::Reserved_7 | JokerId::Reserved_8 |
+                // 保留位：這些是用於內部測試或尚未實現的 Joker
                 JokerId::BluePrint | JokerId::Perkeo_2 | JokerId::Stuntman_2 |
                 JokerId::Cloud9 | JokerId::Rough_Gem_2
             ))
@@ -426,6 +426,8 @@ impl JokerBonus {
 /// 計算 Joker 效果時的上下文資訊
 pub struct ScoringContext<'a> {
     pub played_cards: &'a [Card],
+    /// 手中持有的牌（非打出的牌）- 用於 Baron, ShootTheMoon 等
+    pub hand: &'a [Card],
     pub hand_id: HandId,
     pub discards_remaining: i32,
     pub hands_remaining: i32,
@@ -445,12 +447,21 @@ pub struct ScoringContext<'a> {
     pub blinds_skipped: i32,
     pub cards_discarded_this_run: i32,
     pub rerolls_this_run: i32,
+    /// Boss Blind 能力是否觸發（用於 Matador）
+    pub boss_ability_triggered: bool,
+    /// 牌組中的 Stone 卡數量 (Stone Joker)
+    pub stone_cards_in_deck: i32,
 }
 
 impl<'a> ScoringContext<'a> {
     pub fn new(played_cards: &'a [Card], hand_id: HandId) -> Self {
+        Self::with_hand(played_cards, &[], hand_id)
+    }
+
+    pub fn with_hand(played_cards: &'a [Card], hand: &'a [Card], hand_id: HandId) -> Self {
         Self {
             played_cards,
+            hand,
             hand_id,
             discards_remaining: 0,
             hands_remaining: 0,
@@ -470,6 +481,8 @@ impl<'a> ScoringContext<'a> {
             blinds_skipped: 0,
             cards_discarded_this_run: 0,
             rerolls_this_run: 0,
+            boss_ability_triggered: false,
+            stone_cards_in_deck: 0,
         }
     }
 }
@@ -634,14 +647,16 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
             bonus.chip_bonus += face_count as i64 * 30;
         }
         JokerId::EvenSteven => {
+            // 偶數牌: 2, 4, 6, 8, 10 (不包含 J=11, Q=12, K=13)
             let even_count = ctx.played_cards.iter()
-                .filter(|c| c.rank % 2 == 0)
+                .filter(|c| c.rank <= 10 && c.rank % 2 == 0)
                 .count();
             bonus.add_mult += even_count as i64 * 4;
         }
         JokerId::OddTodd => {
+            // 奇數牌: A(1), 3, 5, 7, 9 (不包含 J=11, K=13)
             let odd_count = ctx.played_cards.iter()
-                .filter(|c| c.rank % 2 == 1)
+                .filter(|c| c.rank == 1 || (c.rank <= 9 && c.rank % 2 == 1))
                 .count();
             bonus.chip_bonus += odd_count as i64 * 31;
         }
@@ -657,6 +672,18 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
                 .filter(|c| c.rank >= 11 && c.rank <= 13)
                 .count();
             bonus.add_mult += face_count as i64 * 5;
+        }
+        JokerId::BusinessCard => {
+            // 1/2 chance +$2 per face card played
+            let face_count = ctx.played_cards.iter()
+                .filter(|c| c.rank >= 11 && c.rank <= 13)
+                .count();
+            // Use rng_value for 50% chance per face card
+            for i in 0..face_count {
+                if ((rng_value >> (i % 8)) & 1) == 0 {
+                    bonus.money_bonus += 2;
+                }
+            }
         }
 
         // ====== 乘法類 ======
@@ -758,19 +785,24 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
             bonus.mul_mult *= 1.0 + (ctx.blinds_skipped as f32 * 0.25);
         }
         JokerId::RedCard => {
-            bonus.add_mult += ctx.rerolls_this_run as i64 * 3;
+            // +3 Mult per skipped Blind this run
+            bonus.add_mult += ctx.blinds_skipped as i64 * 3;
         }
         JokerId::Flash => {
+            // +2 Mult per reroll this run
             bonus.add_mult += ctx.rerolls_this_run as i64 * 2;
         }
         JokerId::Baron => {
-            // Kings in hand (not played) give X1.5 - handled separately
-            // This is a simplification
-            bonus.mul_mult *= 1.5;
+            // Each King held in hand (not played) gives X1.5 Mult
+            let kings_in_hand = ctx.hand.iter().filter(|c| c.rank == 13).count();
+            if kings_in_hand > 0 {
+                bonus.mul_mult *= 1.5f32.powi(kings_in_hand as i32);
+            }
         }
         JokerId::ShootTheMoon => {
-            // Queens in hand give +13 mult
-            bonus.add_mult += 13;
+            // Each Queen held in hand (not played) gives +13 Mult
+            let queens_in_hand = ctx.hand.iter().filter(|c| c.rank == 12).count();
+            bonus.add_mult += queens_in_hand as i64 * 13;
         }
         JokerId::Card_Sharp => {
             if ctx.hands_played_this_round > 0 {
@@ -808,6 +840,57 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
             // 這些會影響計分規則，不在這裡處理
         }
 
+        // ====== 條件觸發類 (X2 Mult) ======
+        JokerId::Even_Steven => {
+            // X2 Mult if ALL scoring cards are even (2, 4, 6, 8, 10)
+            let all_even = ctx.played_cards.iter()
+                .all(|c| c.rank <= 10 && c.rank % 2 == 0);
+            if all_even && !ctx.played_cards.is_empty() {
+                bonus.mul_mult *= 2.0;
+            }
+        }
+        JokerId::Odd_Todd_2 => {
+            // X2 Mult if ALL scoring cards are odd (A, 3, 5, 7, 9)
+            let all_odd = ctx.played_cards.iter()
+                .all(|c| c.rank == 1 || (c.rank <= 9 && c.rank % 2 == 1));
+            if all_odd && !ctx.played_cards.is_empty() {
+                bonus.mul_mult *= 2.0;
+            }
+        }
+        JokerId::Stone => {
+            // +25 Chips for each Stone card in the full deck
+            bonus.chip_bonus += ctx.stone_cards_in_deck as i64 * 25;
+        }
+
+        // ====== 特殊效果類 ======
+        JokerId::Gros_Michel => {
+            // +15 Mult, 1/15 chance to self-destruct at round end (handled elsewhere)
+            bonus.add_mult += 15;
+        }
+        JokerId::Matador => {
+            // +$8 when Boss Blind ability triggers
+            if ctx.boss_ability_triggered {
+                bonus.money_bonus += 8;
+            }
+        }
+        JokerId::MrBones => {
+            // Prevents death if chips > 25% of requirement
+            // Death prevention handled at game level, no scoring bonus
+        }
+        JokerId::Luchador => {
+            // Sell to disable current Boss Blind effect
+            // Sell effect handled at game level, no scoring bonus
+        }
+        JokerId::Ceremonial => {
+            // On select_blind, destroy rightmost Joker, gain 2x sell value as Mult
+            // The mult bonus is stored in joker.counter after destruction event
+            // This is processed separately via compute_joker_bonus_with_state
+        }
+        JokerId::InvisibleJoker => {
+            // After 2 rounds, sell to duplicate adjacent Joker
+            // Round tracking and duplication handled at game level
+        }
+
         // 未實作的保留位
         _ => {}
     }
@@ -829,10 +912,40 @@ pub struct JokerSlot {
     pub is_eternal: bool,
     pub is_negative: bool,
     pub x_mult_accumulated: f32,
+    // 觸發/經濟類 Joker 狀態
+    pub trading_card_triggered: bool,  // TradingCard: 是否已觸發
+    pub flash_card_mult: i32,          // Flash: 累積 Mult (+2 per reroll)
+    pub red_card_mult: i32,            // RedCard: 累積 Mult (+3 per skip blind)
+
+    // ====== X Mult 狀態追蹤字段 ======
+    /// Vampire: X Mult 累積 (起始 1.0, 每吸收增強 +0.1)
+    pub vampire_mult: f32,
+    /// Canio: X Mult 累積 (起始 1.0, 每銷毀人頭牌 +1.0)
+    pub canio_mult: f32,
+    /// Lucky Cat: X Mult 累積 (起始 1.0, 每觸發 Lucky 牌 +0.25)
+    pub lucky_cat_mult: f32,
+    /// Hologram: X Mult 累積 (起始 1.0, 每加牌到牌組 +0.25)
+    pub hologram_mult: f32,
+    /// Constellation: X Mult 累積 (起始 1.0, 每使用行星牌 +0.1)
+    pub constellation_mult: f32,
+    /// Madness: X Mult 累積 (起始 0.5, 每銷毀 Joker +0.5)
+    pub madness_mult: f32,
+    /// Yorick: 棄牌計數器 (每 23 張觸發)
+    pub yorick_discards: i32,
+    /// Yorick: X Mult 累積 (起始 1.0, 每 23 張棄牌 +1.0)
+    pub yorick_mult: f32,
+    /// Glass Joker: X Mult 累積 (起始 1.0, 每碎 Glass 牌 +0.75)
+    pub glass_mult: f32,
 }
 
 impl JokerSlot {
     pub fn new(id: JokerId) -> Self {
+        // 根據 Joker 類型設置初始值
+        let madness_mult = match id {
+            JokerId::Madness => 0.5,  // Madness 起始 X0.5 Mult
+            _ => 1.0,
+        };
+        
         Self {
             id,
             enabled: true,
@@ -841,6 +954,19 @@ impl JokerSlot {
             is_eternal: false,
             is_negative: false,
             x_mult_accumulated: 1.0,
+            trading_card_triggered: false,
+            flash_card_mult: 0,
+            red_card_mult: 0,
+            // X Mult 狀態
+            vampire_mult: 1.0,
+            canio_mult: 1.0,
+            lucky_cat_mult: 1.0,
+            hologram_mult: 1.0,
+            constellation_mult: 1.0,
+            madness_mult,
+            yorick_discards: 0,
+            yorick_mult: 1.0,
+            glass_mult: 1.0,
         }
     }
 
@@ -858,6 +984,83 @@ impl JokerSlot {
         self.is_negative = true;
         self
     }
+
+    // ====== X Mult 狀態更新方法 ======
+    
+    /// Vampire: 吸收增強時調用 (+0.1 X Mult per enhancement)
+    pub fn update_vampire_on_enhancement(&mut self, enhancements_absorbed: i32) {
+        if self.id == JokerId::Vampire {
+            self.vampire_mult += enhancements_absorbed as f32 * 0.1;
+        }
+    }
+    
+    /// Canio: 銷毀人頭牌時調用 (+1.0 X Mult per face card)
+    pub fn update_canio_on_face_destroyed(&mut self, face_cards_destroyed: i32) {
+        if self.id == JokerId::Canio {
+            self.canio_mult += face_cards_destroyed as f32 * 1.0;
+        }
+    }
+    
+    /// Lucky Cat: Lucky 牌觸發時調用 (+0.25 X Mult per trigger)
+    pub fn update_lucky_cat_on_trigger(&mut self, triggers: i32) {
+        if self.id == JokerId::Lucky_Cat {
+            self.lucky_cat_mult += triggers as f32 * 0.25;
+        }
+    }
+    
+    /// Hologram: 加牌到牌組時調用 (+0.25 X Mult per card)
+    pub fn update_hologram_on_card_added(&mut self, cards_added: i32) {
+        if self.id == JokerId::Hologram {
+            self.hologram_mult += cards_added as f32 * 0.25;
+        }
+    }
+    
+    /// Constellation: 使用行星牌時調用 (+0.1 X Mult per planet)
+    pub fn update_constellation_on_planet_used(&mut self) {
+        if self.id == JokerId::Constellation {
+            self.constellation_mult += 0.1;
+        }
+    }
+    
+    /// Madness: 銷毀 Joker 時調用 (+0.5 X Mult per Joker destroyed)
+    pub fn update_madness_on_joker_destroyed(&mut self, jokers_destroyed: i32) {
+        if self.id == JokerId::Madness {
+            self.madness_mult += jokers_destroyed as f32 * 0.5;
+        }
+    }
+    
+    /// Yorick: 棄牌時調用 (每 23 張 +1.0 X Mult)
+    pub fn update_yorick_on_discard(&mut self, cards_discarded: i32) {
+        if self.id == JokerId::Yorick {
+            self.yorick_discards += cards_discarded;
+            while self.yorick_discards >= 23 {
+                self.yorick_discards -= 23;
+                self.yorick_mult += 1.0;
+            }
+        }
+    }
+    
+    /// Glass Joker: Glass 牌碎裂時調用 (+0.75 X Mult per glass broken)
+    pub fn update_glass_on_break(&mut self, glass_broken: i32) {
+        if self.id == JokerId::GlassJoker {
+            self.glass_mult += glass_broken as f32 * 0.75;
+        }
+    }
+    
+    /// 獲取此 Joker 的 X Mult 值（用於計分）
+    pub fn get_x_mult(&self) -> f32 {
+        match self.id {
+            JokerId::Vampire => self.vampire_mult,
+            JokerId::Canio => self.canio_mult,
+            JokerId::Lucky_Cat => self.lucky_cat_mult,
+            JokerId::Hologram => self.hologram_mult,
+            JokerId::Constellation => self.constellation_mult,
+            JokerId::Madness => self.madness_mult,
+            JokerId::Yorick => self.yorick_mult,
+            JokerId::GlassJoker => self.glass_mult,
+            _ => 1.0,
+        }
+    }
 }
 
 /// 計算所有 Joker 的總加成
@@ -866,11 +1069,58 @@ pub fn compute_joker_bonus(jokers: &[JokerSlot], ctx: &ScoringContext, rng_value
 
     for (i, joker) in jokers.iter().filter(|j| j.enabled).enumerate() {
         let rng_val = rng_values.get(i).copied().unwrap_or(0);
-        let effect = compute_core_joker_effect(joker.id, ctx, rng_val);
+        let effect = compute_joker_effect_with_state(joker, ctx, rng_val);
         total.merge(&effect);
     }
 
     total
+}
+
+/// 計算單個 Joker 效果（使用 JokerSlot 狀態）
+pub fn compute_joker_effect_with_state(joker: &JokerSlot, ctx: &ScoringContext, rng_value: u8) -> JokerBonus {
+    let mut bonus = compute_core_joker_effect(joker.id, ctx, rng_value);
+    
+    // 對於有狀態追蹤的 X Mult Jokers，使用 JokerSlot 中的狀態值
+    match joker.id {
+        JokerId::Vampire => {
+            // Vampire: 使用累積的 vampire_mult (吸收增強後)
+            bonus.mul_mult = joker.vampire_mult;
+        }
+        JokerId::Canio => {
+            // Canio: 使用累積的 canio_mult (銷毀人頭牌後)
+            bonus.mul_mult = joker.canio_mult;
+        }
+        JokerId::Lucky_Cat => {
+            // Lucky Cat: 使用累積的 lucky_cat_mult (Lucky 牌觸發後)
+            bonus.mul_mult = joker.lucky_cat_mult;
+        }
+        JokerId::Hologram => {
+            // Hologram: 使用累積的 hologram_mult (加牌後)
+            // 覆蓋 compute_core_joker_effect 中基於 ctx 的計算
+            bonus.mul_mult = joker.hologram_mult;
+        }
+        JokerId::Constellation => {
+            // Constellation: 使用累積的 constellation_mult (使用行星牌後)
+            // 覆蓋 compute_core_joker_effect 中基於 ctx 的計算
+            bonus.mul_mult = joker.constellation_mult;
+        }
+        JokerId::Madness => {
+            // Madness: 使用累積的 madness_mult (銷毀 Joker 後)
+            bonus.mul_mult = joker.madness_mult;
+        }
+        JokerId::Yorick => {
+            // Yorick: 使用累積的 yorick_mult (每 23 張棄牌)
+            bonus.mul_mult = joker.yorick_mult;
+        }
+        JokerId::GlassJoker => {
+            // Glass Joker: 使用累積的 glass_mult (Glass 牌碎裂後)
+            // 覆蓋 compute_core_joker_effect 中基於 ctx 的計算
+            bonus.mul_mult = joker.glass_mult;
+        }
+        _ => {}
+    }
+    
+    bonus
 }
 
 // ============================================================================
@@ -998,5 +1248,463 @@ mod tests {
         assert!(!uncommon.is_empty());
         assert!(!rare.is_empty());
         assert!(!legendary.is_empty());
+    }
+
+    // ====== X Mult Jokers 單元測試 ======
+
+    #[test]
+    fn test_vampire_initial_mult() {
+        let joker = JokerSlot::new(JokerId::Vampire);
+        assert_eq!(joker.vampire_mult, 1.0);
+        assert_eq!(joker.get_x_mult(), 1.0);
+    }
+
+    #[test]
+    fn test_vampire_enhancement_absorption() {
+        let mut joker = JokerSlot::new(JokerId::Vampire);
+        joker.update_vampire_on_enhancement(3); // 吸收 3 個增強
+        assert!((joker.vampire_mult - 1.3).abs() < 0.001); // 1.0 + 0.3
+        assert!((joker.get_x_mult() - 1.3).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_canio_initial_mult() {
+        let joker = JokerSlot::new(JokerId::Canio);
+        assert_eq!(joker.canio_mult, 1.0);
+    }
+
+    #[test]
+    fn test_canio_face_destroyed() {
+        let mut joker = JokerSlot::new(JokerId::Canio);
+        joker.update_canio_on_face_destroyed(2); // 銷毀 2 張人頭牌
+        assert!((joker.canio_mult - 3.0).abs() < 0.001); // 1.0 + 2.0
+    }
+
+    #[test]
+    fn test_lucky_cat_trigger() {
+        let mut joker = JokerSlot::new(JokerId::Lucky_Cat);
+        joker.update_lucky_cat_on_trigger(4); // 4 次 Lucky 觸發
+        assert!((joker.lucky_cat_mult - 2.0).abs() < 0.001); // 1.0 + 1.0
+    }
+
+    #[test]
+    fn test_hologram_cards_added() {
+        let mut joker = JokerSlot::new(JokerId::Hologram);
+        joker.update_hologram_on_card_added(4); // 加 4 張牌
+        assert!((joker.hologram_mult - 2.0).abs() < 0.001); // 1.0 + 1.0
+    }
+
+    #[test]
+    fn test_constellation_planet_used() {
+        let mut joker = JokerSlot::new(JokerId::Constellation);
+        for _ in 0..5 {
+            joker.update_constellation_on_planet_used();
+        }
+        assert!((joker.constellation_mult - 1.5).abs() < 0.001); // 1.0 + 0.5
+    }
+
+    #[test]
+    fn test_madness_initial_mult() {
+        let joker = JokerSlot::new(JokerId::Madness);
+        assert_eq!(joker.madness_mult, 0.5); // 起始 X0.5
+    }
+
+    #[test]
+    fn test_madness_joker_destroyed() {
+        let mut joker = JokerSlot::new(JokerId::Madness);
+        joker.update_madness_on_joker_destroyed(2); // 銷毀 2 個 Joker
+        assert!((joker.madness_mult - 1.5).abs() < 0.001); // 0.5 + 1.0
+    }
+
+    #[test]
+    fn test_yorick_discards() {
+        let mut joker = JokerSlot::new(JokerId::Yorick);
+        assert_eq!(joker.yorick_mult, 1.0);
+        assert_eq!(joker.yorick_discards, 0);
+        
+        // 棄 22 張 (不觸發)
+        joker.update_yorick_on_discard(22);
+        assert_eq!(joker.yorick_mult, 1.0);
+        assert_eq!(joker.yorick_discards, 22);
+        
+        // 再棄 1 張 (觸發第一次)
+        joker.update_yorick_on_discard(1);
+        assert_eq!(joker.yorick_mult, 2.0);
+        assert_eq!(joker.yorick_discards, 0);
+        
+        // 棄 46 張 (觸發兩次)
+        joker.update_yorick_on_discard(46);
+        assert_eq!(joker.yorick_mult, 4.0);
+        assert_eq!(joker.yorick_discards, 0);
+    }
+
+    #[test]
+    fn test_glass_joker_break() {
+        let mut joker = JokerSlot::new(JokerId::GlassJoker);
+        joker.update_glass_on_break(2); // 2 張 Glass 碎裂
+        assert!((joker.glass_mult - 2.5).abs() < 0.001); // 1.0 + 1.5
+    }
+
+    #[test]
+    fn test_compute_joker_effect_with_state_vampire() {
+        let cards = make_cards(&[(5, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        
+        let mut joker = JokerSlot::new(JokerId::Vampire);
+        joker.update_vampire_on_enhancement(5); // 1.5 X Mult
+        
+        let bonus = compute_joker_effect_with_state(&joker, &ctx, 0);
+        assert!((bonus.mul_mult - 1.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_compute_joker_effect_with_state_madness() {
+        let cards = make_cards(&[(5, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        
+        let mut joker = JokerSlot::new(JokerId::Madness);
+        // 起始 0.5, 銷毀 3 個 Joker 後: 0.5 + 1.5 = 2.0
+        joker.update_madness_on_joker_destroyed(3);
+        
+        let bonus = compute_joker_effect_with_state(&joker, &ctx, 0);
+        assert!((bonus.mul_mult - 2.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_compute_joker_effect_with_state_yorick() {
+        let cards = make_cards(&[(5, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        
+        let mut joker = JokerSlot::new(JokerId::Yorick);
+        joker.update_yorick_on_discard(69); // 觸發 3 次
+        
+        let bonus = compute_joker_effect_with_state(&joker, &ctx, 0);
+        assert!((bonus.mul_mult - 4.0).abs() < 0.001); // 1.0 + 3.0
+    }
+
+    #[test]
+    fn test_get_x_mult_non_xmult_joker() {
+        let joker = JokerSlot::new(JokerId::Joker);
+        assert_eq!(joker.get_x_mult(), 1.0); // 非 X Mult Joker 返回 1.0
+    }
+
+    // ====== 特殊效果類 Jokers 單元測試 ======
+
+    #[test]
+    fn test_gros_michel_adds_mult() {
+        // Gros Michel: +15 Mult, 1/15 chance to self-destruct at round end
+        let cards = make_cards(&[(5, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Gros_Michel, &ctx, 0);
+        assert_eq!(bonus.add_mult, 15);
+        assert_eq!(bonus.mul_mult, 1.0); // No X Mult
+        assert_eq!(bonus.money_bonus, 0);
+    }
+
+    #[test]
+    fn test_cavendish_x3_mult() {
+        // Cavendish: X3 Mult, 1/1000 chance to self-destruct per play
+        let cards = make_cards(&[(5, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Cavendish, &ctx, 0);
+        assert_eq!(bonus.mul_mult, 3.0);
+        assert_eq!(bonus.add_mult, 0);
+    }
+
+    #[test]
+    fn test_matador_no_trigger() {
+        // Matador: +$8 when Boss Blind ability triggers
+        // When boss ability does NOT trigger, no money bonus
+        let cards = make_cards(&[(5, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Matador, &ctx, 0);
+        assert_eq!(bonus.money_bonus, 0);
+    }
+
+    #[test]
+    fn test_matador_with_trigger() {
+        // Matador: +$8 when Boss Blind ability triggers
+        let cards = make_cards(&[(5, 0)]);
+        let mut ctx = ScoringContext::new(&cards, HandId::HighCard);
+        ctx.boss_ability_triggered = true;
+        let bonus = compute_core_joker_effect(JokerId::Matador, &ctx, 0);
+        assert_eq!(bonus.money_bonus, 8);
+    }
+
+    #[test]
+    fn test_mr_bones_no_scoring_bonus() {
+        // MrBones: Prevents death if chips > 25% of requirement
+        // This effect is handled at game level, no scoring bonus
+        let cards = make_cards(&[(5, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::MrBones, &ctx, 0);
+        assert_eq!(bonus.chip_bonus, 0);
+        assert_eq!(bonus.add_mult, 0);
+        assert_eq!(bonus.mul_mult, 1.0);
+        assert_eq!(bonus.money_bonus, 0);
+    }
+
+    #[test]
+    fn test_luchador_no_scoring_bonus() {
+        // Luchador: Sell to disable current Boss Blind effect
+        // Sell effect handled at game level, no scoring bonus
+        let cards = make_cards(&[(5, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Luchador, &ctx, 0);
+        assert_eq!(bonus.chip_bonus, 0);
+        assert_eq!(bonus.add_mult, 0);
+        assert_eq!(bonus.mul_mult, 1.0);
+        assert_eq!(bonus.money_bonus, 0);
+    }
+
+    #[test]
+    fn test_chicot_is_rule_modifier() {
+        // Chicot: Disables Boss Blind effects (passive)
+        // This is a rule modifier, no direct scoring bonus
+        let cards = make_cards(&[(5, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Chicot, &ctx, 0);
+        assert_eq!(bonus.chip_bonus, 0);
+        assert_eq!(bonus.add_mult, 0);
+        assert_eq!(bonus.mul_mult, 1.0);
+    }
+
+    #[test]
+    fn test_ceremonial_no_scoring_bonus() {
+        // Ceremonial: On select_blind, destroy rightmost Joker, gain 2x sell value as Mult
+        // The destruction event is handled at game level
+        let cards = make_cards(&[(5, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Ceremonial, &ctx, 0);
+        assert_eq!(bonus.chip_bonus, 0);
+        assert_eq!(bonus.add_mult, 0);
+        assert_eq!(bonus.mul_mult, 1.0);
+    }
+
+    #[test]
+    fn test_invisible_joker_no_scoring_bonus() {
+        // InvisibleJoker: After 2 rounds, sell to duplicate adjacent Joker
+        // Round tracking and duplication handled at game level
+        let cards = make_cards(&[(5, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::InvisibleJoker, &ctx, 0);
+        assert_eq!(bonus.chip_bonus, 0);
+        assert_eq!(bonus.add_mult, 0);
+        assert_eq!(bonus.mul_mult, 1.0);
+        assert_eq!(bonus.money_bonus, 0);
+    }
+
+    #[test]
+    fn test_special_joker_rarity() {
+        // Verify these special jokers have correct rarity (based on actual rarity() fn)
+        assert_eq!(JokerId::MrBones.rarity(), 3);      // Rare
+        assert_eq!(JokerId::Matador.rarity(), 1);      // Common (default)
+        assert_eq!(JokerId::Luchador.rarity(), 1);     // Common (default)
+        assert_eq!(JokerId::Chicot.rarity(), 4);       // Legendary
+        assert_eq!(JokerId::Ceremonial.rarity(), 1);   // Common (default)
+        assert_eq!(JokerId::InvisibleJoker.rarity(), 1); // Common (default)
+        assert_eq!(JokerId::Cavendish.rarity(), 3);    // Rare
+        assert_eq!(JokerId::Gros_Michel.rarity(), 1);  // Common
+    }
+
+    #[test]
+    fn test_special_jokers_in_all_available() {
+        // Verify all special effect jokers are available for selection
+        let all = JokerId::all_available();
+        assert!(all.contains(&JokerId::MrBones));
+        assert!(all.contains(&JokerId::Matador));
+        assert!(all.contains(&JokerId::Luchador));
+        assert!(all.contains(&JokerId::Chicot));
+        assert!(all.contains(&JokerId::Ceremonial));
+        assert!(all.contains(&JokerId::InvisibleJoker));
+        assert!(all.contains(&JokerId::Cavendish));
+        assert!(all.contains(&JokerId::Gros_Michel));
+    }
+
+    // ====== 條件觸發類 Jokers 單元測試 ======
+
+    #[test]
+    fn test_even_steven_per_card() {
+        // EvenSteven: +4 Mult per even card (2, 4, 6, 8, 10)
+        // Cards: 2, 4, 6 (all even, rank <= 10)
+        let cards = make_cards(&[(2, 0), (4, 0), (6, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::EvenSteven, &ctx, 0);
+        assert_eq!(bonus.add_mult, 12); // 3 even cards × 4 mult = 12
+    }
+
+    #[test]
+    fn test_even_steven_excludes_face_cards() {
+        // EvenSteven should NOT count J(11), Q(12), K(13) even though Q(12) is "even"
+        // Cards: Q(12), K(13), 4
+        let cards = make_cards(&[(12, 0), (13, 0), (4, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::EvenSteven, &ctx, 0);
+        assert_eq!(bonus.add_mult, 4); // Only 4 is even (rank <= 10), Q is excluded
+    }
+
+    #[test]
+    fn test_odd_todd_per_card() {
+        // OddTodd: +31 Chips per odd card (A=1, 3, 5, 7, 9)
+        // Cards: A(1), 3, 5 (all odd, rank <= 9 or rank == 1)
+        let cards = make_cards(&[(1, 0), (3, 0), (5, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::OddTodd, &ctx, 0);
+        assert_eq!(bonus.chip_bonus, 93); // 3 odd cards × 31 chips = 93
+    }
+
+    #[test]
+    fn test_odd_todd_excludes_face_cards() {
+        // OddTodd should NOT count J(11), K(13) even though they are "odd"
+        // Cards: J(11), K(13), 3
+        let cards = make_cards(&[(11, 0), (13, 0), (3, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::OddTodd, &ctx, 0);
+        assert_eq!(bonus.chip_bonus, 31); // Only 3 is odd (rank <= 9), J and K are excluded
+    }
+
+    #[test]
+    fn test_even_steven_x2_all_even() {
+        // Even_Steven (#138): X2 Mult if ALL scoring cards are even (2, 4, 6, 8, 10)
+        // Cards: 2, 4, 6 (all even)
+        let cards = make_cards(&[(2, 0), (4, 0), (6, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Even_Steven, &ctx, 0);
+        assert_eq!(bonus.mul_mult, 2.0);
+    }
+
+    #[test]
+    fn test_even_steven_x2_not_all_even() {
+        // Even_Steven (#138): NO X2 if any card is not even
+        // Cards: 2, 4, 5 (5 is odd, so no X2)
+        let cards = make_cards(&[(2, 0), (4, 0), (5, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Even_Steven, &ctx, 0);
+        assert_eq!(bonus.mul_mult, 1.0); // No X2 because 5 is odd
+    }
+
+    #[test]
+    fn test_even_steven_x2_face_card_breaks() {
+        // Even_Steven (#138): Face cards (J, Q, K) should break the "all even" condition
+        // Cards: 2, 4, Q(12) - Q is rank > 10, so not considered even
+        let cards = make_cards(&[(2, 0), (4, 0), (12, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Even_Steven, &ctx, 0);
+        assert_eq!(bonus.mul_mult, 1.0); // No X2 because Q is not a valid even card
+    }
+
+    #[test]
+    fn test_odd_todd_2_x2_all_odd() {
+        // Odd_Todd_2 (#139): X2 Mult if ALL scoring cards are odd (A, 3, 5, 7, 9)
+        // Cards: A(1), 3, 5 (all odd)
+        let cards = make_cards(&[(1, 0), (3, 0), (5, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Odd_Todd_2, &ctx, 0);
+        assert_eq!(bonus.mul_mult, 2.0);
+    }
+
+    #[test]
+    fn test_odd_todd_2_x2_not_all_odd() {
+        // Odd_Todd_2 (#139): NO X2 if any card is not odd
+        // Cards: A(1), 3, 4 (4 is even, so no X2)
+        let cards = make_cards(&[(1, 0), (3, 0), (4, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Odd_Todd_2, &ctx, 0);
+        assert_eq!(bonus.mul_mult, 1.0); // No X2 because 4 is even
+    }
+
+    #[test]
+    fn test_odd_todd_2_x2_face_card_breaks() {
+        // Odd_Todd_2 (#139): Face cards (J, K) should break the "all odd" condition
+        // Cards: A(1), 3, J(11) - J is rank > 9, so not considered odd
+        let cards = make_cards(&[(1, 0), (3, 0), (11, 0)]);
+        let ctx = ScoringContext::new(&cards, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Odd_Todd_2, &ctx, 0);
+        assert_eq!(bonus.mul_mult, 1.0); // No X2 because J is not a valid odd card
+    }
+
+    #[test]
+    fn test_baron_kings_in_hand() {
+        // Baron: X1.5 Mult per King held in hand (not played)
+        // Played: 5, Hand: K, K (2 Kings in hand)
+        let played = make_cards(&[(5, 0)]);
+        let hand = make_cards(&[(13, 0), (13, 1)]); // Two Kings
+        let ctx = ScoringContext::with_hand(&played, &hand, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Baron, &ctx, 0);
+        // 1.5^2 = 2.25
+        assert!((bonus.mul_mult - 2.25).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_baron_no_kings() {
+        // Baron: No bonus if no Kings in hand
+        let played = make_cards(&[(5, 0)]);
+        let hand = make_cards(&[(12, 0), (11, 0)]); // Q and J, no Kings
+        let ctx = ScoringContext::with_hand(&played, &hand, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Baron, &ctx, 0);
+        assert_eq!(bonus.mul_mult, 1.0); // No X Mult bonus
+    }
+
+    #[test]
+    fn test_baron_kings_played_not_counted() {
+        // Baron: Kings that are PLAYED should NOT count
+        // Played: K, Hand: 5 (King is played, not in hand)
+        let played = make_cards(&[(13, 0)]); // King played
+        let hand = make_cards(&[(5, 0)]); // No Kings in hand
+        let ctx = ScoringContext::with_hand(&played, &hand, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::Baron, &ctx, 0);
+        assert_eq!(bonus.mul_mult, 1.0); // No bonus because King was played
+    }
+
+    #[test]
+    fn test_shoot_the_moon_queens_in_hand() {
+        // ShootTheMoon: +13 Mult per Queen held in hand (not played)
+        // Played: 5, Hand: Q, Q (2 Queens in hand)
+        let played = make_cards(&[(5, 0)]);
+        let hand = make_cards(&[(12, 0), (12, 1)]); // Two Queens
+        let ctx = ScoringContext::with_hand(&played, &hand, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::ShootTheMoon, &ctx, 0);
+        assert_eq!(bonus.add_mult, 26); // 2 Queens × 13 Mult = 26
+    }
+
+    #[test]
+    fn test_shoot_the_moon_no_queens() {
+        // ShootTheMoon: No bonus if no Queens in hand
+        let played = make_cards(&[(5, 0)]);
+        let hand = make_cards(&[(13, 0), (11, 0)]); // K and J, no Queens
+        let ctx = ScoringContext::with_hand(&played, &hand, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::ShootTheMoon, &ctx, 0);
+        assert_eq!(bonus.add_mult, 0); // No Mult bonus
+    }
+
+    #[test]
+    fn test_shoot_the_moon_queens_played_not_counted() {
+        // ShootTheMoon: Queens that are PLAYED should NOT count
+        // Played: Q, Hand: 5 (Queen is played, not in hand)
+        let played = make_cards(&[(12, 0)]); // Queen played
+        let hand = make_cards(&[(5, 0)]); // No Queens in hand
+        let ctx = ScoringContext::with_hand(&played, &hand, HandId::HighCard);
+        let bonus = compute_core_joker_effect(JokerId::ShootTheMoon, &ctx, 0);
+        assert_eq!(bonus.add_mult, 0); // No bonus because Queen was played
+    }
+
+    #[test]
+    fn test_stone_joker() {
+        // Stone Joker: +25 Chips per Stone card in the full deck
+        let cards = make_cards(&[(5, 0)]);
+        let mut ctx = ScoringContext::new(&cards, HandId::HighCard);
+        ctx.stone_cards_in_deck = 4; // 4 Stone cards in deck
+        let bonus = compute_core_joker_effect(JokerId::Stone, &ctx, 0);
+        assert_eq!(bonus.chip_bonus, 100); // 4 × 25 = 100 chips
+    }
+
+    #[test]
+    fn test_stone_joker_no_stone_cards() {
+        // Stone Joker: No bonus if no Stone cards in deck
+        let cards = make_cards(&[(5, 0)]);
+        let mut ctx = ScoringContext::new(&cards, HandId::HighCard);
+        ctx.stone_cards_in_deck = 0;
+        let bonus = compute_core_joker_effect(JokerId::Stone, &ctx, 0);
+        assert_eq!(bonus.chip_bonus, 0);
     }
 }

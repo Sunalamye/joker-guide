@@ -1,5 +1,6 @@
 use std::sync::Mutex;
 
+use rand::Rng;
 use tonic::{Request, Response, Status};
 
 use joker_env::proto::joker_env_server::{JokerEnv, JokerEnvServer};
@@ -20,7 +21,7 @@ use game::{
     ACTION_TYPE_CASH_OUT, ACTION_TYPE_BUY_JOKER, ACTION_TYPE_NEXT_ROUND,
     ACTION_TYPE_REROLL, ACTION_TYPE_SELL_JOKER, ACTION_TYPE_SKIP_BLIND,
     ACTION_TYPE_USE_CONSUMABLE, ACTION_TYPE_BUY_VOUCHER, ACTION_TYPE_BUY_PACK,
-    Stage, GameEnd, BlindType, BossBlind,
+    Stage, GameEnd, BlindType, BossBlind, JokerId, Card, Enhancement, Edition, Seal,
 };
 
 // 從 service 模組導入
@@ -158,6 +159,23 @@ impl JokerEnv for EnvService {
                         state.score = 0;
                         state.played_hand_types.clear();
                         state.first_hand_type = None;
+
+                        // MarbleJoker: 選擇 Blind 時加 Stone 卡到牌組
+                        let marble_joker_count = state.jokers.iter()
+                            .filter(|j| j.enabled && j.id == JokerId::MarbleJoker)
+                            .count();
+                        for _ in 0..marble_joker_count {
+                            let stone_card = Card {
+                                rank: 1, // Stone cards don't use rank
+                                suit: 0,
+                                enhancement: Enhancement::Stone,
+                                seal: Seal::None,
+                                edition: Edition::Base,
+                                face_down: false,
+                            };
+                            state.deck.push(stone_card);
+                        }
+
                         state.deal();
 
                         if state.boss_blind == Some(BossBlind::TheHook) {
@@ -168,6 +186,16 @@ impl JokerEnv for EnvService {
                     ACTION_TYPE_SKIP_BLIND => {
                         let _blind_type = state.blind_type.unwrap_or(BlindType::Small);
                         state.skip_blind();
+
+                        // 更新全局計數器（用於 ScoringContext）
+                        state.blinds_skipped += 1;
+
+                        // RedCard: 額外的 per-joker 追蹤（可選）
+                        for joker in &mut state.jokers {
+                            if joker.enabled && joker.id == JokerId::RedCard {
+                                joker.red_card_mult += 3;
+                            }
+                        }
                     }
 
                     _ => {}
@@ -203,6 +231,8 @@ impl JokerEnv for EnvService {
                                     &jokers_clone,
                                     boss_blind,
                                     discards_remaining,
+                                    state.rerolls_this_run,
+                                    state.blinds_skipped,
                                     &mut state.rng,
                                 );
                                 let score_gained = score_result.score;
@@ -264,10 +294,47 @@ impl JokerEnv for EnvService {
                     ACTION_TYPE_DISCARD => {
                         if state.discards_left > 0 && state.selected_mask > 0 {
                             let mask = state.selected_mask;
+
+                            // 計算棄牌資訊（在棄牌前）
+                            let selected_cards: Vec<Card> = state.hand.iter().enumerate()
+                                .filter(|(i, _)| (mask >> i) & 1 == 1)
+                                .map(|(_, c)| *c)
+                                .collect();
+                            let face_count = selected_cards.iter().filter(|c| c.is_face()).count();
+                            let king_count = selected_cards.iter().filter(|c| c.rank == 13).count();
+                            let has_face = face_count > 0;
+
                             cards_discarded = mask.count_ones() as i32;
                             let _purple_count = state.discard_with_seals(mask);
                             state.discards_left -= 1;
                             state.selected_mask = 0;
+
+                            // 經濟類 Joker 觸發 - 先計算獎勵，避免借用衝突
+                            let mut money_bonus = 0i64;
+                            for joker in &mut state.jokers {
+                                if !joker.enabled { continue; }
+                                match joker.id {
+                                    // Faceless: 棄 3+ 人頭牌時 +$5
+                                    JokerId::Faceless => {
+                                        if face_count >= 3 {
+                                            money_bonus += 5;
+                                        }
+                                    }
+                                    // TradingCard: 首次棄人頭牌時創建 Tarot
+                                    JokerId::TradingCard => {
+                                        if has_face && !joker.trading_card_triggered {
+                                            joker.trading_card_triggered = true;
+                                            // TODO: 創建隨機 Tarot 到消耗品欄位
+                                        }
+                                    }
+                                    // MailInRebate: 棄 K 時 +$5
+                                    JokerId::MailInRebate => {
+                                        money_bonus += king_count as i64 * 5;
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            state.money += money_bonus;
                         }
                     }
 
@@ -286,6 +353,22 @@ impl JokerEnv for EnvService {
                 if action_type == ACTION_TYPE_CASH_OUT {
                     state.money += state.reward;
                     state.reward = 0;
+
+                    // ReservedParking: 手中人頭牌 1/2 機率 +$1 (回合結束)
+                    let face_cards_in_hand = state.hand.iter()
+                        .filter(|c| c.is_face())
+                        .count();
+                    let reserved_parking_count = state.jokers.iter()
+                        .filter(|j| j.enabled && j.id == JokerId::ReservedParking)
+                        .count();
+                    // 為每個 ReservedParking，每張人頭牌 50% 機率 +$1
+                    let total_rolls = face_cards_in_hand * reserved_parking_count;
+                    for _ in 0..total_rolls {
+                        if state.rng.gen_bool(0.5) {
+                            state.money += 1;
+                        }
+                    }
+
                     state.stage = Stage::Shop;
                     state.refresh_shop();
                 }
@@ -335,6 +418,16 @@ impl JokerEnv for EnvService {
                             action_cost = reroll_cost;
                             state.money -= reroll_cost;
                             state.reroll_shop();
+
+                            // 更新全局計數器（用於 ScoringContext）
+                            state.rerolls_this_run += 1;
+
+                            // FlashCard: 額外的 per-joker 追蹤（可選）
+                            for joker in &mut state.jokers {
+                                if joker.enabled && joker.id == JokerId::Flash {
+                                    joker.flash_card_mult += 2;
+                                }
+                            }
                         }
                     }
 

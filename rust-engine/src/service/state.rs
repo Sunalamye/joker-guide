@@ -112,6 +112,10 @@ pub struct EnvState {
 
     // 統計
     pub episode_step: i32,
+
+    // Run 追蹤（用於 Joker 效果計算）
+    pub rerolls_this_run: i32,    // Flash Joker: +2 Mult per reroll
+    pub blinds_skipped: i32,      // RedCard: +3 Mult per skip
 }
 
 impl EnvState {
@@ -151,6 +155,8 @@ impl EnvState {
             deck_type: DeckType::Standard,
             stake: Stake::White,
             episode_step: 0,
+            rerolls_this_run: 0,
+            blinds_skipped: 0,
         }
     }
 
@@ -194,6 +200,8 @@ impl EnvState {
             deck_type,
             stake,
             episode_step: 0,
+            rerolls_this_run: 0,
+            blinds_skipped: 0,
         }
     }
 

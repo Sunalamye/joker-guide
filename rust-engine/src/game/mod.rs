@@ -33,7 +33,7 @@ pub mod consumables;
 
 // Re-export 常用類型（公開 API，可能未在內部使用）
 pub use constants::*;
-pub use cards::{Card, Enhancement, Seal, standard_deck, card_index};
+pub use cards::{Card, Enhancement, Seal, Edition, standard_deck, card_index};
 pub use blinds::{Stage, GameEnd, BlindType, BossBlind, Ante};
 pub use hand_types::{HandId, HandScore};
 pub use scoring::{score_hand, hand_potential};

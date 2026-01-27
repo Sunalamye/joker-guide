@@ -37,6 +37,8 @@ pub fn calculate_play_score(
     jokers: &[JokerSlot],
     boss_blind: Option<BossBlind>,
     discards_remaining: i32,
+    rerolls_this_run: i32,
+    blinds_skipped: i32,
     rng: &mut StdRng,
 ) -> CardScoreResult {
     let hand_score = score_hand(selected);
@@ -45,6 +47,8 @@ pub fn calculate_play_score(
     let mut ctx = ScoringContext::new(selected, hand_score.id);
     ctx.discards_remaining = discards_remaining;
     ctx.joker_count = jokers.len();
+    ctx.rerolls_this_run = rerolls_this_run;
+    ctx.blinds_skipped = blinds_skipped;
 
     // 生成隨機值給需要隨機效果的 Joker（如 Misprint）
     let rng_values: Vec<u8> = (0..jokers.len()).map(|_| rng.gen()).collect();
