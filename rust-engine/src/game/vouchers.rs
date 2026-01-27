@@ -348,6 +348,8 @@ pub struct VoucherEffects {
     pub extra_tarot_draw: i32,
     /// 額外商店卡槽
     pub extra_shop_slots: i32,
+    /// 額外 Joker 槽位 (Blank/Antimatter)
+    pub joker_slot_bonus: i32,
 }
 
 impl VoucherEffects {
@@ -366,6 +368,7 @@ impl VoucherEffects {
             joker_sell_bonus: 0,
             extra_tarot_draw: 0,
             extra_shop_slots: 0,
+            joker_slot_bonus: 0,
         }
     }
 
@@ -416,6 +419,10 @@ impl VoucherEffects {
             VoucherId::Tarot_Tycoon => self.extra_tarot_draw += 1,
             VoucherId::Magic_Trick => self.extra_shop_slots += 1,
             VoucherId::Illusion => self.extra_shop_slots += 1,
+            VoucherId::Blank => self.joker_slot_bonus += 1,
+            VoucherId::BlankPlus => self.joker_slot_bonus += 1,
+            VoucherId::Antimatter => self.joker_slot_bonus += 1,
+            VoucherId::Antimatter_Plus => self.joker_slot_bonus += 1,
             // 其他 Voucher 的效果較為複雜，暫時不實作
             _ => {}
         }

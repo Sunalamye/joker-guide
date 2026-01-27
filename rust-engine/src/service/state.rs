@@ -565,13 +565,16 @@ impl EnvState {
     /// - Juggler: +1
     /// 計算有效 Joker 槽位上限
     ///
-    /// Negative edition 的 Joker 不佔槽位，等同於 +1 槽位
+    /// 考慮：
+    /// - Voucher 效果 (Blank, Antimatter)
+    /// - Negative edition 的 Joker 不佔槽位，等同於 +1 槽位
     pub fn effective_joker_slot_limit(&self) -> usize {
         let base = self.joker_slot_limit;
+        let voucher_bonus = self.voucher_effects.joker_slot_bonus as usize;
         let negative_count = self.jokers.iter()
             .filter(|j| j.is_negative)
             .count();
-        base + negative_count
+        base + voucher_bonus + negative_count
     }
 
     /// 計算有效手牌大小
