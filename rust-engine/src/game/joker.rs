@@ -1384,6 +1384,10 @@ pub fn compute_joker_effect_with_state(joker: &JokerSlot, ctx: &ScoringContext, 
             // Madness: 使用累積的 madness_mult (銷毀 Joker 後)
             bonus.mul_mult = joker.madness_mult;
         }
+        JokerId::Ceremonial => {
+            // Ceremonial: 使用 counter 中累積的 Mult (2x 銷毀 Joker 的售價)
+            bonus.add_mult += joker.counter as i64;
+        }
         JokerId::Yorick => {
             // Yorick: 使用累積的 yorick_mult (每 23 張棄牌)
             bonus.mul_mult = joker.yorick_mult;

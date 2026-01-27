@@ -317,6 +317,60 @@ impl JokerEnv for EnvService {
                             }
                         }
 
+                        // Ceremonial: 選擇 Blind 時銷毀最右邊的其他 Joker，獲得 2x 售價 Mult
+                        let ceremonial_indices: Vec<usize> = state.jokers.iter()
+                            .enumerate()
+                            .filter(|(_, j)| j.enabled && j.id == JokerId::Ceremonial)
+                            .map(|(i, _)| i)
+                            .collect();
+                        let mut jokers_destroyed_by_ceremonial = 0;
+                        for ceremonial_idx in ceremonial_indices {
+                            // 找最右邊的非 Ceremonial 且 enabled 的 Joker
+                            let rightmost_target = state.jokers.iter()
+                                .enumerate()
+                                .rev()
+                                .find(|(i, j)| *i != ceremonial_idx && j.enabled && j.id != JokerId::Ceremonial);
+                            if let Some((target_idx, target_joker)) = rightmost_target {
+                                let sell_value = target_joker.sell_value;
+                                // 用 counter 存儲累積的 Mult (2x 售價)
+                                state.jokers[ceremonial_idx].counter += (sell_value * 2) as i32;
+                                state.jokers[target_idx].enabled = false;
+                                jokers_destroyed_by_ceremonial += 1;
+                            }
+                        }
+
+                        // Madness: 選擇 Small/Big Blind 時銷毀隨機非 Madness Joker
+                        let is_small_or_big_blind = next_blind == BlindType::Small || next_blind == BlindType::Big;
+                        let madness_count = state.jokers.iter()
+                            .filter(|j| j.enabled && j.id == JokerId::Madness)
+                            .count();
+                        let mut jokers_destroyed_by_madness = 0;
+                        if is_small_or_big_blind && madness_count > 0 {
+                            for _ in 0..madness_count {
+                                // 找所有非 Madness 且 enabled 的 Joker
+                                let targets: Vec<usize> = state.jokers.iter()
+                                    .enumerate()
+                                    .filter(|(_, j)| j.enabled && j.id != JokerId::Madness)
+                                    .map(|(i, _)| i)
+                                    .collect();
+                                if !targets.is_empty() {
+                                    let target_idx = targets[state.rng.gen_range(0..targets.len())];
+                                    state.jokers[target_idx].enabled = false;
+                                    jokers_destroyed_by_madness += 1;
+                                }
+                            }
+                        }
+
+                        // Madness: 每銷毀 Joker +0.5 X Mult
+                        let total_jokers_destroyed = jokers_destroyed_by_ceremonial + jokers_destroyed_by_madness;
+                        if total_jokers_destroyed > 0 {
+                            for joker in &mut state.jokers {
+                                if joker.enabled && joker.id == JokerId::Madness {
+                                    joker.update_madness_on_joker_destroyed(total_jokers_destroyed);
+                                }
+                            }
+                        }
+
                         state.deal();
 
                         if state.boss_blind == Some(BossBlind::TheHook) {
