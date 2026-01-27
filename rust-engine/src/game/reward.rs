@@ -246,12 +246,14 @@ pub fn combo_score(jokers: &[JokerSlot]) -> f32 {
             JokerId::WrathfulJoker | JokerId::GluttonousJoker => chip_power += 25.0,
             JokerId::Onyx => mult_power += 10.0,
 
+            // 經濟類 Joker (產金幣) - TODO: Add when Jokers are implemented
+            // JokerId::ReservedParking | JokerId::MailInRebate => chip_power += 15.0,
+            // 創建卡牌類 Joker - TODO: Add when Jokers are implemented
+            // JokerId::TradingCard | JokerId::MarbleJoker => chip_power += 20.0,
+
             // 預留/未使用
             JokerId::BluePrint | JokerId::Perkeo_2 | JokerId::Stuntman_2 |
-            JokerId::Cloud9 | JokerId::Rough_Gem_2 |
-            JokerId::Reserved_1 | JokerId::Reserved_2 | JokerId::Reserved_3 |
-            JokerId::Reserved_4 | JokerId::Reserved_5 | JokerId::Reserved_6 |
-            JokerId::Reserved_7 | JokerId::Reserved_8 => chip_power += 10.0,
+            JokerId::Cloud9 | JokerId::Rough_Gem_2 => chip_power += 10.0,
 
             // 真正的默認（應該很少觸發）
             #[allow(unreachable_patterns)]
