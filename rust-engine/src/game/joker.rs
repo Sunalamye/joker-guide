@@ -13,7 +13,7 @@ use super::hand_types::HandId;
 // ============================================================================
 
 /// Joker 總數
-pub const JOKER_COUNT: usize = 153;
+pub const JOKER_COUNT: usize = 154;
 
 /// Joker 唯一識別碼
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -191,6 +191,7 @@ pub enum JokerId {
     MarbleJoker = 150,   // 選擇 Blind 時加 Stone 卡到牌組
     MailInRebate = 151,  // 棄 K 時 +$5
     BaseballCard = 152,  // X1.5 Mult for each Uncommon Joker held
+    RaisedFist = 153,    // Lowest held card gives 2X its rank as Mult
 }
 
 impl JokerId {
@@ -848,6 +849,12 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
             // Each card below 8 held in hand gives +2 Mult (ranks 2-7)
             let below_8_count = ctx.hand.iter().filter(|c| c.rank >= 2 && c.rank <= 7).count();
             bonus.add_mult += below_8_count as i64 * 2;
+        }
+        JokerId::RaisedFist => {
+            // Lowest held card's rank × 2 as Mult (Ace counts as 14)
+            if let Some(lowest) = ctx.hand.iter().min_by_key(|c| c.rank) {
+                bonus.add_mult += (lowest.rank as i64) * 2;
+            }
         }
         JokerId::Courier => {
             // +25 Chips per card below Ace held in hand (ranks 2-13, i.e., not Ace)
