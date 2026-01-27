@@ -554,6 +554,8 @@ impl JokerEnv for EnvService {
                                     .unwrap_or(0);
                                 // 克隆 hand_levels 以避免借用檢查問題
                                 let hand_levels_clone = state.hand_levels.clone();
+                                // Plasma Deck 計分模式
+                                let uses_plasma_scoring = state.deck_type.uses_plasma_scoring();
                                 let score_result = calculate_play_score(
                                     &selected,
                                     &jokers_clone,
@@ -567,6 +569,7 @@ impl JokerEnv for EnvService {
                                     is_final_hand,
                                     selzer_charges,
                                     &hand_levels_clone,
+                                    uses_plasma_scoring,
                                     &mut state.rng,
                                 );
                                 let score_gained = score_result.score;

@@ -47,6 +47,7 @@ pub fn calculate_play_score(
     is_final_hand: bool,
     selzer_charges: i32,
     hand_levels: &HandLevels,
+    uses_plasma_scoring: bool,
     rng: &mut StdRng,
 ) -> CardScoreResult {
     // 從 Joker 構建規則（FourFingers, Shortcut, Splash, Smeared 等）
@@ -173,7 +174,15 @@ pub fn calculate_play_score(
     }
 
     let final_mult = ((total_mult as f32) * x_mult).max(1.0) as i64;
-    let score = total_chips * final_mult;
+
+    // Plasma Deck: chips 和 mult 平衡後計算
+    // 公式: balanced = (chips + mult) / 2, score = balanced * balanced
+    let score = if uses_plasma_scoring {
+        let balanced = (total_chips + final_mult) / 2;
+        balanced * balanced
+    } else {
+        total_chips * final_mult
+    };
 
     CardScoreResult {
         score,
