@@ -399,6 +399,16 @@ impl EnvState {
             }
         }
 
+        // Orange Stake 及以上：非 Eternal 的 Joker 有 30% 機率為 Perishable
+        if self.stake.has_perishable_jokers() {
+            for item in &mut self.shop.items {
+                if !item.joker.is_eternal && self.rng.gen_range(0..10) < 3 {
+                    item.joker.is_perishable = true;
+                    item.joker.perishable_rounds = 5;
+                }
+            }
+        }
+
         // 生成 Voucher（如果還有可購買的）
         self.shop_voucher = VoucherId::random_available(&mut self.rng, &self.voucher_effects.owned);
 
@@ -420,6 +430,16 @@ impl EnvState {
             for item in &mut self.shop.items {
                 if self.rng.gen_range(0..10) < 3 {
                     item.joker.is_eternal = true;
+                }
+            }
+        }
+
+        // Orange Stake 及以上：非 Eternal 的 Joker 有 30% 機率為 Perishable
+        if self.stake.has_perishable_jokers() {
+            for item in &mut self.shop.items {
+                if !item.joker.is_eternal && self.rng.gen_range(0..10) < 3 {
+                    item.joker.is_perishable = true;
+                    item.joker.perishable_rounds = 5;
                 }
             }
         }

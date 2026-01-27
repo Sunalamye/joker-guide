@@ -97,6 +97,11 @@ impl Stake {
                       Stake::Orange | Stake::Gold)
     }
 
+    /// 商店是否有易腐 Joker（Orange Stake 及以上）
+    pub fn has_perishable_jokers(&self) -> bool {
+        matches!(self, Stake::Orange | Stake::Gold)
+    }
+
     /// to_index 用於 observation
     pub fn to_index(&self) -> usize {
         *self as usize
