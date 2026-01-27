@@ -868,6 +868,10 @@ pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u
                 bonus.chip_bonus += 15;
             }
         }
+        JokerId::Stuntman => {
+            // +250 Chips (hand size -2 handled in game state)
+            bonus.chip_bonus += 250;
+        }
         JokerId::Bootstraps => {
             if ctx.money_held > 0 {
                 bonus.add_mult += (ctx.money_held / 5) * 2;
@@ -1243,6 +1247,13 @@ pub fn compute_joker_effect_with_state(joker: &JokerSlot, ctx: &ScoringContext, 
         JokerId::Castle => {
             // Castle: 使用累積的 castle_chips (每棄特定花色牌 +3)
             bonus.chip_bonus = joker.castle_chips as i64;
+        }
+        JokerId::LoyaltyCard => {
+            // LoyaltyCard: 每 6 手牌打出給 X4 Mult
+            // counter 追蹤手牌數量，達到 6 時觸發
+            if joker.counter >= 6 {
+                bonus.mul_mult = 4.0;
+            }
         }
         _ => {}
     }
