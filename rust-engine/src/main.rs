@@ -297,7 +297,7 @@ impl JokerEnv for EnvService {
                         // Wee: 每輪 +8 Chips
                         for joker in &mut state.jokers {
                             if joker.enabled && joker.id == JokerId::Wee {
-                                joker.wee_chips += 8;
+                                joker.update_wee_on_round();
                             }
                         }
 

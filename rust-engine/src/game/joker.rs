@@ -1375,7 +1375,7 @@ impl JokerSlot {
                 JokerId::Vampire | JokerId::Canio | JokerId::Lucky_Cat |
                 JokerId::Hologram | JokerId::Constellation |
                 JokerId::Yorick | JokerId::GlassJoker | JokerId::Hit_The_Road |
-                JokerId::Campfire => JokerState::Accumulator {
+                JokerId::Campfire | JokerId::Wee => JokerState::Accumulator {
                     chips: 0,
                     mult: 0,
                     x_mult: 1.0,
@@ -1624,6 +1624,16 @@ impl JokerSlot {
             _ => 1.0,
         }
     }
+
+    /// Wee: 每輪開始時增加 chips (+8 Chips per round)
+    pub fn update_wee_on_round(&mut self) {
+        if self.id == JokerId::Wee {
+            // 更新新的統一狀態
+            self.state.add_chips(8);
+            // 暫時同步更新舊欄位（遷移完成後刪除）
+            self.wee_chips += 8;
+        }
+    }
 }
 
 /// 計算所有 Joker 的總加成
@@ -1805,7 +1815,8 @@ pub fn compute_joker_effect_with_state(
         }
         JokerId::Wee => {
             // Wee: 使用累積的 chips (每輪 +8, 在 main.rs 更新)
-            bonus.chip_bonus += joker.wee_chips as i64;
+            // 優先使用新的統一狀態系統
+            bonus.chip_bonus += joker.state.get_chips() as i64;
         }
         JokerId::Merry => {
             // Merry: 使用累積的 mult (每輪 +3, 在 main.rs 更新)
