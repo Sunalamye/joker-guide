@@ -21,7 +21,7 @@ use game::{
     ACTION_TYPE_CASH_OUT, ACTION_TYPE_BUY_JOKER, ACTION_TYPE_NEXT_ROUND,
     ACTION_TYPE_REROLL, ACTION_TYPE_SELL_JOKER, ACTION_TYPE_SKIP_BLIND,
     ACTION_TYPE_USE_CONSUMABLE, ACTION_TYPE_BUY_VOUCHER, ACTION_TYPE_BUY_PACK,
-    Stage, GameEnd, BlindType, BossBlind, JokerId, Card, Enhancement, Edition, Seal,
+    Stage, GameEnd, BlindType, BossBlind, JokerId, JokerSlot, Card, Enhancement, Edition, Seal,
     Consumable, TarotId, PlanetId, SpectralId,
 };
 
@@ -183,6 +183,20 @@ impl JokerEnv for EnvService {
                                 face_down: false,
                             };
                             state.deck.push(stone_card);
+                        }
+
+                        // RiffRaff: 選擇 Blind 時生成 2 個 Common Joker
+                        let riff_raff_count = state.jokers.iter()
+                            .filter(|j| j.enabled && j.id == JokerId::RiffRaff)
+                            .count();
+                        let common_jokers = JokerId::by_rarity(1);
+                        for _ in 0..riff_raff_count {
+                            for _ in 0..2 {
+                                if state.jokers.len() < state.joker_slot_limit && !common_jokers.is_empty() {
+                                    let idx = state.rng.gen_range(0..common_jokers.len());
+                                    state.jokers.push(JokerSlot::new(common_jokers[idx]));
+                                }
+                            }
                         }
 
                         state.deal();
