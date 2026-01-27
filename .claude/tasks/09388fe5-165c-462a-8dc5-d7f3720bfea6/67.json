@@ -1,0 +1,11 @@
+{
+  "id": "67",
+  "subject": "4.4 更新 state.rs 的 Joker 邏輯",
+  "description": "確保 state.rs 的 Joker 相關邏輯與新架構相容：\n\n**需更新的函數**：\n- calc_joker_money_bonus()（行 465-531）\n- effective_hand_size()（行 761-785）\n- destroy_cards_from_hand()（行 829-834）\n- add_cards_to_deck()（行 853-856）\n\n**驗證**：所有計算結果不變\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "更新 state.rs",
+  "status": "pending",
+  "blocks": [
+    "68"
+  ],
+  "blockedBy": []
+}

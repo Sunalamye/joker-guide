@@ -1,0 +1,9 @@
+{
+  "id": "17",
+  "subject": "1.2.12 遷移 idol_rank + idol_suit 到 JokerState::Target",
+  "description": "遷移 TheIdol 的狀態（兩個欄位合併）：\n\n**現有位置**：\n- idol_rank：joker.rs:1388，寫入 main.rs:279\n- idol_suit：joker.rs:1389，寫入 main.rs:280\n- 讀取：joker.rs:1689\n\n**遷移步驟**：\n1. 使用 JokerState::Target { suit: 0, rank: 1, value: 0 }\n2. main.rs:279-280 改為設置 state.rank, state.suit\n3. compute 讀取 state.rank, state.suit\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "遷移 idol 狀態",
+  "status": "completed",
+  "blocks": [],
+  "blockedBy": []
+}

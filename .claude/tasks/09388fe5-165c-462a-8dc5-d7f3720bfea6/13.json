@@ -1,0 +1,9 @@
+{
+  "id": "13",
+  "subject": "1.2.8 遷移 yorick_discards + yorick_mult 到 JokerState::Counter",
+  "description": "遷移 Yorick 的狀態（兩個欄位合併）：\n\n**現有位置**：\n- yorick_discards：joker.rs:1376，讀取 joker.rs:1476, 1954-1972\n- yorick_mult：joker.rs:1377，讀取 joker.rs:1527, 1646, 1956-1971\n\n**遷移步驟**：\n1. 使用 JokerState::Counter { current: 0, threshold: 23, bonus_mult: 1.0 }\n2. update_yorick() 改為：\n   - state.current += 1\n   - if current >= threshold { current = 0; bonus_mult += 1.0 }\n3. compute 讀取 state.bonus_mult\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "遷移 yorick 狀態",
+  "status": "completed",
+  "blocks": [],
+  "blockedBy": []
+}

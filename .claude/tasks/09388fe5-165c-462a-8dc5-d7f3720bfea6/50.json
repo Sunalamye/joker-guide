@@ -1,0 +1,13 @@
+{
+  "id": "50",
+  "subject": "2.7 替換 scoring.rs 使用 compute_joker_effect_v2()",
+  "description": "修改 scoring.rs 的 Joker 效果計算：\n\n**位置**：scoring.rs 中調用 compute_core_joker_effect() 的地方\n\n**步驟**：\n1. 找到所有 compute_core_joker_effect() 調用\n2. 替換為 compute_joker_effect_v2()\n3. 確保參數傳遞正確\n\n**驗證**：cargo test，確保計分結果不變\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "替換 scoring.rs",
+  "status": "pending",
+  "blocks": [
+    "51"
+  ],
+  "blockedBy": [
+    "49"
+  ]
+}

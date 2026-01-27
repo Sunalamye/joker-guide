@@ -1,0 +1,13 @@
+{
+  "id": "53",
+  "subject": "3.1 定義 GameEvent enum",
+  "description": "在 joker_def.rs 添加遊戲事件枚舉：\n\n```rust\npub enum GameEvent {\n    // 回合開始\n    BlindSelected,\n    BlindSkipped,\n    \n    // 出牌/棄牌\n    HandPlayed,\n    CardDiscarded,\n    \n    // 計分相關\n    EnhancementAbsorbed,\n    FaceCardDestroyed,\n    GlassCardBroken,\n    CardAddedToDeck,\n    \n    // 消耗品\n    TarotUsed,\n    PlanetUsed,\n    SpectralUsed,\n    \n    // 回合結束\n    BlindCleared,\n    BossBlindCleared,\n    RoundEnded,\n    \n    // 商店\n    JokerSold,\n    CardSold,\n    Rerolled,\n    JokerPurchased,\n}\n```\n\n**驗證**：cargo check\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "定義 GameEvent",
+  "status": "pending",
+  "blocks": [
+    "54"
+  ],
+  "blockedBy": [
+    "51"
+  ]
+}

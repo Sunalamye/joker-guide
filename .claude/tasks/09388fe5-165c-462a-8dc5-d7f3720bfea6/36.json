@@ -1,0 +1,11 @@
+{
+  "id": "36",
+  "subject": "2.2 重構 base_cost() 使用 JOKER_DEFINITIONS",
+  "description": "將 JokerId::base_cost() 改為查表：\n\n```rust\nimpl JokerId {\n    pub fn base_cost(&self) -> i64 {\n        JOKER_DEFINITIONS[*self as usize].cost\n    }\n}\n```\n\n**刪除**：原有 90+ 行的 match 語句\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "重構 base_cost()",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": [
+    "35"
+  ]
+}

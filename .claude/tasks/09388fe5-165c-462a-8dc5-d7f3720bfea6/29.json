@@ -1,0 +1,9 @@
+{
+  "id": "29",
+  "subject": "1.2.24 遷移 rocket_money 到 JokerState::Accumulator",
+  "description": "遷移 Rocket 的狀態（跨模組依賴）：\n\n**現有位置**：\n- 定義：joker.rs:1379\n- 初始化：=1\n- 讀取：main.rs:1620, 1624；state.rs:491-492\n- 寫入：main.rs:1924 (+1 過 Boss Blind)\n\n**遷移步驟**：\n1. 使用 JokerState::Accumulator { mult: 1, .. }（借用 mult 欄位存金幣）\n2. state.rs:491-492 改為讀取 state.mult\n3. main.rs:1924 改為 state.mult += 1\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "遷移 rocket_money",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": []
+}

@@ -1,0 +1,9 @@
+{
+  "id": "65",
+  "subject": "4.2 更新 observation.rs 的 Joker 編碼",
+  "description": "確保 observation.rs 的 Joker 狀態編碼與新架構相容：\n\n**檢查項目**：\n1. JokerSlot 編碼是否正確讀取 state 欄位\n2. 狀態值是否正確歸一化\n3. one-hot 編碼是否需要調整\n\n**位置**：observation.rs:150-174\n\n**驗證**：observation 輸出格式不變\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "更新 observation 編碼",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": []
+}

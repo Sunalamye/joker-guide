@@ -1,0 +1,9 @@
+{
+  "id": "10",
+  "subject": "1.2.5 遷移 hologram_mult 到 JokerState::Accumulator",
+  "description": "遷移 Hologram 的狀態：\n\n**現有位置**：\n- 定義：joker.rs:1373\n- 初始化：joker.rs:1454 (=1.0)\n- 讀取：joker.rs:1524, 1629, 1928\n- 寫入：joker.rs:1454 (update_hologram)，state.rs:853-856\n\n**遷移步驟**：\n1. JokerSlot::new() 中，若 id == Hologram，設置 state = Accumulator { x_mult: 1.0, .. }\n2. update_hologram_on_card_added() 改為修改 state.x_mult\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "遷移 hologram_mult",
+  "status": "completed",
+  "blocks": [],
+  "blockedBy": []
+}

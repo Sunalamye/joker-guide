@@ -1,0 +1,9 @@
+{
+  "id": "16",
+  "subject": "1.2.11 遷移 castle_suit + castle_chips 到 JokerState::Target",
+  "description": "遷移 Castle 的狀態（兩個欄位合併）：\n\n**現有位置**：\n- castle_suit：joker.rs:1381，寫入 main.rs:270\n- castle_chips：joker.rs:1382，讀取 joker.rs:1665，寫入 joker.rs:1507\n\n**遷移步驟**：\n1. 使用 JokerState::Target { suit: 0, rank: 0, value: 0 }\n2. suit 存儲花色，value 存儲累積 chips\n3. set_castle_suit() 和 update_castle() 改為操作 state\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "遷移 castle 狀態",
+  "status": "completed",
+  "blocks": [],
+  "blockedBy": []
+}

@@ -1,0 +1,13 @@
+{
+  "id": "51",
+  "subject": "2.8 刪除舊的 compute_core_joker_effect() 函數",
+  "description": "在確認新計算引擎正常工作後，刪除舊代碼：\n\n**刪除內容**：\n- compute_core_joker_effect() 函數（600+ 行）\n- 相關的輔助函數（如果有）\n\n**重命名**：\n- compute_joker_effect_v2() → compute_joker_effect()\n\n**驗證**：cargo build --release，確保無編譯錯誤\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "刪除舊計算函數",
+  "status": "pending",
+  "blocks": [
+    "53"
+  ],
+  "blockedBy": [
+    "50"
+  ]
+}

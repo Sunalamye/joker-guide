@@ -1,0 +1,9 @@
+{
+  "id": "44",
+  "subject": "2.4.7 實現重觸發類 Joker 模板 (3 個)",
+  "description": "為重觸發類 Joker 添加 EffectDef：\n\n- SockAndBuskin：人頭牌 +1 retrigger\n- HangingChad：首張牌 +1 retrigger\n- Hack：2,3,4,5 +1 retrigger\n\n**實現**：\n```rust\neffect: EffectDef::Retrigger {\n    filter: CardFilter::FaceCard,\n    count: 1,\n}\n```\n\n**驗證**：單元測試\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "實現重觸發模板",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": []
+}

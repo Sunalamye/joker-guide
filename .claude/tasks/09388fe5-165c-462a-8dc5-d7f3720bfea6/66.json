@@ -1,0 +1,9 @@
+{
+  "id": "66",
+  "subject": "4.3 更新 action_mask.rs 的 Joker 檢查",
+  "description": "確保 action_mask.rs 的 Joker 相關邏輯與新架構相容：\n\n**檢查項目**：\n1. is_eternal 檢查（line 117）\n2. Joker 槽位計算\n3. 賣出 Joker 的 mask\n\n**驗證**：action mask 輸出不變\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "更新 action_mask",
+  "status": "pending",
+  "blocks": [],
+  "blockedBy": []
+}

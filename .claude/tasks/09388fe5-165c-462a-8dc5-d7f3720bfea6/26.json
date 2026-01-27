@@ -1,0 +1,9 @@
+{
+  "id": "26",
+  "subject": "1.2.21 遷移 obelisk_streak 到 JokerState::Counter",
+  "description": "遷移 Obelisk 的狀態：\n\n**現有位置**：\n- 定義：joker.rs:1385\n- 讀取：joker.rs:1682\n- 寫入：main.rs:687, 689 (重置或 +1)\n\n**遷移步驟**：\n1. 使用 JokerState::Counter { current: 0, threshold: 0, bonus_mult: 1.0 }\n2. main.rs:687 改為 state.current = 0（打出最常牌型時重置）\n3. main.rs:689 改為 state.current += 1（非最常牌型時累積）\n4. compute 計算 x_mult = 1.0 + 0.2 * state.current\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "遷移 obelisk_streak",
+  "status": "completed",
+  "blocks": [],
+  "blockedBy": []
+}

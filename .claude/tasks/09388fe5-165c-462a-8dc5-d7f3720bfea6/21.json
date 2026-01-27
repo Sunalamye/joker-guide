@@ -1,0 +1,9 @@
+{
+  "id": "21",
+  "subject": "1.2.16 遷移 ride_the_bus_mult 到 JokerState::Accumulator",
+  "description": "遷移 RideTheBus 的狀態：\n\n**現有位置**：\n- 定義：joker.rs:1398\n- 讀取：joker.rs:1728\n- 寫入：main.rs:927 (重置=0)，main.rs:929 (+1)\n\n**遷移步驟**：\n1. 使用 JokerState::Accumulator { mult: 0, .. }\n2. main.rs:927 改為 state.mult = 0（有人頭牌時重置）\n3. main.rs:929 改為 state.mult += 1（無人頭牌時）\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "遷移 ride_the_bus_mult",
+  "status": "completed",
+  "blocks": [],
+  "blockedBy": []
+}

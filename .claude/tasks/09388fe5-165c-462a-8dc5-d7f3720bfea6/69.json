@@ -1,0 +1,13 @@
+{
+  "id": "69",
+  "subject": "4.6 性能基準測試",
+  "description": "比較重構前後的性能：\n\n**測試項目**：\n1. JokerSlot 記憶體大小（預期 ~200 bytes → ~50 bytes）\n2. compute_joker_effect() 執行時間\n3. trigger_joker_events() 執行時間\n4. 整體 step() 函數執行時間\n\n**預期結果**：\n- 記憶體減少 75%\n- 計算速度相當或更快\n\n**驗證**：cargo bench\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "性能測試",
+  "status": "pending",
+  "blocks": [
+    "70"
+  ],
+  "blockedBy": [
+    "68"
+  ]
+}

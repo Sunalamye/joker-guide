@@ -1,0 +1,9 @@
+{
+  "id": "14",
+  "subject": "1.2.9 遷移 hit_the_road_mult 到 JokerState::Accumulator",
+  "description": "遷移 Hit_The_Road 的狀態：\n\n**現有位置**：\n- 定義：joker.rs:1383\n- 初始化：joker.rs:1514 (=1.0)\n- 讀取：joker.rs:1529, 1677\n- 寫入：main.rs:198 (重置)，joker.rs:1514 (update)\n\n**遷移步驟**：\n1. 使用 JokerState::Accumulator { x_mult: 1.0, .. }\n2. main.rs:198 改為重置 state.x_mult = 1.0\n3. update 方法改為 state.x_mult += 0.5\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "遷移 hit_the_road_mult",
+  "status": "completed",
+  "blocks": [],
+  "blockedBy": []
+}

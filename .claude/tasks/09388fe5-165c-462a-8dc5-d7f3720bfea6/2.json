@@ -1,0 +1,11 @@
+{
+  "id": "2",
+  "subject": "0.1 創建 joker_def.rs 檔案結構",
+  "description": "在 rust-engine/src/game/ 創建 joker_def.rs：\n- 定義 JokerState enum（None, Accumulator, Counter, Target 四個變體）\n- 定義 CardFilter enum（Suit, RankRange, RankSet, FaceCard 等）\n- 定義 Condition enum（Always, HandTypeIn, PlayedCardCount 等）\n- 定義 BonusDef enum（Chips, Mult, XMult, Money）\n- 定義 EffectDef enum（Fixed, CountBonus, Conditional, Stateful, Retrigger）\n- 定義 GameEvent enum（用於觸發器）\n- 定義 TriggerDef struct\n- 定義 JokerDef struct\n\n**驗證**：cargo check 通過，不影響現有功能\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "創建 joker_def.rs 檔案",
+  "status": "completed",
+  "blocks": [
+    "3"
+  ],
+  "blockedBy": []
+}

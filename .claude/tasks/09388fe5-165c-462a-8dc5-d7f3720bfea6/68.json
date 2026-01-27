@@ -1,0 +1,13 @@
+{
+  "id": "68",
+  "subject": "4.5 完整 164 個 Joker 行為測試",
+  "description": "為每個 Joker 創建行為驗證測試：\n\n**測試內容**：\n1. 效果計算正確性\n2. 狀態更新正確性\n3. 觸發條件正確性\n4. 邊界情況（如自毀、溢出）\n\n**測試方法**：\n```rust\n#[test]\nfn test_all_jokers() {\n    for id in 0..164 {\n        let joker_id = JokerId::from(id);\n        // 測試效果計算\n        // 測試狀態初始化\n        // 測試觸發器\n    }\n}\n```\n\n**驗證**：所有測試通過\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "完整 Joker 測試",
+  "status": "pending",
+  "blocks": [
+    "69"
+  ],
+  "blockedBy": [
+    "67"
+  ]
+}

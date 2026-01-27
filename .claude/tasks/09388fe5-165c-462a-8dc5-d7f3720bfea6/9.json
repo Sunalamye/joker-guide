@@ -1,0 +1,9 @@
+{
+  "id": "9",
+  "subject": "1.2.4 遷移 lucky_cat_mult 到 JokerState::Accumulator",
+  "description": "遷移 Lucky_Cat 的狀態：\n\n**現有位置**：\n- 定義：joker.rs:1372\n- 初始化：joker.rs:1447 (=1.0)\n- 讀取：joker.rs:1523, 1624, 1921\n- 寫入：joker.rs:1447 (update_lucky_cat)，main.rs:716\n\n**遷移步驟**：\n1. JokerSlot::new() 中，若 id == Lucky_Cat，設置 state = Accumulator { x_mult: 1.0, .. }\n2. update_lucky_cat() 改為修改 state.x_mult\n3. main.rs:716 的調用保持不變\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
+  "activeForm": "遷移 lucky_cat_mult",
+  "status": "completed",
+  "blocks": [],
+  "blockedBy": []
+}
