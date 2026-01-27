@@ -505,6 +505,7 @@ impl EnvState {
     /// - Troubadour: +2
     /// - Stuntman: -2
     /// - TurtleBean: 由 turtle_hand_mod 追蹤
+    /// - TheManacle (Boss): -1
     pub fn effective_hand_size(&self) -> usize {
         let base = HAND_SIZE as i32;
         let mut modifier: i32 = 0;
@@ -520,6 +521,11 @@ impl EnvState {
                 JokerId::TurtleBean => modifier += joker.turtle_hand_mod,
                 _ => {}
             }
+        }
+
+        // Boss Blind 效果
+        if self.boss_blind == Some(BossBlind::TheManacle) {
+            modifier -= 1;
         }
 
         (base + modifier).max(1) as usize
