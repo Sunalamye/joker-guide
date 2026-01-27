@@ -7,7 +7,7 @@ use rand::prelude::*;
 use rand::rngs::StdRng;
 
 /// Voucher 數量
-pub const VOUCHER_COUNT: usize = 34;
+pub const VOUCHER_COUNT: usize = 36;
 
 /// Voucher ID
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -48,6 +48,8 @@ pub enum VoucherId {
     Hieroglyph,
     /// 計分牌符合 Planet 時 X1.5 Mult
     Observatory,
+    /// Boss Blind reroll 一次 ($10)
+    DirectorsCut,
 
     // ========== 升級 Voucher（需要先買基礎版）==========
     /// 再 +1 Joker 槽（需要 Overstock）
@@ -84,6 +86,8 @@ pub enum VoucherId {
     BlankPlus,
     /// 計分牌符合 Planet 時 X2 Mult (升級版)
     ObservatoryPlus,
+    /// 無限免費 Boss Blind reroll（需要 DirectorsCut）
+    Retcon,
 }
 
 impl VoucherId {
@@ -107,6 +111,7 @@ impl VoucherId {
             VoucherId::Antimatter,
             VoucherId::Hieroglyph,
             VoucherId::Observatory,
+            VoucherId::DirectorsCut,
         ]
     }
 
@@ -130,6 +135,7 @@ impl VoucherId {
             VoucherId::Petroglyph => Some(VoucherId::Hieroglyph),
             VoucherId::BlankPlus => Some(VoucherId::Blank),
             VoucherId::ObservatoryPlus => Some(VoucherId::Observatory),
+            VoucherId::Retcon => Some(VoucherId::DirectorsCut),
             _ => None,
         }
     }
@@ -154,6 +160,7 @@ impl VoucherId {
             VoucherId::Hieroglyph => Some(VoucherId::Petroglyph),
             VoucherId::Blank => Some(VoucherId::BlankPlus),
             VoucherId::Observatory => Some(VoucherId::ObservatoryPlus),
+            VoucherId::DirectorsCut => Some(VoucherId::Retcon),
             _ => None,
         }
     }
@@ -195,6 +202,8 @@ impl VoucherId {
             VoucherId::BlankPlus => "Blank Plus",
             VoucherId::Observatory => "Observatory",
             VoucherId::ObservatoryPlus => "Observatory Plus",
+            VoucherId::DirectorsCut => "Director's Cut",
+            VoucherId::Retcon => "Retcon",
         }
     }
 
@@ -218,7 +227,8 @@ impl VoucherId {
             | VoucherId::Magic_Trick
             | VoucherId::Antimatter
             | VoucherId::Hieroglyph
-            | VoucherId::Observatory => 10,
+            | VoucherId::Observatory
+            | VoucherId::DirectorsCut => 10,
             // 升級 Voucher: $10
             _ => 10,
         }
@@ -261,6 +271,8 @@ impl VoucherId {
             VoucherId::BlankPlus => 31,
             VoucherId::Observatory => 32,
             VoucherId::ObservatoryPlus => 33,
+            VoucherId::DirectorsCut => 34,
+            VoucherId::Retcon => 35,
         }
     }
 
@@ -301,6 +313,8 @@ impl VoucherId {
             31 => Some(VoucherId::BlankPlus),
             32 => Some(VoucherId::Observatory),
             33 => Some(VoucherId::ObservatoryPlus),
+            34 => Some(VoucherId::DirectorsCut),
+            35 => Some(VoucherId::Retcon),
             _ => None,
         }
     }
@@ -368,6 +382,10 @@ pub struct VoucherEffects {
     pub ante_reduction: i32,
     /// Observatory 計分牌 Planet 對應牌型 X Mult 倍數
     pub observatory_x_mult: f32,
+    /// Boss Blind reroll 可用次數 (DirectorsCut: 1，Retcon: 無限)
+    pub boss_rerolls_available: i32,
+    /// Boss Blind reroll 是否免費 (Retcon)
+    pub free_boss_reroll: bool,
 }
 
 impl VoucherEffects {
@@ -389,6 +407,8 @@ impl VoucherEffects {
             joker_slot_bonus: 0,
             ante_reduction: 0,
             observatory_x_mult: 1.0,
+            boss_rerolls_available: 0,
+            free_boss_reroll: false,
         }
     }
 
@@ -460,6 +480,15 @@ impl VoucherEffects {
             // ObservatoryPlus: 計分牌 Planet 對應牌型時 X2 Mult
             VoucherId::ObservatoryPlus => {
                 self.observatory_x_mult = 2.0;
+            }
+            // DirectorsCut: 可以 reroll Boss Blind 一次 ($10)
+            VoucherId::DirectorsCut => {
+                self.boss_rerolls_available = 1;
+            }
+            // Retcon: 無限免費 Boss Blind reroll
+            VoucherId::Retcon => {
+                self.boss_rerolls_available = i32::MAX;
+                self.free_boss_reroll = true;
             }
             // 其他 Voucher 的效果較為複雜，暫時不實作
             _ => {}
