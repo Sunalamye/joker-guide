@@ -305,6 +305,20 @@ impl JokerEnv for EnvService {
                                     }
                                 }
 
+                                // Vagabond: 出 ≤4 張牌時生成隨機 Tarot 卡
+                                if selected_count <= 4 {
+                                    let vagabond_count = state.jokers.iter()
+                                        .filter(|j| j.enabled && j.id == JokerId::Vagabond)
+                                        .count();
+                                    for _ in 0..vagabond_count {
+                                        if !state.consumables.is_full() {
+                                            let all_tarots = TarotId::all();
+                                            let idx = state.rng.gen_range(0..all_tarots.len());
+                                            state.consumables.add(Consumable::Tarot(all_tarots[idx]));
+                                        }
+                                    }
+                                }
+
                                 let selected_mask = state.selected_mask;
                                 state.break_glass_cards(selected_mask, &score_result.glass_to_break);
 
