@@ -393,6 +393,26 @@ impl JokerId {
             _ => None,
         }
     }
+
+    /// 隨機生成 Common Joker
+    pub fn random_common<R: rand::Rng>(rng: &mut R) -> Self {
+        const COMMON_JOKERS: &[JokerId] = &[
+            JokerId::Joker, JokerId::Misprint,
+            JokerId::GreedyJoker, JokerId::LustyJoker,
+            JokerId::WrathfulJoker, JokerId::GluttonousJoker,
+            JokerId::JollyJoker, JokerId::ZanyJoker,
+            JokerId::MadJoker, JokerId::CrazyJoker,
+            JokerId::DrollJoker, JokerId::SlyJoker,
+            JokerId::WilyJoker, JokerId::CleverJoker,
+            JokerId::DeviousJoker, JokerId::CraftyJoker,
+            JokerId::HalfJoker, JokerId::Banner,
+            JokerId::ScaryFace, JokerId::EvenSteven,
+            JokerId::OddTodd, JokerId::Scholar,
+            JokerId::Egg, JokerId::Drunkard,
+            JokerId::GreenJoker, JokerId::Fibonacci,
+        ];
+        COMMON_JOKERS[rng.gen_range(0..COMMON_JOKERS.len())]
+    }
 }
 
 // ============================================================================

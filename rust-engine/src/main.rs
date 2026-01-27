@@ -1011,9 +1011,160 @@ impl JokerEnv for EnvService {
                                     // Satellite: 追蹤使用的 Planet 數量
                                     state.planets_used_this_run += 1;
                                 }
-                                Consumable::Tarot(_) => {
+                                Consumable::Tarot(tarot_id) => {
                                     // FortuneTeller: 使用 ctx.tarots_used_this_run 計分
                                     state.tarots_used_this_run += 1;
+
+                                    // 獲取選中的牌索引
+                                    let selected_indices: Vec<usize> = (0..state.hand.len())
+                                        .filter(|&i| ((state.selected_mask >> i) & 1) == 1)
+                                        .collect();
+
+                                    match tarot_id {
+                                        TarotId::TheMagician => {
+                                            // 增強 1-2 張選中牌為 Lucky
+                                            for &idx in selected_indices.iter().take(2) {
+                                                state.hand[idx].enhancement = Enhancement::Lucky;
+                                            }
+                                        }
+                                        TarotId::TheEmpress => {
+                                            // 增強 1-2 張選中牌為 Mult
+                                            for &idx in selected_indices.iter().take(2) {
+                                                state.hand[idx].enhancement = Enhancement::Mult;
+                                            }
+                                        }
+                                        TarotId::TheHierophant => {
+                                            // 增強 1-2 張選中牌為 Bonus
+                                            for &idx in selected_indices.iter().take(2) {
+                                                state.hand[idx].enhancement = Enhancement::Bonus;
+                                            }
+                                        }
+                                        TarotId::TheLovers => {
+                                            // 增強 1 張選中牌為 Wild
+                                            if let Some(&idx) = selected_indices.first() {
+                                                state.hand[idx].enhancement = Enhancement::Wild;
+                                            }
+                                        }
+                                        TarotId::TheChariot => {
+                                            // 增強 1 張選中牌為 Steel
+                                            if let Some(&idx) = selected_indices.first() {
+                                                state.hand[idx].enhancement = Enhancement::Steel;
+                                            }
+                                        }
+                                        TarotId::Justice => {
+                                            // 增強 1 張選中牌為 Glass
+                                            if let Some(&idx) = selected_indices.first() {
+                                                state.hand[idx].enhancement = Enhancement::Glass;
+                                            }
+                                        }
+                                        TarotId::TheDevil => {
+                                            // 增強 1 張選中牌為 Gold
+                                            if let Some(&idx) = selected_indices.first() {
+                                                state.hand[idx].enhancement = Enhancement::Gold;
+                                            }
+                                        }
+                                        TarotId::TheTower => {
+                                            // 增強 1 張選中牌為 Stone
+                                            if let Some(&idx) = selected_indices.first() {
+                                                state.hand[idx].enhancement = Enhancement::Stone;
+                                            }
+                                        }
+                                        TarotId::TheHermit => {
+                                            // 金幣翻倍，最多 $20
+                                            let doubled = (state.money * 2).min(state.money + 20);
+                                            state.money = doubled;
+                                        }
+                                        TarotId::Strength => {
+                                            // 選中牌 +1 點數（最高 K=13）
+                                            for &idx in selected_indices.iter().take(2) {
+                                                if state.hand[idx].rank < 13 {
+                                                    state.hand[idx].rank += 1;
+                                                }
+                                            }
+                                        }
+                                        TarotId::TheHighPriestess => {
+                                            // 生成最多 2 張隨機 Planet 卡
+                                            let all_planets = PlanetId::all();
+                                            for _ in 0..2 {
+                                                if !state.consumables.is_full() {
+                                                    let idx = state.rng.gen_range(0..all_planets.len());
+                                                    state.consumables.add(Consumable::Planet(all_planets[idx]));
+                                                }
+                                            }
+                                        }
+                                        TarotId::TheEmperor => {
+                                            // 生成最多 2 張隨機 Tarot 卡
+                                            let all_tarots = TarotId::all();
+                                            for _ in 0..2 {
+                                                if !state.consumables.is_full() {
+                                                    let idx = state.rng.gen_range(0..all_tarots.len());
+                                                    state.consumables.add(Consumable::Tarot(all_tarots[idx]));
+                                                }
+                                            }
+                                        }
+                                        TarotId::Temperance => {
+                                            // 獲得 Joker 售價總和，最多 $50
+                                            let total_sell_value: i64 = state.jokers.iter()
+                                                .filter(|j| j.enabled)
+                                                .map(|j| j.sell_value)
+                                                .sum();
+                                            state.money += total_sell_value.min(50);
+                                        }
+                                        TarotId::TheStar => {
+                                            // 轉換 1-3 張選中牌為 Diamonds
+                                            for &idx in selected_indices.iter().take(3) {
+                                                state.hand[idx].suit = 1; // Diamonds
+                                            }
+                                        }
+                                        TarotId::TheMoon => {
+                                            // 轉換 1-3 張選中牌為 Clubs
+                                            for &idx in selected_indices.iter().take(3) {
+                                                state.hand[idx].suit = 0; // Clubs
+                                            }
+                                        }
+                                        TarotId::TheSun => {
+                                            // 轉換 1-3 張選中牌為 Hearts
+                                            for &idx in selected_indices.iter().take(3) {
+                                                state.hand[idx].suit = 2; // Hearts
+                                            }
+                                        }
+                                        TarotId::TheWorld => {
+                                            // 轉換 1-3 張選中牌為 Spades
+                                            for &idx in selected_indices.iter().take(3) {
+                                                state.hand[idx].suit = 3; // Spades
+                                            }
+                                        }
+                                        TarotId::TheHangedMan => {
+                                            // 銷毀最多 2 張選中的牌
+                                            // 從高索引到低索引移除，避免索引偏移問題
+                                            let mut to_remove: Vec<usize> = selected_indices.iter().take(2).copied().collect();
+                                            to_remove.sort_by(|a, b| b.cmp(a));
+                                            for idx in to_remove {
+                                                if idx < state.hand.len() {
+                                                    state.hand.remove(idx);
+                                                }
+                                            }
+                                        }
+                                        TarotId::Death => {
+                                            // 選 2 張牌，左邊變成右邊的複製
+                                            if selected_indices.len() >= 2 {
+                                                let left = selected_indices[0];
+                                                let right = selected_indices[1];
+                                                state.hand[left] = state.hand[right];
+                                            }
+                                        }
+                                        TarotId::Judgement => {
+                                            // 生成隨機 Joker（如果有槽位）
+                                            if state.jokers.len() < state.joker_slot_limit {
+                                                // 創建一個隨機 common joker
+                                                let joker_id = JokerId::random_common(&mut state.rng);
+                                                state.jokers.push(JokerSlot::new(joker_id));
+                                            }
+                                        }
+                                        _ => {
+                                            // TODO: TheFool, TheWheelOfFortune 等需要額外邏輯
+                                        }
+                                    }
                                 }
                                 Consumable::Spectral(spectral_id) => {
                                     // 處理 Spectral 效果
