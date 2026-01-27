@@ -109,7 +109,12 @@ pub fn calculate_play_score(
             .map(|b| b.disables_face_cards() && is_face)
             .unwrap_or(false);
 
-        if effectively_disabled || face_disabled {
+        // TheHead: 紅心牌只在第一手有效
+        let head_disabled = boss_blind
+            .map(|b| matches!(b, BossBlind::TheHead) && card.suit == 2 && !is_first_hand)
+            .unwrap_or(false);
+
+        if effectively_disabled || face_disabled || head_disabled {
             continue;
         }
 
