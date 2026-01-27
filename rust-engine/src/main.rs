@@ -23,6 +23,7 @@ use game::{
     ACTION_TYPE_USE_CONSUMABLE, ACTION_TYPE_BUY_VOUCHER, ACTION_TYPE_BUY_PACK,
     Stage, GameEnd, BlindType, BossBlind, JokerId, JokerSlot, Card, Enhancement, Edition, Seal,
     Consumable, TarotId, PlanetId, SpectralId,
+    score_hand,
 };
 
 // 從 service 模組導入
@@ -578,6 +579,18 @@ impl JokerEnv for EnvService {
                                         let spec_idx = state.rng.gen_range(0..all_spectrals.len());
                                         state.consumables.add(Consumable::Spectral(all_spectrals[spec_idx]));
                                     }
+                                }
+                            }
+
+                            // BurntJoker: 棄牌時升級棄掉牌型的等級
+                            let burnt_count = state.jokers.iter()
+                                .filter(|j| j.enabled && j.id == JokerId::BurntJoker)
+                                .count();
+                            if burnt_count > 0 && !selected_cards.is_empty() {
+                                let discarded_hand = score_hand(&selected_cards);
+                                let hand_idx = discarded_hand.id.to_index();
+                                for _ in 0..burnt_count {
+                                    state.hand_levels.upgrade(hand_idx);
                                 }
                             }
                         }
