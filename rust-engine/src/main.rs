@@ -295,6 +295,16 @@ impl JokerEnv for EnvService {
                                 state.plays_left -= 1;
                                 state.money += score_result.money_gained;
 
+                                // SpaceJoker: 1/4 機率升級出過的牌型
+                                let space_joker_count = state.jokers.iter()
+                                    .filter(|j| j.enabled && j.id == JokerId::SpaceJoker)
+                                    .count();
+                                for _ in 0..space_joker_count {
+                                    if state.rng.gen_range(0..4) == 0 {
+                                        state.hand_levels.upgrade(hand_type_idx);
+                                    }
+                                }
+
                                 let selected_mask = state.selected_mask;
                                 state.break_glass_cards(selected_mask, &score_result.glass_to_break);
 
