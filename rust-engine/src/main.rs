@@ -910,8 +910,17 @@ impl JokerEnv for EnvService {
                                     // FortuneTeller: 使用 ctx.tarots_used_this_run 計分
                                     state.tarots_used_this_run += 1;
                                 }
-                                Consumable::Spectral(_) => {
-                                    // TODO: 實作 Spectral 效果
+                                Consumable::Spectral(spectral_id) => {
+                                    // 處理 Spectral 效果
+                                    match spectral_id {
+                                        SpectralId::BlackHole => {
+                                            // 所有牌型等級 +1
+                                            state.hand_levels.upgrade_all();
+                                        }
+                                        _ => {
+                                            // TODO: 實作其他 Spectral 效果
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1205,8 +1214,17 @@ impl JokerEnv for EnvService {
                                     // FortuneTeller: 使用 ctx.tarots_used_this_run 計分
                                     state.tarots_used_this_run += 1;
                                 }
-                                Consumable::Spectral(_) => {
-                                    // TODO: 實作 Spectral 效果
+                                Consumable::Spectral(spectral_id) => {
+                                    // 處理 Spectral 效果
+                                    match spectral_id {
+                                        SpectralId::BlackHole => {
+                                            // 所有牌型等級 +1
+                                            state.hand_levels.upgrade_all();
+                                        }
+                                        _ => {
+                                            // TODO: 實作其他 Spectral 效果
+                                        }
+                                    }
                                 }
                             }
                         }
