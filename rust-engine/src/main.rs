@@ -220,6 +220,15 @@ impl JokerEnv for EnvService {
                             state.deck.push(stone_card);
                         }
 
+                        // Hologram: 每加牌到牌組 +0.25 X Mult
+                        if marble_joker_count > 0 {
+                            for joker in &mut state.jokers {
+                                if joker.enabled && joker.id == JokerId::Hologram {
+                                    joker.update_hologram_on_card_added(marble_joker_count as i32);
+                                }
+                            }
+                        }
+
                         // RiffRaff: 選擇 Blind 時生成 2 個 Common Joker
                         let riff_raff_count = state.jokers.iter()
                             .filter(|j| j.enabled && j.id == JokerId::RiffRaff)
