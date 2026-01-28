@@ -1,6 +1,10 @@
 //! 卡包系統
 //!
 //! 定義遊戲中的各種卡包類型及其內容生成邏輯
+//!
+//! # 架構
+//!
+//! 使用聲明式 `PACK_DEFS` 表定義所有卡包的元數據。
 
 use rand::prelude::*;
 use rand::rngs::StdRng;
@@ -8,6 +12,49 @@ use rand::rngs::StdRng;
 use super::cards::{Card, Edition, Enhancement, Seal};
 use super::consumables::{PlanetId, SpectralId, TarotId};
 use super::joker::JokerId;
+
+// ============================================================================
+// Pack 定義系統
+// ============================================================================
+
+/// 卡包內容類型
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PackContentType {
+    Tarot,
+    Planet,
+    Spectral,
+    PlayingCard,
+    Joker,
+}
+
+/// Pack 定義結構
+#[derive(Clone, Copy)]
+pub struct PackDef {
+    pub name: &'static str,
+    pub cost: i64,
+    pub card_count: usize,
+    pub pick_count: usize,
+    pub content_type: PackContentType,
+}
+
+/// Pack 定義表（順序與 PackType 枚舉一致）
+pub static PACK_DEFS: [PackDef; 12] = [
+    // 標準卡包 (0-4)
+    PackDef { name: "Arcana Pack", cost: 4, card_count: 3, pick_count: 1, content_type: PackContentType::Tarot },
+    PackDef { name: "Celestial Pack", cost: 4, card_count: 3, pick_count: 1, content_type: PackContentType::Planet },
+    PackDef { name: "Spectral Pack", cost: 4, card_count: 2, pick_count: 1, content_type: PackContentType::Spectral },
+    PackDef { name: "Standard Pack", cost: 4, card_count: 3, pick_count: 1, content_type: PackContentType::PlayingCard },
+    PackDef { name: "Buffoon Pack", cost: 4, card_count: 2, pick_count: 1, content_type: PackContentType::Joker },
+    // Mega 卡包 (5-7)
+    PackDef { name: "Mega Arcana Pack", cost: 8, card_count: 5, pick_count: 2, content_type: PackContentType::Tarot },
+    PackDef { name: "Mega Celestial Pack", cost: 8, card_count: 5, pick_count: 2, content_type: PackContentType::Planet },
+    PackDef { name: "Mega Standard Pack", cost: 8, card_count: 5, pick_count: 2, content_type: PackContentType::PlayingCard },
+    // Jumbo 卡包 (8-11)
+    PackDef { name: "Jumbo Arcana Pack", cost: 6, card_count: 5, pick_count: 1, content_type: PackContentType::Tarot },
+    PackDef { name: "Jumbo Celestial Pack", cost: 6, card_count: 5, pick_count: 1, content_type: PackContentType::Planet },
+    PackDef { name: "Jumbo Standard Pack", cost: 6, card_count: 5, pick_count: 1, content_type: PackContentType::PlayingCard },
+    PackDef { name: "Jumbo Buffoon Pack", cost: 6, card_count: 4, pick_count: 1, content_type: PackContentType::Joker },
+];
 
 /// 卡包類型
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -64,128 +111,37 @@ impl PackType {
 
     /// 卡包名稱
     pub fn name(&self) -> &'static str {
-        match self {
-            PackType::Arcana => "Arcana Pack",
-            PackType::Celestial => "Celestial Pack",
-            PackType::Spectral => "Spectral Pack",
-            PackType::Standard => "Standard Pack",
-            PackType::Buffoon => "Buffoon Pack",
-            PackType::MegaArcana => "Mega Arcana Pack",
-            PackType::MegaCelestial => "Mega Celestial Pack",
-            PackType::MegaStandard => "Mega Standard Pack",
-            PackType::JumboArcana => "Jumbo Arcana Pack",
-            PackType::JumboCelestial => "Jumbo Celestial Pack",
-            PackType::JumboStandard => "Jumbo Standard Pack",
-            PackType::JumboBuffoon => "Jumbo Buffoon Pack",
-        }
+        PACK_DEFS[self.to_index()].name
     }
 
     /// 卡包價格
     pub fn cost(&self) -> i64 {
-        match self {
-            PackType::Arcana => 4,
-            PackType::Celestial => 4,
-            PackType::Spectral => 4,
-            PackType::Standard => 4,
-            PackType::Buffoon => 4,
-            PackType::MegaArcana => 8,
-            PackType::MegaCelestial => 8,
-            PackType::MegaStandard => 8,
-            PackType::JumboArcana => 6,
-            PackType::JumboCelestial => 6,
-            PackType::JumboStandard => 6,
-            PackType::JumboBuffoon => 6,
-        }
+        PACK_DEFS[self.to_index()].cost
     }
 
     /// 卡包提供的卡片數量
     pub fn card_count(&self) -> usize {
-        match self {
-            PackType::Arcana => 3,
-            PackType::Celestial => 3,
-            PackType::Spectral => 2,
-            PackType::Standard => 3,
-            PackType::Buffoon => 2,
-            PackType::MegaArcana => 5,
-            PackType::MegaCelestial => 5,
-            PackType::MegaStandard => 5,
-            PackType::JumboArcana => 5,
-            PackType::JumboCelestial => 5,
-            PackType::JumboStandard => 5,
-            PackType::JumboBuffoon => 4,
-        }
+        PACK_DEFS[self.to_index()].card_count
     }
 
     /// 可選擇的卡片數量
     pub fn pick_count(&self) -> usize {
-        match self {
-            PackType::Arcana => 1,
-            PackType::Celestial => 1,
-            PackType::Spectral => 1,
-            PackType::Standard => 1,
-            PackType::Buffoon => 1,
-            PackType::MegaArcana => 2,
-            PackType::MegaCelestial => 2,
-            PackType::MegaStandard => 2,
-            PackType::JumboArcana => 1,
-            PackType::JumboCelestial => 1,
-            PackType::JumboStandard => 1,
-            PackType::JumboBuffoon => 1,
-        }
+        PACK_DEFS[self.to_index()].pick_count
     }
 
     /// 卡包內容類型
     pub fn content_type(&self) -> PackContentType {
-        match self {
-            PackType::Arcana | PackType::MegaArcana | PackType::JumboArcana => {
-                PackContentType::Tarot
-            }
-            PackType::Celestial | PackType::MegaCelestial | PackType::JumboCelestial => {
-                PackContentType::Planet
-            }
-            PackType::Spectral => PackContentType::Spectral,
-            PackType::Standard | PackType::MegaStandard | PackType::JumboStandard => {
-                PackContentType::PlayingCard
-            }
-            PackType::Buffoon | PackType::JumboBuffoon => PackContentType::Joker,
-        }
+        PACK_DEFS[self.to_index()].content_type
     }
 
     /// to_index 用於 observation
     pub fn to_index(&self) -> usize {
-        match self {
-            PackType::Arcana => 0,
-            PackType::Celestial => 1,
-            PackType::Spectral => 2,
-            PackType::Standard => 3,
-            PackType::Buffoon => 4,
-            PackType::MegaArcana => 5,
-            PackType::MegaCelestial => 6,
-            PackType::MegaStandard => 7,
-            PackType::JumboArcana => 8,
-            PackType::JumboCelestial => 9,
-            PackType::JumboStandard => 10,
-            PackType::JumboBuffoon => 11,
-        }
+        Self::all().iter().position(|p| p == self).unwrap_or(0)
     }
 
     /// 從索引轉換
     pub fn from_index(index: usize) -> Option<PackType> {
-        match index {
-            0 => Some(PackType::Arcana),
-            1 => Some(PackType::Celestial),
-            2 => Some(PackType::Spectral),
-            3 => Some(PackType::Standard),
-            4 => Some(PackType::Buffoon),
-            5 => Some(PackType::MegaArcana),
-            6 => Some(PackType::MegaCelestial),
-            7 => Some(PackType::MegaStandard),
-            8 => Some(PackType::JumboArcana),
-            9 => Some(PackType::JumboCelestial),
-            10 => Some(PackType::JumboStandard),
-            11 => Some(PackType::JumboBuffoon),
-            _ => None,
-        }
+        Self::all().get(index).copied()
     }
 
     /// 隨機選擇一個卡包類型（商店生成用）
@@ -219,16 +175,6 @@ impl PackType {
 
         PackType::Arcana
     }
-}
-
-/// 卡包內容類型
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PackContentType {
-    Tarot,
-    Planet,
-    Spectral,
-    PlayingCard,
-    Joker,
 }
 
 /// 卡包開啟狀態
