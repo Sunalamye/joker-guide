@@ -44,7 +44,7 @@ pub use joker::{JokerId, JokerSlot, JokerBonus, ScoringContext, compute_joker_bo
 pub use joker_def::{
     JokerState, CardFilter, Condition, StateField, CompareOp,
     BonusDef, EffectDef, CardScope, GameEvent, Rarity, TriggerContext,
-    JokerBonus as JokerBonusNew,
+    JokerBonus as JokerBonusNew, JokerDef, JOKER_DEFINITIONS, get_joker_def,
     SPADE, DIAMOND, HEART, CLUB,
 };
 pub use shop::{Shop, ShopItem};
