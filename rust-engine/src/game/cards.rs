@@ -250,3 +250,95 @@ pub fn standard_deck() -> Vec<Card> {
 pub fn card_index(card: Card) -> usize {
     (card.suit as usize * 13) + (card.rank as usize - 1)
 }
+
+// ============================================================================
+// 單元測試
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    fn test_card_base_chips() {
+        assert_eq!(Card::new(1, 0).base_chips(), 11);
+        assert_eq!(Card::new(12, 1).base_chips(), 10);
+        assert_eq!(Card::new(7, 2).base_chips(), 7);
+    }
+
+    #[test]
+    fn test_card_chips_with_enhancement_and_edition() {
+        let mut card = Card::new(9, 3);
+        card.enhancement = Enhancement::Bonus;
+        card.edition = Edition::Foil;
+        card.bonus_chips = 5;
+        assert_eq!(card.chips(), 9 + 30 + 50 + 5);
+    }
+
+    #[test]
+    fn test_card_mults() {
+        let mut card = Card::new(4, 0);
+        card.enhancement = Enhancement::Mult;
+        card.edition = Edition::Holographic;
+        assert_eq!(card.add_mult(), 14);
+
+        card.enhancement = Enhancement::Glass;
+        card.edition = Edition::Polychrome;
+        assert!((card.x_mult() - 3.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_face_and_pareidolia() {
+        let face = Card::new(12, 0);
+        let not_face = Card::new(9, 1);
+        assert!(face.is_face());
+        assert!(!not_face.is_face());
+        assert!(not_face.is_face_with_pareidolia(true));
+        assert!(!not_face.is_face_with_pareidolia(false));
+    }
+
+    #[test]
+    fn test_suit_matching_and_counts() {
+        let mut card = Card::new(3, 2);
+        assert!(card.matches_suit(2));
+        assert!(!card.matches_suit(1));
+
+        card.enhancement = Enhancement::Wild;
+        assert!(card.matches_suit(1));
+
+        card.enhancement = Enhancement::Stone;
+        assert!(!card.counts_for_hand());
+    }
+
+    #[test]
+    fn test_effective_suits() {
+        let mut card = Card::new(3, 2);
+        assert_eq!(card.effective_suit(), 2);
+
+        card.enhancement = Enhancement::Stone;
+        assert_eq!(card.effective_suit(), 255);
+
+        let hearts = Card::new(2, 2);
+        let diamonds = Card::new(2, 1);
+        let spades = Card::new(2, 0);
+        let clubs = Card::new(2, 3);
+        assert_eq!(hearts.effective_suit_smeared(), 1);
+        assert_eq!(diamonds.effective_suit_smeared(), 1);
+        assert_eq!(spades.effective_suit_smeared(), 0);
+        assert_eq!(clubs.effective_suit_smeared(), 0);
+    }
+
+    #[test]
+    fn test_standard_deck_and_index() {
+        let deck = standard_deck();
+        assert_eq!(deck.len(), 52);
+
+        let mut seen = HashSet::new();
+        for card in deck {
+            let idx = card_index(card);
+            assert!(seen.insert(idx));
+        }
+        assert_eq!(seen.len(), 52);
+    }
+}

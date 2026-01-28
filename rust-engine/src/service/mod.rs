@@ -13,3 +13,6 @@ pub use action_mask::action_mask_from_state;
 pub use observation::observation_from_state;
 pub use scoring::{build_selected_hand, calculate_play_score, CardScoreResult};
 pub use state::EnvState;
+
+#[cfg(test)]
+mod integration_tests;

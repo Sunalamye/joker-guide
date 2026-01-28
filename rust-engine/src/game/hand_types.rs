@@ -82,3 +82,34 @@ impl HandScore {
         self.base_chips * self.base_mult
     }
 }
+
+// ============================================================================
+// 單元測試
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_hand_base_values() {
+        assert_eq!(HandId::HighCard.base_values(), (5, 1));
+        assert_eq!(HandId::Flush.base_values(), (35, 4));
+        assert_eq!(HandId::RoyalFlush.base_values(), (100, 8));
+        assert_eq!(HandId::FlushFive.base_values(), (160, 16));
+    }
+
+    #[test]
+    fn test_hand_to_index() {
+        assert_eq!(HandId::HighCard.to_index(), 0);
+        assert_eq!(HandId::Straight.to_index(), 4);
+        assert_eq!(HandId::RoyalFlush.to_index(), 9);
+        assert_eq!(HandId::FlushFive.to_index(), 12);
+    }
+
+    #[test]
+    fn test_hand_raw_score() {
+        let score = HandScore::new(HandId::TwoPair);
+        assert_eq!(score.raw_score(), 40);
+    }
+}

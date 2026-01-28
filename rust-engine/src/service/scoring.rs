@@ -206,3 +206,151 @@ pub fn calculate_play_score(
         lucky_triggers,
     }
 }
+
+// ============================================================================
+// 單元測試
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rand::SeedableRng;
+
+    fn make_cards(ranks_suits: &[(u8, u8)]) -> Vec<Card> {
+        ranks_suits.iter().map(|&(r, s)| Card::new(r, s)).collect()
+    }
+
+    #[test]
+    fn test_build_selected_hand_fallback() {
+        let hand = make_cards(&[(2, 0), (3, 1)]);
+        let selected = build_selected_hand(&hand, 0);
+        assert_eq!(selected.len(), 1);
+        assert_eq!(selected[0].rank, 2);
+    }
+
+    #[test]
+    fn test_calculate_play_score_simple_straight() {
+        let selected = make_cards(&[(5, 0), (6, 1), (7, 2), (8, 3), (9, 0)]);
+        let jokers: Vec<JokerSlot> = Vec::new();
+        let hand_levels = HandLevels::new();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0);
+
+        let result = calculate_play_score(
+            &selected,
+            &jokers,
+            None,
+            2,
+            0,
+            0,
+            5,
+            0,
+            false,
+            false,
+            0,
+            &hand_levels,
+            false,
+            1.0,
+            0,
+            &mut rng,
+        );
+
+        // Base: Straight (30 chips, 4 mult)
+        // Card chips: 5+6+7+8+9 = 35
+        // Total chips: 65, mult: 4, score: 260
+        assert_eq!(result.score, 260);
+        assert_eq!(result.hand_id, HandId::Straight);
+    }
+
+    #[test]
+    fn test_calculate_play_score_flint_halves_base() {
+        let selected = make_cards(&[(5, 0), (6, 1), (7, 2), (8, 3), (9, 0)]);
+        let jokers: Vec<JokerSlot> = Vec::new();
+        let hand_levels = HandLevels::new();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0);
+
+        let result = calculate_play_score(
+            &selected,
+            &jokers,
+            Some(BossBlind::TheFlint),
+            2,
+            0,
+            0,
+            5,
+            0,
+            false,
+            false,
+            0,
+            &hand_levels,
+            false,
+            1.0,
+            0,
+            &mut rng,
+        );
+
+        // Base chips 65 -> (65+1)/2 = 33
+        // Base mult 4 -> (4+1)/2 = 2
+        assert_eq!(result.score, 66);
+    }
+
+    #[test]
+    fn test_calculate_play_score_plasma_deck() {
+        let selected = make_cards(&[(5, 0), (6, 1), (7, 2), (8, 3), (9, 0)]);
+        let jokers: Vec<JokerSlot> = Vec::new();
+        let hand_levels = HandLevels::new();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0);
+
+        let result = calculate_play_score(
+            &selected,
+            &jokers,
+            None,
+            2,
+            0,
+            0,
+            5,
+            0,
+            false,
+            false,
+            0,
+            &hand_levels,
+            true,
+            1.0,
+            0,
+            &mut rng,
+        );
+
+        // Total chips 65, final mult 4 -> balanced 34, score 1156
+        assert_eq!(result.score, 1156);
+    }
+
+    #[test]
+    fn test_calculate_play_score_observatory_bonus() {
+        let selected = make_cards(&[(2, 0), (3, 1)]);
+        let jokers: Vec<JokerSlot> = Vec::new();
+        let hand_levels = HandLevels::new();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(0);
+        let planet_mask = 1u16 << HandId::HighCard.to_index();
+
+        let result = calculate_play_score(
+            &selected,
+            &jokers,
+            None,
+            2,
+            0,
+            0,
+            5,
+            0,
+            false,
+            false,
+            0,
+            &hand_levels,
+            false,
+            2.0,
+            planet_mask,
+            &mut rng,
+        );
+
+        // Base chips 5 + card chips (2+3) = 10
+        // Base mult 1, observatory bonus 2^2 = 4
+        assert_eq!(result.score, 40);
+    }
+}

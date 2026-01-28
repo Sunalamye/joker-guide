@@ -273,3 +273,65 @@ impl Ante {
         }
     }
 }
+
+// ============================================================================
+// 單元測試
+// ============================================================================
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_blind_type_basics() {
+        assert_eq!(BlindType::Small.reward(), 3);
+        assert_eq!(BlindType::Big.reward(), 4);
+        assert_eq!(BlindType::Boss.reward(), 5);
+        assert_eq!(BlindType::Small.score_multiplier(), 1.0);
+        assert_eq!(BlindType::Boss.score_multiplier(), 2.0);
+        assert_eq!(BlindType::Small.next(), Some(BlindType::Big));
+        assert_eq!(BlindType::Big.next(), Some(BlindType::Boss));
+        assert_eq!(BlindType::Boss.next(), None);
+        assert_eq!(BlindType::Big.to_int(), 1);
+    }
+
+    #[test]
+    fn test_boss_blind_rules() {
+        assert_eq!(BossBlind::TheWall.score_multiplier(), 4.0);
+        assert_eq!(BossBlind::VioletVessel.score_multiplier(), 6.0);
+        assert_eq!(BossBlind::TheFlint.score_multiplier(), 2.0);
+
+        assert!(BossBlind::ThePlant.disables_face_cards());
+        assert!(!BossBlind::TheHook.disables_face_cards());
+
+        assert!(BossBlind::ThePsychic.requires_five_cards());
+        assert!(!BossBlind::TheNeedle.requires_five_cards());
+
+        assert_eq!(BossBlind::TheClub.disables_suit(0), true);
+        assert_eq!(BossBlind::TheDiamond.disables_suit(1), true);
+        assert_eq!(BossBlind::TheHeart.disables_suit(2), true);
+        assert_eq!(BossBlind::TheSpade.disables_suit(3), true);
+        assert_eq!(BossBlind::TheSpade.disables_suit(2), false);
+    }
+
+    #[test]
+    fn test_boss_blind_lists_and_limits() {
+        assert_eq!(BossBlind::regular_bosses().len(), 22);
+        assert_eq!(BossBlind::showdown_bosses().len(), 5);
+        assert_eq!(BOSS_BLIND_COUNT, 27);
+
+        assert_eq!(BossBlind::TheNeedle.max_plays(), Some(1));
+        assert_eq!(BossBlind::Crimson.max_plays(), Some(PLAYS_PER_BLIND - 1));
+        assert_eq!(BossBlind::TheHook.max_plays(), None);
+    }
+
+    #[test]
+    fn test_ante_progression() {
+        assert_eq!(Ante::One.base_score(), 300);
+        assert_eq!(Ante::Five.base_score(), 11_000);
+        assert_eq!(Ante::One.next(), Some(Ante::Two));
+        assert_eq!(Ante::Seven.next(), Some(Ante::Eight));
+        assert_eq!(Ante::Eight.next(), None);
+        assert_eq!(Ante::Four.to_int(), 4);
+    }
+}
