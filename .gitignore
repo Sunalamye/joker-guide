@@ -20,8 +20,10 @@ python-env/models/
 
 # Logs
 *.log
+logs/
 python-env/logs/
 python-env/experiments/
+experiments/
 
 # IDE
 .vscode/
