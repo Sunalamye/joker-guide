@@ -17,6 +17,8 @@
 //!
 //! 注意：獎勵計算由 Python 端處理，Rust 端只提供遊戲狀態
 
+// 這些 API 是為未來擴展保留的公開介面
+#![allow(dead_code)]
 #![allow(unused_imports)]
 
 pub mod constants;

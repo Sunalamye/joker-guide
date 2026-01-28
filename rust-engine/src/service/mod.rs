@@ -2,6 +2,8 @@
 //!
 //! 提供 gRPC 服務所需的狀態管理、觀測構建、動作遮罩和計分功能
 
+// 這些 API 是為未來擴展保留的公開介面
+#![allow(dead_code)]
 #![allow(unused_imports)]
 
 pub mod action_mask;

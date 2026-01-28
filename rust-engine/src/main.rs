@@ -1,3 +1,6 @@
+// 這些 API 是為未來擴展保留的公開介面
+#![allow(dead_code)]
+
 use std::sync::Mutex;
 
 use rand::Rng;
@@ -1317,9 +1320,6 @@ impl JokerEnv for EnvService {
                                                 }
                                             }
                                         }
-                                        _ => {
-                                            // 其他 Tarot 不需要額外處理
-                                        }
                                     }
                                     // 更新 last_used_consumable（TheFool 除外，它不會更新）
                                     if *tarot_id != TarotId::TheFool {
@@ -1969,7 +1969,7 @@ impl JokerEnv for EnvService {
                         let index = action_id as usize;
                         if index < state.jokers.len() && !state.jokers[index].is_eternal {
                             let sold_joker = state.jokers.remove(index);
-                            let mut sell_value = sold_joker.sell_value;
+                            let sell_value = sold_joker.sell_value;
 
                             // DietCola: 賣出時獲得免費 Double Tag
                             if sold_joker.id == JokerId::DietCola {
