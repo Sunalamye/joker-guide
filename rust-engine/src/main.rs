@@ -1673,13 +1673,22 @@ impl JokerEnv for EnvService {
                         }
                     }
 
-                    // Gros_Michel: 每輪結束有 1/15 機率自毀
-                    let gros_michel_rng: u32 = state.rng.gen_range(0..15);
-                    for joker in &mut state.jokers {
-                        if joker.enabled && joker.id == JokerId::Gros_Michel {
-                            if gros_michel_rng == 0 {
-                                joker.enabled = false;
-                            }
+                    // 使用 trigger 系統處理 RoundEnded 事件
+                    // 處理: Gros_Michel 自毀、GreenJoker 重置、Popcorn 減少等
+                    let trigger_ctx = TriggerContext {
+                        rng_value: state.rng.gen(),
+                        ..Default::default()
+                    };
+                    let trigger_result = trigger_joker_slot_events(
+                        GameEvent::RoundEnded,
+                        &mut state.jokers,
+                        &trigger_ctx,
+                    );
+
+                    // 處理自毀的 Joker
+                    for &idx in &trigger_result.jokers_to_destroy {
+                        if idx < state.jokers.len() {
+                            state.jokers[idx].enabled = false;
                         }
                     }
 
