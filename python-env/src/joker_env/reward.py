@@ -79,6 +79,9 @@ TAG_TOP_UP = 18
 TAG_SPEED = 19
 TAG_ORBITAL = 20
 TAG_ECONOMY = 21
+TAG_HANDY = 22
+TAG_GARBAGE = 23
+TAG_CHARM = 24
 
 # Tag 價值映射（基於遊戲影響力估算）
 # 高價值：Joker 強化 / 稀有 Joker
@@ -107,10 +110,184 @@ TAG_VALUES = {
     TAG_SPEED: 0.06,         # $25 但跳過商店（風險）
     TAG_ORBITAL: 0.20,       # 升級牌型
     TAG_ECONOMY: 0.12,       # +$10
+    TAG_HANDY: 0.10,         # $1 per hand（基礎）
+    TAG_GARBAGE: 0.08,       # $1 per discard（基礎）
+    TAG_CHARM: 0.18,         # Mega Arcana Pack
 }
 
 # 計算加權平均 Tag 價值（假設均勻分布）
 AVG_TAG_VALUE = sum(TAG_VALUES.values()) / len(TAG_VALUES)  # ≈ 0.20
+
+# ============================================================================
+# Hand types / build tracking (aligned with Rust HandId order)
+# ============================================================================
+
+HAND_HIGH_CARD = 0
+HAND_PAIR = 1
+HAND_TWO_PAIR = 2
+HAND_THREE_KIND = 3
+HAND_STRAIGHT = 4
+HAND_FLUSH = 5
+HAND_FULL_HOUSE = 6
+HAND_FOUR_KIND = 7
+HAND_STRAIGHT_FLUSH = 8
+HAND_ROYAL_FLUSH = 9
+HAND_FIVE_KIND = 10
+HAND_FLUSH_HOUSE = 11
+HAND_FLUSH_FIVE = 12
+
+BUILD_PAIRS = 0
+BUILD_STRAIGHT = 1
+BUILD_FLUSH = 2
+
+_HAND_STRENGTH_ORDER = {
+    HAND_HIGH_CARD: 0,
+    HAND_PAIR: 1,
+    HAND_TWO_PAIR: 2,
+    HAND_THREE_KIND: 3,
+    HAND_STRAIGHT: 4,
+    HAND_FLUSH: 5,
+    HAND_FULL_HOUSE: 6,
+    HAND_FOUR_KIND: 7,
+    HAND_STRAIGHT_FLUSH: 8,
+    HAND_ROYAL_FLUSH: 9,
+    HAND_FIVE_KIND: 10,
+    HAND_FLUSH_HOUSE: 11,
+    HAND_FLUSH_FIVE: 12,
+}
+
+_BUILD_HANDS = {
+    BUILD_PAIRS: {
+        HAND_PAIR,
+        HAND_TWO_PAIR,
+        HAND_THREE_KIND,
+        HAND_FULL_HOUSE,
+        HAND_FOUR_KIND,
+        HAND_FIVE_KIND,
+        HAND_FLUSH_HOUSE,
+    },
+    BUILD_STRAIGHT: {HAND_STRAIGHT, HAND_STRAIGHT_FLUSH, HAND_ROYAL_FLUSH},
+    BUILD_FLUSH: {HAND_FLUSH, HAND_STRAIGHT_FLUSH, HAND_ROYAL_FLUSH, HAND_FLUSH_HOUSE, HAND_FLUSH_FIVE},
+}
+
+# Joker build support (minimal mapping for reward shaping)
+JOKER_BUILD_SUPPORT = {
+    5: BUILD_PAIRS,  # JollyJoker (pair-oriented)
+    9: BUILD_FLUSH,  # DrollJoker (flush-oriented)
+}
+
+
+def blind_progress_signal(
+    score_before: int,
+    score_after: int,
+    blind_target: int,
+    plays_left: int,
+    total_plays: int = 4,
+) -> float:
+    """
+    Blind 內進度獎勵（細粒度）
+
+    - 進度獎勵：Δscore / target
+    - 里程碑：跨過 80% 增加小獎勵
+    - 節奏：在預期節奏之前達到更高進度，給額外獎勵
+    """
+    if blind_target <= 0:
+        return 0.0
+    if score_after <= score_before:
+        return 0.0
+
+    before_ratio = score_before / blind_target
+    after_ratio = score_after / blind_target
+    progress = max(0.0, after_ratio - before_ratio)
+
+    reward = progress * 0.03
+
+    # 80% 里程碑
+    if before_ratio < 0.8 <= after_ratio:
+        reward += 0.01
+
+    # 節奏獎勵：越早達標越好
+    total_plays = max(1, total_plays)
+    plays_used = max(0, total_plays - max(0, plays_left))
+    expected_ratio = plays_used / total_plays
+    if after_ratio > expected_ratio + 0.2:
+        reward += 0.005
+
+    return min(reward, 0.05)
+
+
+def hand_setup_reward(prev_hand: int, new_hand: int, had_discard: bool) -> float:
+    """
+    棄牌後牌型改善獎勵（小型 shaping）
+    """
+    if not had_discard:
+        return 0.0
+    if prev_hand < 0 or new_hand < 0:
+        return 0.0
+
+    prev_strength = _HAND_STRENGTH_ORDER.get(prev_hand, -1)
+    new_strength = _HAND_STRENGTH_ORDER.get(new_hand, -1)
+    if prev_strength < 0 or new_strength < 0 or new_strength <= prev_strength:
+        return 0.0
+
+    diff = new_strength - prev_strength
+    if diff <= 2:
+        reward = 0.02
+    elif diff <= 4:
+        reward = 0.04
+    else:
+        reward = 0.06 + min(0.02, (diff - 5) * 0.01)
+
+    return min(reward, 0.08)
+
+
+class BuildTracker:
+    """追蹤主導 build（pairs / straight / flush）"""
+
+    def __init__(self) -> None:
+        self.reset()
+
+    def reset(self) -> None:
+        self._counts = {BUILD_PAIRS: 0, BUILD_STRAIGHT: 0, BUILD_FLUSH: 0}
+        self._total_hands = 0
+
+    def record_hand(self, hand_type: int) -> None:
+        self._total_hands += 1
+        for build, hands in _BUILD_HANDS.items():
+            if hand_type in hands:
+                self._counts[build] += 1
+
+    def get_build_weights(self) -> dict[str, float]:
+        if self._total_hands == 0:
+            return {"pairs": 1.0 / 3, "straight": 1.0 / 3, "flush": 1.0 / 3}
+        return {
+            "pairs": self._counts[BUILD_PAIRS] / self._total_hands,
+            "straight": self._counts[BUILD_STRAIGHT] / self._total_hands,
+            "flush": self._counts[BUILD_FLUSH] / self._total_hands,
+        }
+
+    def get_dominant_build(self) -> Optional[int]:
+        if self._total_hands < 5:
+            return None
+        weights = self.get_build_weights()
+        best = max(
+            (BUILD_PAIRS, weights["pairs"]),
+            (BUILD_STRAIGHT, weights["straight"]),
+            (BUILD_FLUSH, weights["flush"]),
+            key=lambda x: x[1],
+        )
+        return best[0] if best[1] >= 0.6 else None
+
+    def joker_build_bonus(self, joker_id: int, joker_slots: int) -> float:
+        dominant = self.get_dominant_build()
+        if dominant is None:
+            return 0.0
+        support = JOKER_BUILD_SUPPORT.get(joker_id)
+        if support is None:
+            return 0.0
+        if support == dominant:
+            return 0.02 + 0.01 * min(joker_slots, 5) / 5.0
+        return -0.02
 
 # ============================================================================
 # Joker Tier 評估系統（簡化版）
@@ -204,6 +381,12 @@ class StepInfo:
     cards_discarded: int = 0
     hand_type: int = -1  # -1 = 無
 
+    # Skip Blind 相關
+    tag_id: int = -1  # -1 = 無
+
+    # 消耗品相關
+    consumable_id: int = -1  # -1 = 無（Tarot: 0-21, Planet: 22-33, Spectral: 34-51）
+
 
 def parse_env_info(info: dict) -> StepInfo:
     """從 gRPC EnvInfo 解析狀態"""
@@ -228,6 +411,8 @@ def parse_env_info(info: dict) -> StepInfo:
         cards_played=info.get("cards_played", 0),
         cards_discarded=info.get("cards_discarded", 0),
         hand_type=info.get("hand_type", -1),
+        tag_id=info.get("tag_id", -1),
+        consumable_id=info.get("consumable_id", -1),
     )
 
 
@@ -319,16 +504,17 @@ def blind_clear_reward(
     boss_blind_id: Optional[int] = None
 ) -> float:
     """
-    過關獎勵：正規化到 0.2~0.6
+    過關獎勵：正規化到 0.3~0.7
 
     - 後期過關獎勵更高
     - Boss 難度加成
+    - 提高基礎獎勵，使 Clear 明顯優於 Skip
     """
     base = {
-        BLIND_SMALL: 0.2,
-        BLIND_BIG: 0.3,
-        BLIND_BOSS: 0.4,
-    }.get(blind_type, 0.2)
+        BLIND_SMALL: 0.3,  # 提高：從 0.2 → 0.3
+        BLIND_BIG: 0.4,    # 提高：從 0.3 → 0.4
+        BLIND_BOSS: 0.5,   # 提高：從 0.4 → 0.5
+    }.get(blind_type, 0.3)
 
     # Boss 難度加成（簡化版）
     boss_bonus = 0.0
@@ -342,26 +528,33 @@ def blind_clear_reward(
     # 階段權重（後期稍高）
     stage_mult = stage_weight_late(ante)
 
-    return clamp((base + boss_bonus + efficiency) * stage_mult, 0.2, 0.6)
+    return clamp((base + boss_bonus + efficiency) * stage_mult, 0.3, 0.7)
 
 
 def ante_progress_reward(old_ante: int, new_ante: int) -> float:
-    """Ante 進度獎勵：非線性，中後期更有價值（0~0.3）"""
+    """
+    Ante 進度獎勵：每級均勻 0.08 獎勵（0~0.56）
+
+    設計原則：
+    - 每級 Ante 都同等重要，給予固定 0.08 獎勵
+    - 總計 Ante 1→8 的累積獎勵為 0.56
+    - 不再使用非線性曲線，避免早期進度被低估
+    """
     def ante_value(a: int) -> float:
-        # 調整範圍使最大 delta ≈ 0.3
+        # 均勻增量：每級 0.08
         values = {
             1: 0.0,
-            2: 0.03,
-            3: 0.07,
-            4: 0.12,
-            5: 0.18,
-            6: 0.26,
-            7: 0.36,
-            8: 0.5,
+            2: 0.08,
+            3: 0.16,
+            4: 0.24,
+            5: 0.32,
+            6: 0.40,
+            7: 0.48,
+            8: 0.56,
         }
         return values.get(a, 0.0)
 
-    return min(ante_value(new_ante) - ante_value(old_ante), 0.3)
+    return ante_value(new_ante) - ante_value(old_ante)
 
 
 def game_end_reward(game_end: int, ante: int) -> float:
@@ -397,6 +590,24 @@ def money_reward(money: int, ante: int) -> float:
     return min((base_interest + threshold_bonus) * stage_weight, 0.2)
 
 
+def smooth_economic_penalty(cost_ratio: float) -> float:
+    """
+    平滑的經濟懲罰曲線
+
+    使用對數函數確保平滑過渡，避免在任何點產生陡峭跳變。
+
+    範圍：0 (cost_ratio=0) → ~0.10 (cost_ratio=1.0)
+    - cost_ratio=0.25: ~0.03
+    - cost_ratio=0.50: ~0.05
+    - cost_ratio=0.75: ~0.06
+    - cost_ratio=1.00: ~0.07
+    """
+    if cost_ratio <= 0:
+        return 0.0
+    # log1p(x) = log(1+x)，確保 x=0 時結果為 0
+    return 0.05 * math.log1p(cost_ratio * 3)
+
+
 def joker_buy_reward(
     cost: int,
     money_before: int,
@@ -411,7 +622,7 @@ def joker_buy_reward(
 
     考慮因素：
     - Joker 價值（基於成本估算稀有度）
-    - 經濟懲罰（成本占比）
+    - 經濟懲罰（成本占比，使用平滑曲線）
     - 利息損失
     - 槽位壓力
     - 階段權重
@@ -423,13 +634,9 @@ def joker_buy_reward(
     # Joker 價值估算（基於成本和可選的 joker_id）
     joker_value = estimate_joker_value(cost, joker_id)
 
-    # 非線性經濟懲罰
+    # 平滑經濟懲罰（使用對數函數）
     cost_ratio = min(cost / money_before, 1.0) if money_before > 0 else 1.0
-
-    if cost_ratio > 0.5:
-        economic_penalty = 0.06 + (cost_ratio - 0.5) * 0.15
-    else:
-        economic_penalty = cost_ratio * 0.1
+    economic_penalty = smooth_economic_penalty(cost_ratio)
 
     # 利息損失
     money_after = money_before - cost
@@ -479,12 +686,13 @@ def skip_blind_reward(
     - 機會成本考慮 Blind 獎金
     - 後期跳過風險更高（風險調整）
     """
-    # 機會成本（跳過 Blind 放棄的獎金）
+    # 機會成本（跳過 Blind 放棄的獎金 + 過關獎勵差距）
+    # 提高以配合 blind_clear_reward 的提升
     opportunity_cost = {
-        BLIND_SMALL: 0.05,  # 放棄 $3
-        BLIND_BIG: 0.12,    # 放棄 $5 + 更高分數獎勵
+        BLIND_SMALL: 0.08,  # 放棄 $3 + 過關獎勵差距
+        BLIND_BIG: 0.15,    # 放棄 $5 + 更高分數獎勵
         BLIND_BOSS: 1.0,    # 不能跳過 Boss
-    }.get(blind_type, 0.05)
+    }.get(blind_type, 0.08)
 
     # 風險調整（後期跳過風險更高）
     risk_adjustments = {
@@ -568,14 +776,38 @@ def sell_joker_reward(
     return clamp(reward, -0.2, 0.2)
 
 
-def consumable_use_reward(ante: int) -> float:
+# 消耗品類型範圍（對應 Rust consumables.rs 的 to_global_index）
+TAROT_COUNT = 22
+PLANET_COUNT = 12
+SPECTRAL_COUNT = 18
+
+
+def consumable_use_reward(ante: int, consumable_id: int = -1) -> float:
     """
     消耗品使用獎勵（0~0.25）
 
-    簡化版：基於 ante
+    根據消耗品類型給予不同獎勵：
+    - Spectral (34-51): 0.18 基礎（效果最強，包含稀有轉換）
+    - Planet (22-33): 0.12 基礎（穩定的牌型升級）
+    - Tarot (0-21): 0.10 基礎（基礎卡片增強）
+
+    Args:
+        ante: 當前 Ante
+        consumable_id: 消耗品全域 ID（-1 表示未知，使用平均值）
     """
-    # 簡化：假設平均價值 0.12
-    base_value = 0.12
+    # 根據 consumable_id 確定類型和基礎獎勵
+    if consumable_id < 0:
+        # 未知類型，使用平均值
+        base_value = 0.12
+    elif consumable_id < TAROT_COUNT:
+        # Tarot (0-21)
+        base_value = 0.10
+    elif consumable_id < TAROT_COUNT + PLANET_COUNT:
+        # Planet (22-33)
+        base_value = 0.12
+    else:
+        # Spectral (34-51)
+        base_value = 0.18
 
     # 階段調整（消耗品後期價值更高）
     stage_mult = stage_weight_late(ante)
@@ -587,15 +819,11 @@ def voucher_buy_reward(cost: int, money_before: int, ante: int) -> float:
     """
     Voucher 購買獎勵（-0.25~0.3）
 
-    簡化版
+    簡化版，使用平滑經濟懲罰曲線
     """
-    # 經濟懲罰
+    # 平滑經濟懲罰（Voucher 略高於 Joker，因為 Voucher 成本固定 $10）
     cost_ratio = min(cost / money_before, 1.0) if money_before > 0 else 1.0
-
-    if cost_ratio > 0.5:
-        economic_penalty = 0.08 + (cost_ratio - 0.5) * 0.2
-    else:
-        economic_penalty = cost_ratio * 0.12
+    economic_penalty = smooth_economic_penalty(cost_ratio) * 1.2  # Voucher 懲罰係數略高
 
     # 階段權重（早期更有價值）
     stage_mults = {1: 1.4, 2: 1.4, 3: 1.2, 4: 1.2, 5: 1.0, 6: 1.0, 7: 0.7, 8: 0.7}
@@ -617,10 +845,12 @@ class RewardCalculator:
 
     def __init__(self):
         self._prev_info: Optional[StepInfo] = None
+        self._build_tracker = BuildTracker()
 
     def reset(self):
         """重置內部狀態"""
         self._prev_info = None
+        self._build_tracker.reset()
 
     def calculate(self, info_dict: dict) -> float:
         """
@@ -654,6 +884,17 @@ class RewardCalculator:
         elif action_type == ACTION_TYPE_PLAY:
             if info.score_delta > 0:
                 reward += play_reward(info.score_delta, info.blind_target)
+            if prev is not None:
+                total_plays = max(1, prev.plays_left + 1)
+                reward += blind_progress_signal(
+                    prev.chips,
+                    info.chips,
+                    info.blind_target,
+                    info.plays_left,
+                    total_plays=total_plays,
+                )
+            if info.hand_type >= 0:
+                self._build_tracker.record_hand(info.hand_type)
 
         elif action_type == ACTION_TYPE_DISCARD:
             # 使用實際棄牌數量（來自 Rust 端）
@@ -672,9 +913,9 @@ class RewardCalculator:
 
         elif action_type == ACTION_TYPE_SELL_JOKER:
             if prev is not None:
-                money_gained = info.money - prev.money + info.last_action_cost
+                # 直接使用 money_delta（Rust 端已計算）
                 reward += sell_joker_reward(
-                    money_gained,
+                    info.money_delta,
                     info.ante,
                     prev.joker_count,
                     info.joker_slot_limit
@@ -688,10 +929,13 @@ class RewardCalculator:
             )
 
         elif action_type == ACTION_TYPE_SKIP_BLIND:
-            reward += skip_blind_reward(info.blind_type, info.ante)
+            # 使用 tag_id 精確計算 Tag 價值（-1 表示無 Tag，使用平均值）
+            tag_id_or_none = info.tag_id if info.tag_id >= 0 else None
+            reward += skip_blind_reward(info.blind_type, info.ante, tag_id_or_none)
 
         elif action_type == ACTION_TYPE_USE_CONSUMABLE:
-            reward += consumable_use_reward(info.ante)
+            # 使用 consumable_id 精確計算獎勵（-1 表示未知，使用平均值）
+            reward += consumable_use_reward(info.ante, info.consumable_id)
 
         elif action_type == ACTION_TYPE_BUY_VOUCHER:
             if prev is not None:

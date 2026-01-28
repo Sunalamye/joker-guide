@@ -190,7 +190,7 @@ pub fn observation_from_state(state: &EnvState) -> Tensor {
     }
 
     // ============================================================================
-    // Deck type one-hot (12)
+    // Deck type one-hot (16)
     // ============================================================================
     let deck_idx = state.deck_type.to_index();
     for i in 0..DECK_TYPE_FEATURES {
@@ -206,7 +206,7 @@ pub fn observation_from_state(state: &EnvState) -> Tensor {
     }
 
     // ============================================================================
-    // Voucher ownership flags (32)
+    // Voucher ownership flags (36)
     // ============================================================================
     for i in 0..VOUCHER_FEATURES {
         let owned = state
@@ -234,7 +234,7 @@ pub fn observation_from_state(state: &EnvState) -> Tensor {
     }
 
     // ============================================================================
-    // Tag counts (22)
+    // Tag counts (25)
     // Count of each tag type
     // ============================================================================
     let mut tag_counts = [0.0f32; TAG_FEATURES];

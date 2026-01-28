@@ -25,7 +25,7 @@ SHOP_VOUCHER_COUNT = 1
 SHOP_PACK_COUNT = 2
 
 # Observation 常量
-SCALAR_COUNT = 20  # 擴展的標量特徵
+SCALAR_COUNT = 32  # 標量特徵數（需與 Rust 端一致）
 SELECTION_FEATURES = HAND_SIZE
 CARD_BASE_FEATURES = 17  # 13 rank + 4 suit
 CARD_ENHANCE_FEATURES = 4  # enhancement, seal, edition, face_down
@@ -45,11 +45,11 @@ SHOP_FEATURES = SHOP_JOKER_COUNT * SHOP_SINGLE_FEATURES  # 302
 
 # 新增觀察空間
 BOSS_BLIND_COUNT = 27
-DECK_TYPE_FEATURES = 12
+DECK_TYPE_FEATURES = 16
 STAKE_FEATURES = 8
-VOUCHER_FEATURES = 32
+VOUCHER_FEATURES = 36
 CONSUMABLE_FEATURES = 52  # Tarot(22) + Planet(12) + Spectral(18)
-TAG_FEATURES = 22
+TAG_FEATURES = 25
 
 # 計算總觀察空間大小
 TOTAL_OBS_SIZE = (
@@ -109,6 +109,20 @@ ACTION_MASK_SIZE = (
     + SHOP_PACK_COUNT
 )
 
+# Action space (MultiDiscrete) 對應 action mask layout
+ACTION_PARAM_SIZES = [
+    ACTION_TYPE_COUNT,                # action_type
+    *([2] * HAND_SIZE),               # card selection
+    3,                                # blind selection
+    SHOP_JOKER_COUNT,                 # shop joker purchase
+    JOKER_SLOTS,                      # sell joker slots
+    1,                                # reroll (no index)
+    1,                                # skip blind (no index)
+    CONSUMABLE_SLOT_COUNT,            # use consumable
+    SHOP_VOUCHER_COUNT,               # buy voucher (single)
+    SHOP_PACK_COUNT,                  # buy pack
+]
+
 # Scalar 索引
 SCALAR_IDX_SCORE_PROGRESS = 0
 SCALAR_IDX_ANTE = 1
@@ -125,11 +139,11 @@ SCALAR_IDX_STEP = 11
 SCALAR_IDX_BOSS_BLIND = 12
 SCALAR_IDX_CONSUMABLE_USAGE = 13
 SCALAR_IDX_VOUCHER_PROGRESS = 14
-SCALAR_IDX_HAND_LEVEL = 15
-SCALAR_IDX_TAG_COUNT = 16
-SCALAR_IDX_ENDLESS_MODE = 17
-SCALAR_IDX_ENDLESS_ANTE = 18
-SCALAR_IDX_REROLL_COST = 19
+SCALAR_IDX_HAND_LEVEL = 15  # 15..27 = 13 hand levels
+SCALAR_IDX_TAG_COUNT = 28
+SCALAR_IDX_ENDLESS_MODE = 29
+SCALAR_IDX_ENDLESS_ANTE = 30
+SCALAR_IDX_REROLL_COST = 31
 
 # Stage 常量
 STAGE_PRE_BLIND = 0
@@ -218,15 +232,24 @@ class EpisodeMetrics:
     _prev_joker_count: int = 0
     _in_blind_start_score: int = 0
 
-    def update_from_obs(self, scalars: np.ndarray, action_type: int, reward: float, done: bool):
-        """根據觀察和動作更新統計"""
-        # 解析 scalars
-        ante = max(1, int(scalars[SCALAR_IDX_ANTE] * 8))
-        stage = int(scalars[SCALAR_IDX_STAGE] * 4 + 0.5)
-        money = int(scalars[SCALAR_IDX_MONEY] * 100)
-        score = int(scalars[SCALAR_IDX_SCORE_PROGRESS] * scalars[SCALAR_IDX_ANTE] * 8 * 300)  # 近似
-        joker_count = int(scalars[SCALAR_IDX_JOKER_USAGE] * JOKER_SLOTS + 0.5)
-        round_num = int(scalars[SCALAR_IDX_ROUND] * 24)
+    def update_from_step(
+        self,
+        info: Dict[str, Any],
+        scalars: np.ndarray,
+        action_type: int,
+        reward: float,
+        done: bool,
+    ):
+        """根據 gRPC info + observation 更新統計"""
+        # 優先使用 gRPC info（真實值），不足時再從 scalars 估算
+        ante = int(info.get("ante", 1)) or 1
+        stage = int(info.get("stage", STAGE_PRE_BLIND))
+        money = int(info.get("money", 0))
+        score = int(info.get("chips", 0))
+        joker_count = int(info.get("joker_count", 0))
+        blind_type = int(info.get("blind_type", -1))
+        game_end = int(info.get("game_end", 0))
+        round_num = int(scalars[SCALAR_IDX_ROUND] * 24 + 0.5) if scalars.size > SCALAR_IDX_ROUND else 0
 
         self.total_steps += 1
         self.total_reward += reward
@@ -256,6 +279,9 @@ class EpisodeMetrics:
         # 動作特定統計
         if action_type == ACTION_TYPE_PLAY:
             self.plays_made += 1
+            cards_played = int(info.get("cards_played", 0))
+            if cards_played > 0:
+                self.total_cards_played += cards_played
         elif action_type == ACTION_TYPE_DISCARD:
             self.discards_made += 1
         elif action_type == ACTION_TYPE_BUY_JOKER:
@@ -290,7 +316,6 @@ class EpisodeMetrics:
                 self.max_score_in_blind = max(self.max_score_in_blind, blind_score)
                 self.total_score += blind_score
                 # Boss Blind 檢測
-                blind_type = int(scalars[SCALAR_IDX_BLIND_TYPE] * 2 + 0.5)
                 if blind_type == 2:  # Boss
                     self.boss_blinds_cleared += 1
 
@@ -322,8 +347,8 @@ class EpisodeMetrics:
             self.final_ante = ante
             self.final_round = round_num
             self.final_money = money
-            # 判斷勝負：Ante 8 且 stage 是 End
-            self.won = (ante >= 8 and stage == STAGE_END)
+            # 判斷勝負：以 game_end 為準
+            self.won = game_end == 1
             self.reward_from_game_end = reward if abs(reward) > 0.3 else 0
 
             # 計算平均出牌數
@@ -492,10 +517,8 @@ class JokerGymEnv(gym.Env):
             low=-np.inf, high=np.inf, shape=obs_shape, dtype=np.float32
         )
 
-        # Action space: [action_type, card_selection]
-        # action_type: 13 種
-        # card_selection: 8 張卡片，每張 0 或 1
-        self.action_space = spaces.MultiDiscrete([ACTION_TYPE_COUNT] + [2] * HAND_SIZE)
+        # Action space: MultiDiscrete 對應 action mask layout
+        self.action_space = spaces.MultiDiscrete(ACTION_PARAM_SIZES)
         self._last_done = False
         self._last_obs = None
 
@@ -517,10 +540,12 @@ class JokerGymEnv(gym.Env):
 
         response = self._client.reset(seed or 0)
         observation = _tensor_to_numpy(response.observation.features)
+        action_mask = _tensor_to_numpy(response.observation.action_mask) if response.observation else None
         info = _info_to_dict(response.info)
 
         self._last_done = False
         self._last_obs = observation
+        self._last_action_mask = _normalize_action_mask(action_mask)
         self._last_action_type = -1
 
         # 重置獎勵計算器
@@ -536,6 +561,7 @@ class JokerGymEnv(gym.Env):
         action_type, card_mask = _parse_action(action)
         response = self._client.step(action_type=action_type, action_id=card_mask)
         observation = _tensor_to_numpy(response.observation.features)
+        action_mask = _tensor_to_numpy(response.observation.action_mask) if response.observation else None
         info = _info_to_dict(response.info)
         terminated = response.done
         truncated = False
@@ -545,13 +571,14 @@ class JokerGymEnv(gym.Env):
 
         self._last_done = terminated
         self._last_obs = observation
+        self._last_action_mask = _normalize_action_mask(action_mask)
         self._last_action_type = action_type
 
         # 更新 metrics
         if self._track_metrics and self._episode_metrics is not None:
             scalars = observation[:SCALAR_COUNT]
-            self._episode_metrics.update_from_obs(
-                scalars, action_type, reward, terminated
+            self._episode_metrics.update_from_step(
+                info, scalars, action_type, reward, terminated
             )
 
             # 如果 episode 結束，將詳細 metrics 加入 info
@@ -566,8 +593,8 @@ class JokerGymEnv(gym.Env):
 
     def action_masks(self) -> np.ndarray:
         if self._last_done:
-            return np.zeros(ACTION_TYPE_COUNT + HAND_SIZE * 2, dtype=bool)
-        return _build_action_mask_from_obs(self._last_obs)
+            return np.zeros(ACTION_MASK_SIZE, dtype=bool)
+        return self._last_action_mask
 
     def get_aggregated_metrics(self) -> Dict[str, Any]:
         """取得聚合的 metrics（用於外部監控）"""
@@ -593,7 +620,7 @@ class JokerGymDictEnv(gym.Env):
         if obs_shape and obs_shape[0] != TOTAL_OBS_SIZE:
             print(f"Warning: Observation size mismatch. Expected {TOTAL_OBS_SIZE}, got {obs_shape[0]}")
 
-        self.action_space = spaces.MultiDiscrete([ACTION_TYPE_COUNT] + [2] * HAND_SIZE)
+        self.action_space = spaces.MultiDiscrete(ACTION_PARAM_SIZES)
         self.observation_space = spaces.Dict(
             {
                 "scalars": spaces.Box(
@@ -661,12 +688,13 @@ class JokerGymDictEnv(gym.Env):
 
         response = self._client.reset(seed or 0)
         flat = _tensor_to_numpy(response.observation.features)
+        action_mask = _tensor_to_numpy(response.observation.action_mask) if response.observation else None
         observation = _split_observation(flat)
         info = _info_to_dict(response.info)
 
         self._last_done = False
         self._last_obs = flat
-        self._last_action_mask = _action_mask_from_scalars(observation["scalars"])
+        self._last_action_mask = _normalize_action_mask(action_mask)
         self._last_action_type = -1
 
         # 重置獎勵計算器
@@ -682,6 +710,7 @@ class JokerGymDictEnv(gym.Env):
         action_type, card_mask = _parse_action(action)
         response = self._client.step(action_type=action_type, action_id=card_mask)
         flat = _tensor_to_numpy(response.observation.features)
+        action_mask = _tensor_to_numpy(response.observation.action_mask) if response.observation else None
         observation = _split_observation(flat)
         info = _info_to_dict(response.info)
         terminated = response.done
@@ -692,14 +721,14 @@ class JokerGymDictEnv(gym.Env):
 
         self._last_done = terminated
         self._last_obs = flat
-        self._last_action_mask = _action_mask_from_scalars(observation["scalars"])
+        self._last_action_mask = _normalize_action_mask(action_mask)
         self._last_action_type = action_type
 
         # 更新 metrics
         if self._track_metrics and self._episode_metrics is not None:
             scalars = observation["scalars"]
-            self._episode_metrics.update_from_obs(
-                scalars, action_type, reward, terminated
+            self._episode_metrics.update_from_step(
+                info, scalars, action_type, reward, terminated
             )
 
             # 如果 episode 結束，將詳細 metrics 加入 info
@@ -714,7 +743,7 @@ class JokerGymDictEnv(gym.Env):
 
     def action_masks(self) -> np.ndarray:
         if self._last_done:
-            return np.zeros(ACTION_TYPE_COUNT + HAND_SIZE * 2, dtype=bool)
+            return np.zeros(ACTION_MASK_SIZE, dtype=bool)
         return self._last_action_mask
 
     def get_aggregated_metrics(self) -> Dict[str, Any]:
@@ -737,6 +766,18 @@ def _tensor_to_numpy(tensor) -> np.ndarray:
     if tensor.shape:
         return data.reshape(tuple(tensor.shape))
     return data
+
+
+def _normalize_action_mask(mask: Optional[np.ndarray]) -> np.ndarray:
+    """確保 action mask 長度一致，並轉為 bool"""
+    if mask is None:
+        return np.ones(ACTION_MASK_SIZE, dtype=bool)
+    flat = np.asarray(mask, dtype=np.float32).flatten()
+    if flat.size < ACTION_MASK_SIZE:
+        flat = np.pad(flat, (0, ACTION_MASK_SIZE - flat.size))
+    elif flat.size > ACTION_MASK_SIZE:
+        flat = flat[:ACTION_MASK_SIZE]
+    return flat > 0.5
 
 
 def _split_observation(flat: np.ndarray) -> Dict[str, np.ndarray]:
@@ -780,7 +821,7 @@ def _split_observation(flat: np.ndarray) -> Dict[str, np.ndarray]:
     boss_blind = flat[offset : offset + BOSS_BLIND_COUNT]
     offset += BOSS_BLIND_COUNT
 
-    # Deck type one-hot (12)
+    # Deck type one-hot (16)
     deck_type = flat[offset : offset + DECK_TYPE_FEATURES]
     offset += DECK_TYPE_FEATURES
 
@@ -788,7 +829,7 @@ def _split_observation(flat: np.ndarray) -> Dict[str, np.ndarray]:
     stake = flat[offset : offset + STAKE_FEATURES]
     offset += STAKE_FEATURES
 
-    # Voucher ownership (32)
+    # Voucher ownership (36)
     vouchers = flat[offset : offset + VOUCHER_FEATURES]
     offset += VOUCHER_FEATURES
 
@@ -797,7 +838,7 @@ def _split_observation(flat: np.ndarray) -> Dict[str, np.ndarray]:
     consumables = consumables_flat.reshape((CONSUMABLE_SLOT_COUNT, CONSUMABLE_FEATURES))
     offset += CONSUMABLE_SLOT_COUNT * CONSUMABLE_FEATURES
 
-    # Tags (22)
+    # Tags (25)
     tags = flat[offset : offset + TAG_FEATURES]
 
     return {
@@ -854,11 +895,17 @@ def _info_to_dict(info) -> Dict[str, Any]:
         "cards_played": info.cards_played,
         "cards_discarded": info.cards_discarded,
         "hand_type": info.hand_type,
+
+        # Skip Blind 相關
+        "tag_id": info.tag_id,
+
+        # 消耗品相關
+        "consumable_id": info.consumable_id,
     }
 
 
 def _parse_action(action) -> tuple[int, int]:
-    """解析 action 為 (action_type, card_mask)"""
+    """解析 action 為 (action_type, action_id)"""
     if isinstance(action, (int, np.integer)):
         return int(action), 0
 
@@ -870,13 +917,45 @@ def _parse_action(action) -> tuple[int, int]:
     if action_type < 0 or action_type >= ACTION_TYPE_COUNT:
         action_type = 0
 
-    # 構建卡片選擇 mask
+    # 解析 card selection
     card_mask = 0
-    for idx, flag in enumerate(action[1 : 1 + HAND_SIZE]):
+    card_flags = action[1 : 1 + HAND_SIZE]
+    for idx, flag in enumerate(card_flags):
         if flag:
             card_mask |= 1 << idx
 
-    return action_type, card_mask
+    # 其他 action 參數（依照 ACTION_PARAM_SIZES）
+    offset = 1 + HAND_SIZE
+    blind_choice = int(action[offset]) if action.size > offset else 0
+    offset += 1
+    shop_choice = int(action[offset]) if action.size > offset else 0
+    offset += 1
+    sell_choice = int(action[offset]) if action.size > offset else 0
+    offset += 1
+    offset += 1  # reroll (no index)
+    offset += 1  # skip blind (no index)
+    consumable_choice = int(action[offset]) if action.size > offset else 0
+    offset += 1
+    offset += 1  # voucher (single)
+    pack_choice = int(action[offset]) if action.size > offset else 0
+
+    # 根據 action_type 決定 action_id
+    if action_type == ACTION_TYPE_SELECT:
+        action_id = card_mask
+    elif action_type == ACTION_TYPE_SELECT_BLIND:
+        action_id = blind_choice
+    elif action_type == ACTION_TYPE_BUY_JOKER:
+        action_id = shop_choice
+    elif action_type == ACTION_TYPE_SELL_JOKER:
+        action_id = sell_choice
+    elif action_type == ACTION_TYPE_USE_CONSUMABLE:
+        action_id = consumable_choice
+    elif action_type == ACTION_TYPE_BUY_PACK:
+        action_id = pack_choice
+    else:
+        action_id = 0
+
+    return action_type, action_id
 
 
 def _action_mask_from_scalars(scalars: np.ndarray) -> np.ndarray:
@@ -922,17 +1001,19 @@ def _build_action_mask(
     has_money: bool = True,
 ) -> np.ndarray:
     """
-    構建 MaskablePPO 的 action mask。
+    構建 action mask（與 ACTION_MASK_SIZE 對齊）。
 
-    Action Space: MultiDiscrete([13, 2, 2, 2, 2, 2, 2, 2, 2])
-    - 維度 0: action_type (13 種)
-    - 維度 1-8: 每張卡片的選擇 (不選=0, 選=1)
-
-    Mask 結構 (長度 13 + 8*2 = 29):
-    - [0-12]: action_type mask
-    - [13-14]: 卡片 0 的 [不選, 選]
-    - [15-16]: 卡片 1 的 [不選, 選]
-    - ...
+    Mask 結構:
+    - [0-12]: action_type
+    - [13..29]: card selection (8 * 2)
+    - [29..32]: blind selection (3)
+    - [32..34]: shop joker (2)
+    - [34..39]: sell joker slots (5)
+    - [39]: reroll
+    - [40]: skip blind
+    - [41..43]: use consumable (2)
+    - [43]: buy voucher
+    - [44..46]: buy pack (2)
     """
     mask = []
 
@@ -956,5 +1037,29 @@ def _build_action_mask(
     for _ in range(HAND_SIZE):
         mask.append(can_select)  # 不選
         mask.append(can_select)  # 選
+
+    # Blind selection (3)
+    mask.extend([in_pre_blind] * 3)
+
+    # Shop joker purchase (2)
+    mask.extend([in_shop and has_money] * SHOP_JOKER_COUNT)
+
+    # Sell joker slots (5)
+    mask.extend([in_shop] * JOKER_SLOTS)
+
+    # Reroll (1)
+    mask.append(in_shop and has_money)
+
+    # Skip blind (1)
+    mask.append(in_pre_blind)
+
+    # Use consumable (2)
+    mask.extend([in_blind] * CONSUMABLE_SLOT_COUNT)
+
+    # Buy voucher (1)
+    mask.append(in_shop and has_money)
+
+    # Buy pack (2)
+    mask.extend([in_shop and has_money] * SHOP_PACK_COUNT)
 
     return np.array(mask, dtype=bool)

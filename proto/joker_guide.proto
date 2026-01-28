@@ -37,9 +37,20 @@ message GetSpecResponse {
 }
 
 message Observation {
-  // features layout:
-  // [scalars(8), selection_mask(5), hand(5*17), hand_type(10), deck_counts(52), jokers(5*2)]
-  // joker slots: (id, enabled) pairs, id=0 means empty.
+  // features layout (flat):
+  // scalars(32),
+  // selection_mask(8),
+  // hand(8*21),
+  // hand_type(13),
+  // deck_counts(52),
+  // jokers(5*153),
+  // shop(2*151),
+  // boss_blind(27),
+  // deck_type(16),
+  // stake(8),
+  // vouchers(36),
+  // consumables(2*52),
+  // tags(25)
   Tensor features = 1;
   Tensor action_mask = 2;
 }
@@ -95,4 +106,10 @@ message EnvInfo {
   int32 cards_played = 19;      // 這次出牌的卡片數量
   int32 cards_discarded = 20;   // 這次棄牌的卡片數量
   int32 hand_type = 21;         // 打出的牌型 ID (-1 = 無)
+
+  // Skip Blind 相關
+  int32 tag_id = 22;            // 跳過 Blind 獲得的 Tag ID (-1 = 無)
+
+  // 消耗品相關
+  int32 consumable_id = 23;     // 使用的消耗品 ID (-1 = 無)
 }

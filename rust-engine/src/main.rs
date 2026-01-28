@@ -102,6 +102,12 @@ impl JokerEnv for EnvService {
             cards_played: 0,
             cards_discarded: 0,
             hand_type: -1,
+
+            // Skip Blind 相關（reset 時無 Tag）
+            tag_id: -1,
+
+            // 消耗品相關（reset 時無消耗品使用）
+            consumable_id: -1,
         };
 
         Ok(Response::new(ResetResponse {
@@ -1113,6 +1119,9 @@ impl JokerEnv for EnvService {
                     ACTION_TYPE_USE_CONSUMABLE => {
                         let index = action_id as usize;
                         if let Some(consumable) = state.consumables.use_item(index) {
+                            // 記錄使用的消耗品 ID 供 Python 端獎勵計算使用
+                            state.last_consumable_id = consumable.to_global_index() as i32;
+
                             // 根據消耗品類型更新狀態
                             match &consumable {
                                 Consumable::Planet(planet_id) => {
@@ -2018,6 +2027,9 @@ impl JokerEnv for EnvService {
                     ACTION_TYPE_USE_CONSUMABLE => {
                         let index = action_id as usize;
                         if let Some(consumable) = state.consumables.use_item(index) {
+                            // 記錄使用的消耗品 ID 供 Python 端獎勵計算使用
+                            state.last_consumable_id = consumable.to_global_index() as i32;
+
                             // 根據消耗品類型更新狀態
                             match &consumable {
                                 Consumable::Planet(planet_id) => {
@@ -2218,6 +2230,12 @@ impl JokerEnv for EnvService {
             cards_played,
             cards_discarded,
             hand_type: hand_type_id,
+
+            // Skip Blind 相關
+            tag_id: state.last_tag_id,
+
+            // 消耗品相關
+            consumable_id: state.last_consumable_id,
         };
 
         Ok(Response::new(StepResponse {

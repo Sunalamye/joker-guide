@@ -149,6 +149,12 @@ pub struct EnvState {
 
     // Observatory: 追蹤使用過 Planet 的牌型 (bitmask)
     pub planet_used_hand_types: u16,
+
+    // Skip Blind 追蹤：最後獲得的 Tag ID (-1 = 無)
+    pub last_tag_id: i32,
+
+    // 消耗品追蹤：最後使用的消耗品 ID (-1 = 無)
+    pub last_consumable_id: i32,
 }
 
 impl EnvState {
@@ -199,6 +205,8 @@ impl EnvState {
             hand_size_modifier: 0,
             last_used_consumable: None,
             planet_used_hand_types: 0,
+            last_tag_id: -1,
+            last_consumable_id: -1,
         }
     }
 
@@ -253,6 +261,8 @@ impl EnvState {
             hand_size_modifier: 0,
             last_used_consumable: None,
             planet_used_hand_types: 0,
+            last_tag_id: -1,
+            last_consumable_id: -1,
         };
 
         // === Deck 特定初始效果 ===
@@ -308,6 +318,9 @@ impl EnvState {
         // 獲得隨機 Tag
         let tag_id = TagId::random(&mut self.rng);
         let tag = Tag::new(tag_id);
+
+        // 記錄獲得的 Tag ID 供 Python 端獎勵計算使用
+        self.last_tag_id = tag_id.to_index() as i32;
 
         // 立即獲得金幣獎勵
         self.money += tag.id.immediate_money();
