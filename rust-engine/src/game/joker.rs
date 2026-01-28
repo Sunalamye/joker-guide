@@ -7,7 +7,7 @@
 
 use super::cards::{Card, Edition, Enhancement};
 use super::hand_types::HandId;
-use super::joker_def::JokerState;
+use super::joker_def::{JokerState, get_joker_def};
 
 // ============================================================================
 // Joker ID 系統 - 消除字串比對
@@ -207,78 +207,10 @@ pub enum JokerId {
 
 impl JokerId {
     /// 獲取 Joker 的基礎成本
+    ///
+    /// 從 JOKER_DEFINITIONS 靜態表查詢，集中管理所有 Joker 的成本數據。
     pub fn base_cost(&self) -> i64 {
-        match self {
-            // Common jokers (rarity 1): 2-5
-            JokerId::Joker => 2,
-            JokerId::GreedyJoker
-            | JokerId::LustyJoker
-            | JokerId::WrathfulJoker
-            | JokerId::GluttonousJoker => 5,
-            JokerId::JollyJoker | JokerId::SlyJoker => 4,
-            JokerId::ZanyJoker | JokerId::WilyJoker => 5,
-            JokerId::MadJoker | JokerId::CleverJoker => 5,
-            JokerId::CrazyJoker | JokerId::DeviousJoker => 5,
-            JokerId::DrollJoker | JokerId::CraftyJoker => 5,
-            JokerId::HalfJoker => 5,
-            JokerId::Banner => 5,
-            JokerId::MysticSummit => 6,
-            JokerId::Misprint => 4,
-            JokerId::AbstractJoker => 6,
-
-            // Uncommon jokers (rarity 2): 5-7
-            JokerId::RideTheBus => 6,
-            JokerId::GreenJoker => 5,
-            JokerId::SteelJoker => 7,
-            JokerId::GlassJoker => 6,
-            JokerId::Hologram => 5,
-            JokerId::BlueJoker => 5,
-            JokerId::SuperPosition => 6,
-            JokerId::DuskJoker => 6,
-            JokerId::Fibonacci => 6,
-            JokerId::ScaryFace => 5,
-            JokerId::EvenSteven => 5,
-            JokerId::OddTodd => 5,
-            JokerId::Scholar => 5,
-            JokerId::BusinessCard => 5,
-            JokerId::Supernova => 6,
-            JokerId::GoldenJoker => 6,
-            JokerId::Egg => 4,
-            JokerId::Bull => 6,
-            JokerId::Rocket => 6,
-            JokerId::FortuneTeller => 5,
-            JokerId::SpaceJoker => 5,
-            JokerId::Erosion => 6,
-            JokerId::ToTheMoon => 6,
-
-            // Rare jokers (rarity 3): 7-8
-            JokerId::FourFingers => 7,
-            JokerId::Shortcut => 6,
-            JokerId::Splash => 7,
-            JokerId::Photograph => 7,
-            JokerId::Bloodstone => 7,
-            JokerId::Arrowhead => 7,
-            JokerId::Onyx => 8,
-            JokerId::Opal => 8,
-            JokerId::Blueprint => 10,
-            JokerId::Brainstorm => 10,
-            JokerId::Baron => 8,
-            JokerId::Acrobat => 8,
-            JokerId::SockAndBuskin => 8,
-            JokerId::DNA => 8,
-            JokerId::Mime => 8,
-            JokerId::Vampire => 8,
-            JokerId::Cavendish => 7,
-            JokerId::Card_Sharp => 7,
-            JokerId::The_Duo => 7,
-            JokerId::The_Trio => 7,
-            JokerId::The_Family => 8,
-            JokerId::The_Order => 7,
-            JokerId::The_Tribe => 7,
-
-            // Default cost
-            _ => 5,
-        }
+        get_joker_def(*self as usize).cost
     }
 
     /// 獲取稀有度 (1=Common, 2=Uncommon, 3=Rare, 4=Legendary)
