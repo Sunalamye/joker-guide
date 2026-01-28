@@ -1,9 +1,0 @@
-{
-  "id": "15",
-  "subject": "1.2.10 遷移 ancient_suit 到 JokerState::Target",
-  "description": "遷移 AncientJoker 的狀態：\n\n**現有位置**：\n- 定義：joker.rs:1380\n- 初始化：joker.rs:1493 (=0)\n- 讀取：joker.rs:1658\n- 寫入：main.rs:262 (每回合隨機)，joker.rs:1493 (set_ancient_suit)\n\n**遷移步驟**：\n1. 使用 JokerState::Target { suit: 0, rank: 0, value: 0 }\n2. set_ancient_suit() 改為修改 state.suit\n3. main.rs:262 的調用保持不變\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "遷移 ancient_suit",
-  "status": "completed",
-  "blocks": [],
-  "blockedBy": []
-}

@@ -1,9 +1,0 @@
-{
-  "id": "23",
-  "subject": "1.2.18 遷移 ice_cream_chips 到 JokerState::Accumulator",
-  "description": "遷移 IceCream 的狀態（衰減型）：\n\n**現有位置**：\n- 定義：joker.rs:1391\n- 初始化：if IceCream 則 =100\n- 讀取：joker.rs:1696\n- 寫入：main.rs:908-910 (-5，到 0 時自毀)\n\n**遷移步驟**：\n1. 使用 JokerState::Accumulator { chips: 100, .. }\n2. main.rs:908 改為 state.chips -= 5\n3. main.rs:909-910 檢查 state.chips <= 0 時自毀\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "遷移 ice_cream_chips",
-  "status": "completed",
-  "blocks": [],
-  "blockedBy": []
-}

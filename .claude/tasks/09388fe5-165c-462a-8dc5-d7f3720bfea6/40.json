@@ -1,9 +1,0 @@
-{
-  "id": "40",
-  "subject": "2.4.3 實現花色計數類 Joker 模板 (11 個)",
-  "description": "為花色計數類 Joker 添加 EffectDef：\n\n**+Money**：GreedyJoker(D+$3), LustyJoker(H+$3), WrathfulJoker(S+$3), GluttonousJoker(C+$3), RoughGem(D+$1)\n**+Chips**：Arrowhead(S+50C)\n**+Mult**：Onyx(C+80M)\n**xMult**：Opal(D x1.5^n), Bloodstone(H 50% x1.5)\n\n**實現**：\n```rust\neffect: EffectDef::CountBonus {\n    filter: CardFilter::Suit(DIAMOND),\n    per_card: BonusDef::Money(3),\n}\n```\n\n**驗證**：單元測試\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "實現花色計數模板",
-  "status": "pending",
-  "blocks": [],
-  "blockedBy": []
-}

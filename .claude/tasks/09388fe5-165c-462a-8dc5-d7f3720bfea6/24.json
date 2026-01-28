@@ -1,9 +1,0 @@
-{
-  "id": "24",
-  "subject": "1.2.19 遷移 popcorn_mult 到 JokerState::Accumulator",
-  "description": "遷移 Popcorn 的狀態（衰減型）：\n\n**現有位置**：\n- 定義：joker.rs:1392\n- 初始化：if Popcorn 則 =20\n- 讀取：joker.rs:1700\n- 寫入：main.rs:315-317 (-4，到 0 時自毀)\n\n**遷移步驟**：\n1. 使用 JokerState::Accumulator { mult: 20, .. }\n2. main.rs:315 改為 state.mult -= 4\n3. main.rs:316-317 檢查 state.mult <= 0 時自毀\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "遷移 popcorn_mult",
-  "status": "completed",
-  "blocks": [],
-  "blockedBy": []
-}

@@ -1,9 +1,0 @@
-{
-  "id": "31",
-  "subject": "1.2.26 遷移 chaos_free_reroll_used 到 JokerState::Counter",
-  "description": "遷移 ChaosTheClown 的狀態：\n\n**現有位置**：\n- 定義：joker.rs:1390\n- 讀取：main.rs:1982\n- 寫入：main.rs:287 (重置=false)，main.rs:2007 (設為 true)\n\n**遷移步驟**：\n1. 使用 JokerState::Counter { current: 0, threshold: 1, bonus_mult: 0.0 }\n2. current=0 表示未使用，current=1 表示已使用\n3. main.rs:287 改為 state.current = 0\n4. main.rs:2007 改為 state.current = 1\n5. main.rs:1982 改為檢查 state.current == 0\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "遷移 chaos_free_reroll_used",
-  "status": "pending",
-  "blocks": [],
-  "blockedBy": []
-}

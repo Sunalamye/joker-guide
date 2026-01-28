@@ -1,9 +1,0 @@
-{
-  "id": "7",
-  "subject": "1.2.2 遷移 canio_mult 到 JokerState::Accumulator",
-  "description": "遷移 Canio 的狀態：\n\n**現有位置**：\n- 定義：joker.rs:1371\n- 初始化：joker.rs:1440 (=1.0)\n- 讀取：joker.rs:1522, 1620, 1907, 1914\n- 寫入：joker.rs:1440 (update_canio)，state.rs:829-834\n\n**遷移步驟**：\n1. JokerSlot::new() 中，若 id == Canio，設置 state = Accumulator { x_mult: 1.0, .. }\n2. update_canio_on_face_destroyed() 改為修改 state.x_mult\n3. compute_joker_effect_with_state() 改為讀取 state.x_mult\n4. state.rs:829-834 的調用保持不變（方法內部已改）\n\n**驗證**：cargo test，確保 Canio 行為不變\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "遷移 canio_mult 到 JokerState::Accumulator",
-  "status": "completed",
-  "blocks": [],
-  "blockedBy": []
-}

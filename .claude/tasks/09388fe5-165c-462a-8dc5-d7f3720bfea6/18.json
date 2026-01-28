@@ -1,9 +1,0 @@
-{
-  "id": "18",
-  "subject": "1.2.13 遷移 wee_chips 到 JokerState::Accumulator",
-  "description": "遷移 Wee 的狀態：\n\n**現有位置**：\n- 定義：joker.rs:1395\n- 初始化：joker.rs (=0)\n- 讀取：joker.rs:1712\n- 寫入：main.rs:301 (+8)\n\n**遷移步驟**：\n1. 使用 JokerState::Accumulator { chips: 0, .. }\n2. main.rs:301 改為 state.chips += 8\n3. compute 讀取 state.chips\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "遷移 wee_chips",
-  "status": "completed",
-  "blocks": [],
-  "blockedBy": []
-}

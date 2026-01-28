@@ -1,9 +1,0 @@
-{
-  "id": "39",
-  "subject": "2.4.2 實現牌型條件類 Joker 模板 (18 個)",
-  "description": "為牌型條件類 Joker 添加 EffectDef：\n\n**Pair 系列**：JollyJoker(+8M), SlyJoker(+50C), The_Duo(x2)\n**ThreeKind 系列**：ZanyJoker(+12M), WilyJoker(+100C), The_Trio(x3)\n**TwoPair**：MadJoker(+10M), CleverJoker(+80C), Trousers(+4M)\n**Straight**：CrazyJoker(+12M), DeviousJoker(+100C), The_Order(x3), Runner(+15C)\n**Flush**：DrollJoker(+10M), CraftyJoker(+80C), The_Tribe(x2)\n**FourKind**：The_Family(x4)\n**StraightFlush**：SuperPosition(x2)\n\n**實現**：\n```rust\neffect: EffectDef::Conditional {\n    condition: Condition::HandTypeIn(&[HandId::Pair, HandId::TwoPair, ...]),\n    bonus: BonusDef::Mult(8),\n}\n```\n\n**驗證**：單元測試\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "實現牌型條件模板",
-  "status": "pending",
-  "blocks": [],
-  "blockedBy": []
-}

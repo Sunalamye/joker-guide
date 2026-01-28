@@ -1,9 +1,0 @@
-{
-  "id": "42",
-  "subject": "2.4.5 實現狀態相關類 Joker 模板 (25 個)",
-  "description": "為狀態相關類 Joker 添加 EffectDef：\n\n**遊戲狀態**：\n- Banner(棄牌*30C), MysticSummit(0棄牌+15M)\n- AbstractJoker(Joker數*3M), BaseballCard(UC數 x1.5^n)\n- BlueJoker(牌組*2C), Erosion(缺牌*4M), SquareJoker(52張+4C*n)\n- Bull($*2C), ToTheMoon($5+$1), Bootstraps($5*2M)\n- Supernova(出牌數*1M), FortuneTeller(Tarot*1M), Constellation(Planet*0.1X)\n- Throwback(跳過*0.25X), RedCard(跳過*3M), Flash(Reroll*2M)\n- SteelJoker(Steel*0.2X), GlassJoker(碎裂*0.75X), Hologram(加牌*0.25X)\n- Stencil(空槽*1X), DriversLicense(16+增強x3)\n- Stone(Stone牌*25C)\n\n**時機**：DuskJoker(末手x2), Acrobat(末手x3), DNA(首手x2), Card_Sharp(非首手x3)\n\n**實現**：\n```rust\neffect: EffectDef::Stateful {\n    calculator: |state, ctx| { ... }\n}\n```\n\n**驗證**：單元測試\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "實現狀態相關模板",
-  "status": "pending",
-  "blocks": [],
-  "blockedBy": []
-}

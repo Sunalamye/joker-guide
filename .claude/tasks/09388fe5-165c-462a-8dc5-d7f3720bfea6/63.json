@@ -1,9 +1,0 @@
-{
-  "id": "63",
-  "subject": "Phase 4: 清理和最終驗證",
-  "description": "清理舊代碼，進行最終驗證和性能測試。\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "清理和驗證",
-  "status": "pending",
-  "blocks": [],
-  "blockedBy": []
-}

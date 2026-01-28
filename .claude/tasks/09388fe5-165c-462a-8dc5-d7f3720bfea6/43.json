@@ -1,9 +1,0 @@
-{
-  "id": "43",
-  "subject": "2.4.6 實現手牌計數類 Joker 模板 (6 個)",
-  "description": "為手牌計數類 Joker 添加 EffectDef：\n\n**檢查未出的手牌**：\n- Baron(K x1.5^n, Mime雙倍)\n- ShootTheMoon(Q +13M*n, Mime雙倍)\n- Swashbuckler(2-7 +2M*n)\n- RaisedFist(最低點 +rank*2M)\n- Courier(非A +25C*n)\n- Blackboard(全黑 x3)\n\n**實現**：需要特殊的 CardScope::HandCards\n\n**驗證**：單元測試\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "實現手牌計數模板",
-  "status": "pending",
-  "blocks": [],
-  "blockedBy": []
-}

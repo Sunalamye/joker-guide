@@ -1,9 +1,0 @@
-{
-  "id": "4",
-  "subject": "Phase 1: JokerState 遷移（狀態欄位整合）",
-  "description": "將 JokerSlot 的 30+ 專屬狀態欄位遷移到統一的 JokerState enum。按依賴複雜度分批進行。\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "JokerState 遷移",
-  "status": "pending",
-  "blocks": [],
-  "blockedBy": []
-}

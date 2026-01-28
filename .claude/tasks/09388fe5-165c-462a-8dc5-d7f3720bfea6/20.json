@@ -1,9 +1,0 @@
-{
-  "id": "20",
-  "subject": "1.2.15 遷移 green_mult 到 JokerState::Accumulator",
-  "description": "遷移 GreenJoker 的狀態：\n\n**現有位置**：\n- 定義：joker.rs:1397\n- 讀取：joker.rs:1724\n- 寫入：main.rs:294 (重置=0)，main.rs:918 (+1)\n\n**遷移步驟**：\n1. 使用 JokerState::Accumulator { mult: 0, .. }\n2. main.rs:294 改為 state.mult = 0（每回合重置）\n3. main.rs:918 改為 state.mult += 1（出牌時）\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "遷移 green_mult",
-  "status": "completed",
-  "blocks": [],
-  "blockedBy": []
-}

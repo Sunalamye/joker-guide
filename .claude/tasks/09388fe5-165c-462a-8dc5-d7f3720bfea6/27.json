@@ -1,9 +1,0 @@
-{
-  "id": "27",
-  "subject": "1.2.22 遷移 selzer_charges 到 JokerState::Counter",
-  "description": "遷移 Selzer 的狀態（跨模組依賴）：\n\n**現有位置**：\n- 定義：joker.rs:1384\n- 初始化：if Selzer 則 =10\n- 讀取：main.rs:613, 617；scoring.rs:48, 90, 91, 128, 130, 131, 205\n- 寫入：main.rs:703-705 (每張重觸發牌 -1，到 0 時自毀)\n\n**遷移步驟**：\n1. 使用 JokerState::Counter { current: 10, threshold: 0, bonus_mult: 0.0 }\n2. scoring.rs 讀取改為 state.current\n3. main.rs:703-705 改為 state.current -= 1\n\n**注意**：此欄位跨 scoring.rs，需同時修改兩個文件\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "遷移 selzer_charges",
-  "status": "pending",
-  "blocks": [],
-  "blockedBy": []
-}

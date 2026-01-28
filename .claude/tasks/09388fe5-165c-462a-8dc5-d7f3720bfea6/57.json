@@ -1,9 +1,0 @@
-{
-  "id": "57",
-  "subject": "3.4.2 替換 main.rs 跳過 Blind 事件邏輯",
-  "description": "替換 main.rs 中 SKIP_BLIND 相關的 3 處 JokerId 檢查：\n\n**位置**：main.rs:528-551\n\n**替換為**：\n```rust\ntrigger_joker_events(&mut state.jokers, GameEvent::BlindSkipped, &mut ctx);\n```\n\n**涉及 Joker**：RedCard, Cartomancer, Astronomer\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "替換跳過 Blind 邏輯",
-  "status": "pending",
-  "blocks": [],
-  "blockedBy": []
-}

@@ -1,9 +1,0 @@
-{
-  "id": "30",
-  "subject": "1.2.25 遷移 todo_hand_type 到 JokerState::Target",
-  "description": "遷移 ToDoList 的狀態：\n\n**現有位置**：\n- 定義：joker.rs:1387\n- 讀取：main.rs:875\n- 寫入：main.rs:882, 1898 (隨機設置)\n\n**遷移步驟**：\n1. 使用 JokerState::Target { suit: 0, rank: 0, value: 0 }（借用 value 存牌型 ID）\n2. main.rs:875 改為讀取 state.value\n3. main.rs:882, 1898 改為 state.value = random_hand_type\n\n**驗證**：cargo test\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "遷移 todo_hand_type",
-  "status": "pending",
-  "blocks": [],
-  "blockedBy": []
-}

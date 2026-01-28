@@ -1,9 +1,0 @@
-{
-  "id": "1",
-  "subject": "Phase 0: 建立新的類型基礎設施",
-  "description": "創建新的類型定義文件，不修改任何現有代碼。這是零風險的準備階段。\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "建立類型基礎設施",
-  "status": "pending",
-  "blocks": [],
-  "blockedBy": []
-}

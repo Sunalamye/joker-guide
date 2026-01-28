@@ -1,9 +1,0 @@
-{
-  "id": "41",
-  "subject": "2.4.4 實現點數計數類 Joker 模板 (12 個)",
-  "description": "為點數計數類 Joker 添加 EffectDef：\n\n**Fibonacci**：1,2,3,5,8 +8M\n**FaceCard**：ScaryFace(+30C), Smiley(+5M), BusinessCard(50%+$2), Photograph(x2), Triboulet(K/Q各x2)\n**Even/Odd**：EvenSteven(+4M), OddTodd(+31C), Even_Steven(全偶x2), Odd_Todd_2(全奇x2)\n**其他**：Scholar(A +20C+4M), Walkie(4/10 +10M)\n\n**實現**：\n```rust\neffect: EffectDef::CountBonus {\n    filter: CardFilter::RankSet(vec![1, 2, 3, 5, 8]),\n    per_card: BonusDef::Mult(8),\n}\n```\n\n**驗證**：單元測試\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "實現點數計數模板",
-  "status": "pending",
-  "blocks": [],
-  "blockedBy": []
-}

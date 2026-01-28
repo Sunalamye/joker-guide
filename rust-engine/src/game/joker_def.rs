@@ -1244,6 +1244,85 @@ pub fn get_effect_def(id_index: usize) -> EffectDef {
             per_card: BonusDef::Chips(25),
         },
 
+        // ====================================================================
+        // 2.4.5 狀態相關類 Joker (25 個) - 需要 JokerState 或 ScoringContext
+        // ====================================================================
+
+        // #117: RideTheBus (20): +Mult per consecutive non-face hand
+        20 => EffectDef::Stateful,
+
+        // #118: GreenJoker (28): +Mult per hand played this round
+        28 => EffectDef::Stateful,
+
+        // #119: IceCream (60): +100 Chips -5 per hand
+        60 => EffectDef::Stateful,
+
+        // #120: Popcorn (67): +20 Mult -4 per round
+        67 => EffectDef::Stateful,
+
+        // #121: Ramen (69): X2 -0.01 per discard
+        69 => EffectDef::Stateful,
+
+        // #122: Campfire (74): X+0.25 per card sold
+        74 => EffectDef::Stateful,
+
+        // #123: Wee (90): +8 Chips per round
+        90 => EffectDef::Stateful,
+
+        // #124: Merry (91): +3 Mult per round
+        91 => EffectDef::Stateful,
+
+        // #125: Vampire (97): X+0.1 per enhancement absorbed
+        97 => EffectDef::Stateful,
+
+        // #126: GlassJoker (22): X+0.75 per Glass broken
+        22 => EffectDef::Stateful,
+
+        // #127: Hologram (23): X+0.25 per card added to deck
+        23 => EffectDef::Stateful,
+
+        // #128: Constellation (64): X+0.1 per Planet used
+        64 => EffectDef::Stateful,
+
+        // #129: Yorick (122): X1 per 23 discards
+        122 => EffectDef::Stateful,
+
+        // #130: Hit_The_Road (110): X+0.5 per Jack discarded
+        110 => EffectDef::Stateful,
+
+        // #131: Lucky_Cat (129): X+0.25 per Lucky triggered
+        129 => EffectDef::Stateful,
+
+        // #132: Obelisk (130): X+0.2 per non-most-played hand streak
+        130 => EffectDef::Stateful,
+
+        // #133: Canio (120): X+1 per face card destroyed
+        120 => EffectDef::Stateful,
+
+        // #134: Caino (139): X+0.1 per face card destroyed
+        139 => EffectDef::Stateful,
+
+        // #135: Madness (93): X+0.5 per Joker destroyed
+        93 => EffectDef::Stateful,
+
+        // #136: Castle (72): +Chips per suit discarded (Target state)
+        72 => EffectDef::Stateful,
+
+        // #137: AncientJoker (68): X1.5 for target suit (Target state)
+        68 => EffectDef::Stateful,
+
+        // #138: TheIdol (159): Target card X2 (Target state)
+        159 => EffectDef::Stateful,
+
+        // #139: Selzer (71): 10 cards retrigger (Counter state)
+        71 => EffectDef::Stateful,
+
+        // #140: LoyaltyCard (142): X4 every 6 hands (Counter state)
+        142 => EffectDef::Stateful,
+
+        // #141: ToDoList (155): +$4 for target hand type (Target state)
+        155 => EffectDef::Stateful,
+
         // 其他 Joker 暫時返回默認效果（待實現）
         _ => EffectDef::default(),
     }

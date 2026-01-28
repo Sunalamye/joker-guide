@@ -1,9 +1,0 @@
-{
-  "id": "38",
-  "subject": "2.4.1 實現固定加成類 Joker 模板 (5 個)",
-  "description": "為固定加成類 Joker 添加 EffectDef：\n\n| JokerId | chips | mult | x_mult | money |\n|---------|-------|------|--------|-------|\n| Joker | - | +4 | - | - |\n| GoldenJoker | - | - | - | +4 |\n| Stuntman | +250 | - | - | - |\n| Cavendish | - | - | x3.0 | - |\n| Gros_Michel | - | +15 | - | - |\n\n**實現**：\n```rust\neffect: EffectDef::Fixed { chips: 0, mult: 4, x_mult: 1.0, money: 0 }\n```\n\n**驗證**：單元測試\n\n[完成後 super-analyst-pro 完整分析當前的修改 如果沒有問題就 commit 後 執行下一個 todo 直到所有都完成才結束 ]",
-  "activeForm": "實現固定加成模板",
-  "status": "pending",
-  "blocks": [],
-  "blockedBy": []
-}
