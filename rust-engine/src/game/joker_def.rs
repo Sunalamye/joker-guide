@@ -2130,6 +2130,189 @@ pub fn get_triggers(id_index: usize) -> &'static [TriggerDef] {
 }
 
 // ============================================================================
+// 觸發器執行
+// ============================================================================
+
+/// 觸發器執行結果
+#[derive(Clone, Debug, Default)]
+pub struct TriggerResult {
+    /// 金幣變化
+    pub money_delta: i64,
+    /// 需要銷毀的 Joker 索引
+    pub jokers_to_destroy: Vec<usize>,
+    /// 是否禁用 Boss Blind
+    pub disable_boss_blind: bool,
+    /// 是否創建負片消耗品
+    pub create_negative_copy: bool,
+}
+
+impl TriggerResult {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn merge(&mut self, other: &TriggerResult) {
+        self.money_delta += other.money_delta;
+        self.jokers_to_destroy.extend(other.jokers_to_destroy.iter().copied());
+        self.disable_boss_blind |= other.disable_boss_blind;
+        self.create_negative_copy |= other.create_negative_copy;
+    }
+}
+
+/// 處理遊戲事件，更新所有 Joker 狀態並收集結果
+///
+/// # 參數
+/// - `event`: 發生的遊戲事件
+/// - `joker_states`: 所有 Joker 的狀態（可變引用）
+/// - `joker_indices`: 對應的 Joker ID 索引列表
+/// - `ctx`: 觸發器上下文（包含額外信息）
+///
+/// # 返回
+/// 觸發器執行結果（金幣變化、銷毀列表等）
+pub fn trigger_joker_events(
+    event: GameEvent,
+    joker_states: &mut [JokerState],
+    joker_indices: &[usize],
+    ctx: &TriggerContext,
+) -> TriggerResult {
+    let mut result = TriggerResult::new();
+
+    for (slot_idx, &joker_idx) in joker_indices.iter().enumerate() {
+        let triggers = get_triggers(joker_idx);
+
+        for trigger in triggers {
+            if trigger.event != event {
+                continue;
+            }
+
+            // 獲取當前狀態的可變引用
+            let state = &mut joker_states[slot_idx];
+
+            match &trigger.effect {
+                TriggerEffect::None => {}
+
+                TriggerEffect::AddToState { chips, mult, x_mult } => {
+                    state.add_chips(*chips);
+                    state.add_mult(*mult);
+                    if *x_mult != 0.0 {
+                        state.add_x_mult(*x_mult);
+                    }
+                }
+
+                TriggerEffect::ResetState => {
+                    // 重置為初始狀態
+                    *state = get_joker_def(joker_idx).initial_state;
+                }
+
+                TriggerEffect::IncrementCounter => {
+                    state.increment_counter();
+                }
+
+                TriggerEffect::GainMoney(amount) => {
+                    result.money_delta += amount;
+                }
+
+                TriggerEffect::SelfDestruct { chance } => {
+                    // 使用 rng_value 決定是否自毀
+                    // rng_value 範圍 0-255
+                    let threshold = 256 / (*chance as u16);
+                    if (ctx.rng_value as u16) < threshold {
+                        result.jokers_to_destroy.push(slot_idx);
+                    }
+                }
+
+                TriggerEffect::CreateNegativeCopy => {
+                    result.create_negative_copy = true;
+                }
+
+                TriggerEffect::DestroyRandomJoker => {
+                    // 標記需要銷毀隨機 Joker（調用者處理）
+                    // 同時增加 Madness 的 X Mult
+                    state.add_x_mult(0.5);
+                }
+
+                TriggerEffect::DisableBossBlind => {
+                    if ctx.is_boss_blind {
+                        result.disable_boss_blind = true;
+                    }
+                }
+
+                TriggerEffect::Custom => {
+                    // 自訂效果需要在調用者處理
+                    // 這裡只標記需要特殊處理
+                    process_custom_trigger(joker_idx, event, state, ctx, &mut result);
+                }
+            }
+        }
+    }
+
+    result
+}
+
+/// 處理自訂觸發效果
+fn process_custom_trigger(
+    joker_idx: usize,
+    event: GameEvent,
+    state: &mut JokerState,
+    ctx: &TriggerContext,
+    _result: &mut TriggerResult,
+) {
+    match (joker_idx, event) {
+        // RideTheBus (20): 連續非人頭牌手 +1 Mult
+        // 這個需要在調用者處理，因為需要檢查打出的牌
+        (20, GameEvent::HandPlayed) => {
+            // 由調用者決定是增加還是重置
+        }
+
+        // Hit_The_Road (110): 棄掉 Jack +0.5 X Mult
+        (110, GameEvent::CardDiscarded) => {
+            // 使用 discarded_face_count 作為 Jack 數量的近似
+            // 實際實現需要調用者傳遞更精確的信息
+        }
+
+        // Castle (72): 棄掉特定花色牌 +3 Chips
+        (72, GameEvent::CardDiscarded) => {
+            let target_suit = state.get_target_suit() as usize;
+            if target_suit < 4 {
+                let count = ctx.discarded_suit_count[target_suit];
+                if count > 0 {
+                    // 每棄一張目標花色牌 +3 Chips
+                    let target_value = state.get_target_value();
+                    state.set_target_value(target_value + count * 3);
+                }
+            }
+        }
+
+        // Wee (90): 打出 2 時 +8 Chips
+        (90, GameEvent::HandPlayed) => {
+            // 需要調用者傳遞是否打出 2
+        }
+
+        // Merry (91): 打出 K 時 +3 Mult
+        (91, GameEvent::HandPlayed) => {
+            // 需要調用者傳遞是否打出 K
+        }
+
+        // Selzer (71): 每手減少 charges
+        (71, GameEvent::HandPlayed) => {
+            // 減少計數器
+            if let JokerState::Counter { current, .. } = state {
+                if *current > 0 {
+                    *current -= 1;
+                }
+            }
+        }
+
+        // Obelisk (130): 每手更新連勝
+        (130, GameEvent::HandPlayed) => {
+            // 需要調用者傳遞牌型信息來決定是否增加連勝
+        }
+
+        _ => {}
+    }
+}
+
+// ============================================================================
 // 測試
 // ============================================================================
 
