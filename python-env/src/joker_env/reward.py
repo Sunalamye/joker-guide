@@ -387,6 +387,10 @@ class StepInfo:
     # 消耗品相關
     consumable_id: int = -1  # -1 = 無（Tarot: 0-21, Planet: 22-33, Spectral: 34-51）
 
+    # Joker 交易相關
+    joker_sold_id: int = -1  # 賣出的 Joker ID (-1 = 無)
+    best_shop_joker_cost: int = 0  # 商店中最強 Joker 的成本
+
 
 def parse_env_info(info: dict) -> StepInfo:
     """從 gRPC EnvInfo 解析狀態"""
@@ -413,6 +417,8 @@ def parse_env_info(info: dict) -> StepInfo:
         hand_type=info.get("hand_type", -1),
         tag_id=info.get("tag_id", -1),
         consumable_id=info.get("consumable_id", -1),
+        joker_sold_id=info.get("joker_sold_id", -1),
+        best_shop_joker_cost=info.get("best_shop_joker_cost", 0),
     )
 
 
@@ -746,13 +752,18 @@ def sell_joker_reward(
     money_gained: int,
     ante: int,
     joker_count_before: int,
-    joker_slot_limit: int
+    joker_slot_limit: int,
+    joker_sold_id: int = -1
 ) -> float:
     """
     出售 Joker 獎勵（-0.2~0.2）
 
-    - 槽位壓力獎勵
-    - 金幣收益價值
+    Args:
+        money_gained: 賣出獲得的金幣
+        ante: 當前 Ante
+        joker_count_before: 賣出前的 Joker 數量
+        joker_slot_limit: Joker 槽位上限
+        joker_sold_id: 賣出的 Joker ID（用於精確評估損失）
     """
     # 槽位壓力獎勵
     if joker_count_before >= joker_slot_limit:
@@ -769,8 +780,15 @@ def sell_joker_reward(
     stage_mults = {1: 0.7, 2: 0.7, 3: 0.9, 4: 0.9, 5: 1.0, 6: 1.0, 7: 1.2, 8: 1.2}
     stage_mult = stage_mults.get(ante, 1.0)
 
-    # 簡化版：假設出售的是弱 Joker
-    loss_penalty = 0.04
+    # 根據 Joker ID 估算損失（基於稀有度）
+    if joker_sold_id >= 0:
+        # 使用賣價估算稀有度（賣價約為成本的一半）
+        estimated_cost = money_gained * 2
+        rarity = estimate_joker_rarity_from_cost(estimated_cost)
+        loss_penalty = JOKER_RARITY_VALUES.get(rarity, 0.08)
+    else:
+        # 未知 Joker，使用平均損失
+        loss_penalty = 0.08
 
     reward = (money_value + slot_pressure_bonus - loss_penalty) * stage_mult
     return clamp(reward, -0.2, 0.2)
@@ -913,12 +931,13 @@ class RewardCalculator:
 
         elif action_type == ACTION_TYPE_SELL_JOKER:
             if prev is not None:
-                # 直接使用 money_delta（Rust 端已計算）
+                # 直接使用 money_delta（Rust 端已計算）和 joker_sold_id
                 reward += sell_joker_reward(
                     info.money_delta,
                     info.ante,
                     prev.joker_count,
-                    info.joker_slot_limit
+                    info.joker_slot_limit,
+                    info.joker_sold_id
                 )
 
         elif action_type == ACTION_TYPE_REROLL:

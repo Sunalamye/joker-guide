@@ -108,6 +108,10 @@ impl JokerEnv for EnvService {
 
             // 消耗品相關（reset 時無消耗品使用）
             consumable_id: -1,
+
+            // Joker 交易相關
+            joker_sold_id: -1,
+            best_shop_joker_cost: state.shop.items.iter().map(|item| item.cost as i32).max().unwrap_or(0),
         };
 
         Ok(Response::new(ResetResponse {
@@ -1980,6 +1984,9 @@ impl JokerEnv for EnvService {
                             let sold_joker = state.jokers.remove(index);
                             let sell_value = sold_joker.sell_value;
 
+                            // 記錄賣出的 Joker ID 供 Python 端獎勵計算使用
+                            state.last_sold_joker_id = sold_joker.id.to_index() as i32;
+
                             // DietCola: 賣出時獲得免費 Double Tag
                             if sold_joker.id == JokerId::DietCola {
                                 state.tags.push(Tag::new(TagId::DoubleTag));
@@ -2236,6 +2243,10 @@ impl JokerEnv for EnvService {
 
             // 消耗品相關
             consumable_id: state.last_consumable_id,
+
+            // Joker 交易相關
+            joker_sold_id: state.last_sold_joker_id,
+            best_shop_joker_cost: state.shop.items.iter().map(|item| item.cost as i32).max().unwrap_or(0),
         };
 
         Ok(Response::new(StepResponse {

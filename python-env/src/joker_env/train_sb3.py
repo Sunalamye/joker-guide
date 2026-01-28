@@ -13,8 +13,12 @@ from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
 from joker_env import JokerGymDictEnv
 from joker_env.env import (
+    BOSS_BLIND_COUNT,
     CARD_FEATURES,
+    CONSUMABLE_FEATURES,
+    CONSUMABLE_SLOT_COUNT,
     DECK_FEATURES,
+    DECK_TYPE_FEATURES,
     HAND_FEATURES,
     HAND_SIZE,
     HAND_TYPE_COUNT,
@@ -22,6 +26,9 @@ from joker_env.env import (
     SCALAR_COUNT,
     SELECTION_FEATURES,
     SHOP_JOKER_COUNT,
+    STAKE_FEATURES,
+    TAG_FEATURES,
+    VOUCHER_FEATURES,
 )
 
 
@@ -40,51 +47,122 @@ CHECKPOINT_LOG = EXPERIMENTS_DIR / "checkpoints.jsonl"
 
 
 class JokerFeaturesExtractor(BaseFeaturesExtractor):
+    """
+    特徵提取器：使用嵌入層壓縮 Joker ID one-hot 編碼
+
+    觀察空間處理：
+    - Joker ID (150 維 one-hot) → 32 維嵌入 → 池化為單一向量
+    - Shop Joker ID → 同上
+    - 其他特徵直接傳遞
+    """
+
     def __init__(self, observation_space: spaces.Dict, joker_vocab_size: int, embed_dim: int = 32):
         features_dim = (
-            SCALAR_COUNT
-            + SELECTION_FEATURES
-            + HAND_FEATURES
-            + HAND_TYPE_COUNT
-            + DECK_FEATURES
-            + embed_dim  # pooled joker embedding
-            + JOKER_SLOTS  # joker_enabled flags
-            + embed_dim  # pooled shop embedding
-            + SHOP_JOKER_COUNT  # shop joker prices (normalized)
+            SCALAR_COUNT                    # 32: 遊戲狀態標量
+            + SELECTION_FEATURES            # 8: 手牌選擇遮罩
+            + HAND_FEATURES                 # 168: 8 * 21 手牌特徵
+            + HAND_TYPE_COUNT               # 13: 牌型 one-hot
+            + DECK_FEATURES                 # 52: 牌組計數
+            + embed_dim                     # 32: 池化後的 Joker 嵌入
+            + JOKER_SLOTS * 3               # 15: Joker 狀態標誌 (enabled, eternal, negative)
+            + embed_dim                     # 32: 池化後的 Shop 嵌入
+            + SHOP_JOKER_COUNT              # 2: Shop Joker 價格
+            + BOSS_BLIND_COUNT              # 27: Boss Blind one-hot
+            + DECK_TYPE_FEATURES            # 16: 牌組類型 one-hot
+            + STAKE_FEATURES                # 8: 難度 one-hot
+            + VOUCHER_FEATURES              # 36: Voucher 擁有標誌
+            + CONSUMABLE_SLOT_COUNT * embed_dim  # 64: 消耗品嵌入
+            + TAG_FEATURES                  # 25: Tag 計數
         )
         super().__init__(observation_space, features_dim=features_dim)
 
+        # Joker 嵌入層：將 ID one-hot 壓縮為低維向量
         self.joker_emb = torch.nn.Embedding(joker_vocab_size + 1, embed_dim, padding_idx=0)
         self.shop_emb = torch.nn.Embedding(joker_vocab_size + 1, embed_dim, padding_idx=0)
 
+        # 消耗品嵌入層
+        consumable_vocab_size = CONSUMABLE_FEATURES  # 52
+        self.consumable_emb = torch.nn.Embedding(consumable_vocab_size + 1, embed_dim, padding_idx=0)
+
+    def _extract_joker_id_from_onehot(self, jokers: torch.Tensor) -> torch.Tensor:
+        """從 one-hot 編碼提取 Joker ID（argmax）"""
+        # jokers shape: (batch, JOKER_SLOTS, 153)
+        # 前 150 維是 ID one-hot
+        joker_onehot = jokers[..., :150]
+        # argmax 獲取 ID，如果全為 0 則返回 0（空槽位）
+        joker_ids = joker_onehot.argmax(dim=-1)
+        # 檢查是否有有效的 one-hot（至少一個 1）
+        has_joker = joker_onehot.sum(dim=-1) > 0.5
+        joker_ids = joker_ids * has_joker.long()
+        return joker_ids
+
+    def _extract_consumable_id_from_onehot(self, consumables: torch.Tensor) -> torch.Tensor:
+        """從 one-hot 編碼提取消耗品 ID"""
+        # consumables shape: (batch, CONSUMABLE_SLOT_COUNT, 52)
+        consumable_ids = consumables.argmax(dim=-1)
+        has_consumable = consumables.sum(dim=-1) > 0.5
+        consumable_ids = consumable_ids * has_consumable.long()
+        return consumable_ids
+
     def forward(self, observations: dict[str, torch.Tensor]) -> torch.Tensor:
+        # 基礎特徵（直接傳遞）
         scalars = observations["scalars"]
         selection = observations["selection_mask"]
         hand = observations["hand"].flatten(start_dim=1)
         hand_type = observations["hand_type"]
         deck = observations["deck"]
 
-        # 處理已擁有的 jokers
-        jokers = observations["jokers"]
-        joker_ids = jokers[..., 0].long().clamp_min(0)
-        joker_enabled = jokers[..., 1]
+        # Boss Blind, Deck Type, Stake, Vouchers, Tags（直接傳遞）
+        boss_blind = observations["boss_blind"]
+        deck_type = observations["deck_type"]
+        stake = observations["stake"]
+        vouchers = observations["vouchers"]
+        tags = observations["tags"]
+
+        # 處理已擁有的 Jokers（使用嵌入層）
+        jokers = observations["jokers"]  # (batch, 5, 153)
+        joker_ids = self._extract_joker_id_from_onehot(jokers)
+        joker_flags = jokers[..., 150:153]  # enabled, eternal, negative
 
         joker_emb = self.joker_emb(joker_ids)
         joker_mask = (joker_ids > 0).float().unsqueeze(-1)
         joker_pooled = (joker_emb * joker_mask).sum(dim=1) / joker_mask.sum(dim=1).clamp_min(1.0)
 
-        # 處理商店中的 jokers
-        shop = observations["shop"]
-        shop_ids = shop[..., 0].long().clamp_min(0)
-        shop_prices = shop[..., 1] / 10.0  # 正規化價格
+        # 處理商店中的 Jokers
+        shop = observations["shop"]  # (batch, 2, 151)
+        shop_onehot = shop[..., :150]
+        shop_ids = shop_onehot.argmax(dim=-1) * (shop_onehot.sum(dim=-1) > 0.5).long()
+        shop_prices = shop[..., 150] / 10.0  # 正規化價格
 
         shop_emb = self.shop_emb(shop_ids)
         shop_mask = (shop_ids > 0).float().unsqueeze(-1)
         shop_pooled = (shop_emb * shop_mask).sum(dim=1) / shop_mask.sum(dim=1).clamp_min(1.0)
 
+        # 處理消耗品（使用嵌入層）
+        consumables = observations["consumables"]  # (batch, 2, 52)
+        consumable_ids = self._extract_consumable_id_from_onehot(consumables)
+        consumable_emb = self.consumable_emb(consumable_ids)  # (batch, 2, embed_dim)
+        consumable_flat = consumable_emb.flatten(start_dim=1)  # (batch, 2 * embed_dim)
+
         return torch.cat(
-            [scalars, selection, hand, hand_type, deck,
-             joker_pooled, joker_enabled, shop_pooled, shop_prices], dim=1
+            [
+                scalars,
+                selection,
+                hand,
+                hand_type,
+                deck,
+                joker_pooled,
+                joker_flags.flatten(start_dim=1),
+                shop_pooled,
+                shop_prices,
+                boss_blind,
+                deck_type,
+                stake,
+                vouchers,
+                consumable_flat,
+                tags,
+            ],
+            dim=1,
         )
 
 

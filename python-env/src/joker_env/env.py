@@ -901,6 +901,10 @@ def _info_to_dict(info) -> Dict[str, Any]:
 
         # 消耗品相關
         "consumable_id": info.consumable_id,
+
+        # Joker 交易相關
+        "joker_sold_id": info.joker_sold_id,
+        "best_shop_joker_cost": info.best_shop_joker_cost,
     }
 
 

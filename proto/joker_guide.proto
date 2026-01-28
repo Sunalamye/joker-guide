@@ -112,4 +112,8 @@ message EnvInfo {
 
   // 消耗品相關
   int32 consumable_id = 23;     // 使用的消耗品 ID (-1 = 無)
+
+  // Joker 交易相關
+  int32 joker_sold_id = 24;     // 賣出的 Joker ID (-1 = 無)
+  int32 best_shop_joker_cost = 25;  // 商店中最強 Joker 的成本 (0 = 無)
 }

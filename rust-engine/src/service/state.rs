@@ -155,6 +155,9 @@ pub struct EnvState {
 
     // 消耗品追蹤：最後使用的消耗品 ID (-1 = 無)
     pub last_consumable_id: i32,
+
+    // Joker 交易追蹤
+    pub last_sold_joker_id: i32,  // 賣出的 Joker ID (-1 = 無)
 }
 
 impl EnvState {
@@ -207,6 +210,7 @@ impl EnvState {
             planet_used_hand_types: 0,
             last_tag_id: -1,
             last_consumable_id: -1,
+            last_sold_joker_id: -1,
         }
     }
 
@@ -263,6 +267,7 @@ impl EnvState {
             planet_used_hand_types: 0,
             last_tag_id: -1,
             last_consumable_id: -1,
+            last_sold_joker_id: -1,
         };
 
         // === Deck 特定初始效果 ===
