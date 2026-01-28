@@ -1035,6 +1035,22 @@ pub struct TriggerContext<'a> {
     /// 是否是 Small 或 Big Blind（用於 Madness 觸發）
     pub is_small_or_big_blind: bool,
 
+    // ====== 出牌相關 ======
+    /// 打出的牌中是否有人頭牌（用於 RideTheBus）
+    pub has_face_card: bool,
+
+    /// 打出的牌中是否有 2（用於 Wee）
+    pub has_rank_2: bool,
+
+    /// 打出的牌中是否有 K（用於 Merry）
+    pub has_rank_13: bool,
+
+    /// 打出的牌型索引（用於 Obelisk）
+    pub played_hand_type: usize,
+
+    /// 是否是最常打的牌型（用於 Obelisk）
+    pub is_most_played_hand: bool,
+
     /// 額外數據（可選）
     pub extra: Option<&'a dyn std::any::Any>,
 }
@@ -1049,6 +1065,11 @@ impl Default for TriggerContext<'_> {
             discarded_count: 0,
             is_boss_blind: false,
             is_small_or_big_blind: false,
+            has_face_card: false,
+            has_rank_2: false,
+            has_rank_13: false,
+            played_hand_type: 0,
+            is_most_played_hand: false,
             extra: None,
         }
     }
@@ -2322,9 +2343,14 @@ fn process_custom_trigger(
 ) {
     match (joker_idx, event) {
         // RideTheBus (20): 連續非人頭牌手 +1 Mult
-        // 這個需要在調用者處理，因為需要檢查打出的牌
         (20, GameEvent::HandPlayed) => {
-            // 由調用者決定是增加還是重置
+            if ctx.has_face_card {
+                // 有人頭牌，重置
+                *state = JokerState::Accumulator { chips: 0, mult: 0, x_mult: 1.0 };
+            } else {
+                // 連續非人頭牌，+1 Mult
+                state.add_mult(1);
+            }
         }
 
         // Hit_The_Road (110): 棄掉 Jack +0.5 X Mult
@@ -2348,12 +2374,16 @@ fn process_custom_trigger(
 
         // Wee (90): 打出 2 時 +8 Chips
         (90, GameEvent::HandPlayed) => {
-            // 需要調用者傳遞是否打出 2
+            if ctx.has_rank_2 {
+                state.add_chips(8);
+            }
         }
 
         // Merry (91): 打出 K 時 +3 Mult
         (91, GameEvent::HandPlayed) => {
-            // 需要調用者傳遞是否打出 K
+            if ctx.has_rank_13 {
+                state.add_mult(3);
+            }
         }
 
         // Selzer (71): 每手減少 charges
@@ -2368,7 +2398,15 @@ fn process_custom_trigger(
 
         // Obelisk (130): 每手更新連勝
         (130, GameEvent::HandPlayed) => {
-            // 需要調用者傳遞牌型信息來決定是否增加連勝
+            if ctx.is_most_played_hand {
+                // 打了最常打的牌型，重置連勝
+                if let JokerState::Counter { current, .. } = state {
+                    *current = 0;
+                }
+            } else {
+                // 連續非最常打，+1 連勝
+                state.increment_counter();
+            }
         }
 
         _ => {}

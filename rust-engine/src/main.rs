@@ -915,41 +915,44 @@ impl JokerEnv for EnvService {
                                     }
                                 }
 
-                                // IceCream: 每手牌後 -5 Chips，到 0 時自毀
+                                // 使用觸發系統處理 HandPlayed 事件
+                                // 處理: IceCream, GreenJoker, RideTheBus, LoyaltyCard, Wee, Merry, Obelisk, Selzer
+                                let has_face = selected.iter().any(|c| c.is_face());
+                                let has_rank_2 = selected.iter().any(|c| c.rank == 2);
+                                let has_rank_13 = selected.iter().any(|c| c.rank == 13);
+                                let trigger_ctx = TriggerContext {
+                                    rng_value: state.rng.gen(),
+                                    has_face_card: has_face,
+                                    has_rank_2,
+                                    has_rank_13,
+                                    played_hand_type: hand_type_idx,
+                                    is_most_played_hand: is_most_played,
+                                    ..Default::default()
+                                };
+                                let _trigger_result = trigger_joker_slot_events(
+                                    GameEvent::HandPlayed,
+                                    &mut state.jokers,
+                                    &trigger_ctx,
+                                );
+
+                                // IceCream: 如果 chips <= 0，自毀
                                 for joker in &mut state.jokers {
                                     if joker.enabled && joker.id == JokerId::IceCream {
-                                        if joker.update_ice_cream_on_hand() {
-                                            joker.enabled = false;
+                                        if let JokerState::Accumulator { chips, .. } = &joker.state {
+                                            if *chips <= 0 {
+                                                joker.enabled = false;
+                                            }
                                         }
                                     }
                                 }
 
-                                // GreenJoker: 每手牌 +1 Mult
-                                for joker in &mut state.jokers {
-                                    if joker.enabled && joker.id == JokerId::GreenJoker {
-                                        joker.update_green_joker_on_hand();
-                                    }
-                                }
-
-                                // RideTheBus: 連續非人頭牌手 +1 Mult，有人頭牌則重置
-                                let has_face = selected.iter().any(|c| c.is_face());
-                                for joker in &mut state.jokers {
-                                    if joker.enabled && joker.id == JokerId::RideTheBus {
-                                        if has_face {
-                                            joker.reset_ride_the_bus();
-                                        } else {
-                                            joker.update_ride_the_bus_on_hand();
-                                        }
-                                    }
-                                }
-
-                                // LoyaltyCard: 每手牌 counter +1，達到 6 時觸發 X4 Mult 並重置
+                                // LoyaltyCard: 計數器達到 6 時重置
                                 for joker in &mut state.jokers {
                                     if joker.enabled && joker.id == JokerId::LoyaltyCard {
-                                        joker.counter += 1;
-                                        if joker.counter >= 6 {
-                                            // X4 Mult 效果在 compute_joker_effect_with_state 中處理
-                                            joker.counter = 0; // 觸發後重置
+                                        if let JokerState::Counter { current, .. } = &mut joker.state {
+                                            if *current >= 6 {
+                                                *current = 0; // 觸發後重置
+                                            }
                                         }
                                     }
                                 }
