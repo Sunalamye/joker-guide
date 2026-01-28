@@ -161,9 +161,6 @@ impl Default for StakeConfig {
     }
 }
 
-/// Stake 總數
-pub const STAKE_COUNT: usize = 8;
-
 // ============================================================================
 // 單元測試
 // ============================================================================
@@ -207,7 +204,7 @@ mod tests {
     fn test_stake_indices() {
         for stake in Stake::all() {
             let idx = stake.to_index();
-            assert!(idx < STAKE_COUNT);
+            assert!(idx < Stake::all().len());
             assert_eq!(Some(*stake), Stake::from_index(idx));
         }
     }

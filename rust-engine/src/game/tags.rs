@@ -204,9 +204,6 @@ impl Tag {
     }
 }
 
-/// Tag 常量
-pub const TAG_COUNT: usize = 25;
-
 // ============================================================================
 // 單元測試
 // ============================================================================
@@ -234,7 +231,7 @@ mod tests {
     fn test_tag_indices() {
         for (i, tag) in TagId::all().iter().enumerate() {
             // 確保索引在範圍內
-            assert!(tag.to_index() < TAG_COUNT);
+            assert!(tag.to_index() < TAG_DEFS.len());
         }
     }
 }

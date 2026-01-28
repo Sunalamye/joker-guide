@@ -228,9 +228,6 @@ impl PackOpeningState {
     }
 }
 
-/// 卡包類型總數
-pub const PACK_TYPE_COUNT: usize = 12;
-
 // ============================================================================
 // 卡包內容生成
 // ============================================================================
@@ -423,7 +420,7 @@ mod tests {
 
     #[test]
     fn test_pack_type_all() {
-        assert_eq!(PackType::all().len(), PACK_TYPE_COUNT);
+        assert_eq!(PackType::all().len(), PACK_DEFS.len());
     }
 
     #[test]

@@ -7,7 +7,7 @@ use crate::game::{
     standard_deck, Ante, BlindType, BossBlind, Card, Consumable, ConsumableSlots, DeckConfig,
     DeckType, Enhancement, HandLevels, JokerId, JokerSlot, Seal, Shop, Stage, Stake, StakeConfig,
     Tag, TagId, VoucherEffects, VoucherId, DISCARDS_PER_BLIND, HAND_SIZE, INTEREST_RATE,
-    JOKER_SLOTS, MAX_INTEREST, MONEY_PER_REMAINING_HAND, PLAYS_PER_BLIND, SHOP_JOKER_COUNT,
+    JOKER_SLOTS, MAX_INTEREST, PLAYS_PER_BLIND, SHOP_JOKER_COUNT,
     SHOP_PACK_COUNT, STARTING_MONEY,
 };
 

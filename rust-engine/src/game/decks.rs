@@ -318,9 +318,6 @@ fn create_erratic_deck(rng: &mut StdRng) -> Vec<Card> {
     deck
 }
 
-/// 牌組類型總數
-pub const DECK_TYPE_COUNT: usize = 16;
-
 // ============================================================================
 // 單元測試
 // ============================================================================
@@ -372,7 +369,7 @@ mod tests {
     #[test]
     fn test_deck_type_index() {
         for deck_type in DeckType::all() {
-            assert!(deck_type.to_index() < DECK_TYPE_COUNT);
+            assert!(deck_type.to_index() < DeckType::all().len());
         }
     }
 }

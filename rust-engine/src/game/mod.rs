@@ -50,13 +50,13 @@ pub use joker_def::{
     SPADE, DIAMOND, HEART, CLUB,
 };
 pub use shop::{Shop, ShopItem};
-pub use tags::{Tag, TagId, TAG_COUNT};
-pub use decks::{DeckType, DeckConfig, DECK_TYPE_COUNT};
-pub use stakes::{Stake, StakeConfig, STAKE_COUNT};
+pub use tags::{Tag, TagId};
+pub use decks::{DeckType, DeckConfig};
+pub use stakes::{Stake, StakeConfig};
 pub use vouchers::{VoucherId, VoucherEffects, VOUCHER_COUNT};
 pub use consumables::{
     Consumable, ConsumableType, ConsumableSlots, HandLevels,
     TarotId, PlanetId, SpectralId,
     CONSUMABLE_COUNT, TAROT_COUNT, PLANET_COUNT, SPECTRAL_COUNT, CONSUMABLE_SLOTS,
 };
-pub use packs::{PackType, PackContentType, PackOpeningState, PackItem, PackContents, PACK_TYPE_COUNT};
+pub use packs::{PackType, PackContentType, PackOpeningState, PackItem, PackContents};

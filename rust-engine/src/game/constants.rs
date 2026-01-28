@@ -12,7 +12,6 @@ pub const DISCARDS_PER_BLIND: i32 = 3; // 每 Blind 棄牌次數
 pub const STARTING_MONEY: i64 = 4; // 起始金幣
 pub const INTEREST_RATE: f32 = 0.1; // 利息率
 pub const MAX_INTEREST: i64 = 5; // 最大利息
-pub const MONEY_PER_REMAINING_HAND: i64 = 1; // 每剩餘出牌次數獎勵
 pub const SHOP_JOKER_COUNT: usize = 2; // 商店 Joker 數量
 pub const MAX_STEPS: i32 = 200; // 最大步數
 
