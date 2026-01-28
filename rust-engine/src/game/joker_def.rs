@@ -1878,6 +1878,258 @@ pub fn get_effect_def(id_index: usize) -> EffectDef {
 }
 
 // ============================================================================
+// 觸發器定義
+// ============================================================================
+
+/// 觸發器效果類型
+#[derive(Clone, Debug, PartialEq)]
+pub enum TriggerEffect {
+    /// 無動作（純觸發，由調用者處理）
+    None,
+
+    /// 累加狀態
+    AddToState {
+        chips: i32,
+        mult: i32,
+        x_mult: f32,
+    },
+
+    /// 重置狀態
+    ResetState,
+
+    /// 增加計數器
+    IncrementCounter,
+
+    /// 獲得金幣
+    GainMoney(i64),
+
+    /// 自我銷毀（如 Cavendish, Gros Michel）
+    SelfDestruct {
+        chance: u8, // 1/chance 機率
+    },
+
+    /// 創建負片複製品（Perkeo）
+    CreateNegativeCopy,
+
+    /// 銷毀隨機 Joker（Madness）
+    DestroyRandomJoker,
+
+    /// 禁用 Boss Blind（Chicot）
+    DisableBossBlind,
+
+    /// 自訂效果（需要在 trigger_joker_events 中特殊處理）
+    Custom,
+}
+
+/// 觸發器定義
+#[derive(Clone, Debug)]
+pub struct TriggerDef {
+    /// 觸發事件
+    pub event: GameEvent,
+    /// 觸發效果
+    pub effect: TriggerEffect,
+}
+
+/// 根據 JokerId 索引獲取觸發器定義
+///
+/// 返回該 Joker 響應的事件列表。
+/// 大多數 Joker 只在計分時生效（無觸發器）。
+/// 只有狀態更新類 Joker 需要觸發器定義。
+pub fn get_triggers(id_index: usize) -> &'static [TriggerDef] {
+    // 使用 lazy_static 或 const 來定義觸發器
+    // 由於 Rust 的限制，這裡使用 match 返回靜態引用
+
+    match id_index {
+        // ====================================================================
+        // 回合結束觸發器
+        // ====================================================================
+
+        // GoldenJoker (40): 回合結束 +$4
+        40 => &[TriggerDef {
+            event: GameEvent::RoundEnded,
+            effect: TriggerEffect::GainMoney(4),
+        }],
+
+        // IceCream (60): 每手 -5 Chips
+        60 => &[TriggerDef {
+            event: GameEvent::HandPlayed,
+            effect: TriggerEffect::AddToState { chips: -5, mult: 0, x_mult: 0.0 },
+        }],
+
+        // Popcorn (67): 每輪 -4 Mult
+        67 => &[TriggerDef {
+            event: GameEvent::RoundEnded,
+            effect: TriggerEffect::AddToState { chips: 0, mult: -4, x_mult: 0.0 },
+        }],
+
+        // Ramen (69): 每次棄牌 -0.01 X Mult
+        69 => &[TriggerDef {
+            event: GameEvent::CardDiscarded,
+            effect: TriggerEffect::AddToState { chips: 0, mult: 0, x_mult: -0.01 },
+        }],
+
+        // Campfire (74): 每次賣出 +0.25 X Mult
+        74 => &[TriggerDef {
+            event: GameEvent::JokerSold,
+            effect: TriggerEffect::AddToState { chips: 0, mult: 0, x_mult: 0.25 },
+        }],
+
+        // Wee (90): 每輪 +8 Chips（打出 2 時）
+        90 => &[TriggerDef {
+            event: GameEvent::HandPlayed,
+            effect: TriggerEffect::Custom, // 需要檢查是否打出 2
+        }],
+
+        // Merry (91): 每輪 +3 Mult（打出 K 時）
+        91 => &[TriggerDef {
+            event: GameEvent::HandPlayed,
+            effect: TriggerEffect::Custom, // 需要檢查是否打出 K
+        }],
+
+        // ====================================================================
+        // 狀態累加觸發器
+        // ====================================================================
+
+        // Vampire (97): 吸收增強 +0.1 X Mult
+        97 => &[TriggerDef {
+            event: GameEvent::EnhancementAbsorbed,
+            effect: TriggerEffect::AddToState { chips: 0, mult: 0, x_mult: 0.1 },
+        }],
+
+        // GlassJoker (22): Glass 牌破碎 +0.75 X Mult
+        22 => &[TriggerDef {
+            event: GameEvent::GlassCardBroken,
+            effect: TriggerEffect::AddToState { chips: 0, mult: 0, x_mult: 0.75 },
+        }],
+
+        // Hologram (23): 牌加入牌組 +0.25 X Mult
+        23 => &[TriggerDef {
+            event: GameEvent::CardAddedToDeck,
+            effect: TriggerEffect::AddToState { chips: 0, mult: 0, x_mult: 0.25 },
+        }],
+
+        // Constellation (64): 使用 Planet +0.1 X Mult
+        64 => &[TriggerDef {
+            event: GameEvent::PlanetUsed,
+            effect: TriggerEffect::AddToState { chips: 0, mult: 0, x_mult: 0.1 },
+        }],
+
+        // Lucky_Cat (129): Lucky 觸發 +0.25 X Mult
+        129 => &[TriggerDef {
+            event: GameEvent::LuckyTriggered,
+            effect: TriggerEffect::AddToState { chips: 0, mult: 0, x_mult: 0.25 },
+        }],
+
+        // Canio (120): 人頭牌銷毀 +1.0 X Mult
+        120 => &[TriggerDef {
+            event: GameEvent::FaceCardDestroyed,
+            effect: TriggerEffect::AddToState { chips: 0, mult: 0, x_mult: 1.0 },
+        }],
+
+        // Caino (139): 人頭牌銷毀 +0.1 X Mult
+        139 => &[TriggerDef {
+            event: GameEvent::FaceCardDestroyed,
+            effect: TriggerEffect::AddToState { chips: 0, mult: 0, x_mult: 0.1 },
+        }],
+
+        // ====================================================================
+        // 計數器觸發器
+        // ====================================================================
+
+        // Yorick (122): 每次棄牌增加計數器
+        122 => &[TriggerDef {
+            event: GameEvent::CardDiscarded,
+            effect: TriggerEffect::IncrementCounter,
+        }],
+
+        // Selzer (71): 每手減少 charges
+        71 => &[TriggerDef {
+            event: GameEvent::HandPlayed,
+            effect: TriggerEffect::Custom, // 減少 counter
+        }],
+
+        // LoyaltyCard (142): 每手增加計數器
+        142 => &[TriggerDef {
+            event: GameEvent::HandPlayed,
+            effect: TriggerEffect::IncrementCounter,
+        }],
+
+        // Obelisk (130): 每手更新連勝
+        130 => &[TriggerDef {
+            event: GameEvent::HandPlayed,
+            effect: TriggerEffect::Custom, // 需要檢查牌型
+        }],
+
+        // ====================================================================
+        // 特殊效果觸發器
+        // ====================================================================
+
+        // Madness (93): 選擇 Blind 時銷毀隨機 Joker +0.5 X Mult
+        93 => &[TriggerDef {
+            event: GameEvent::BlindSelected,
+            effect: TriggerEffect::DestroyRandomJoker,
+        }],
+
+        // Perkeo (117): 商店結束時創建負片消耗品
+        117 => &[TriggerDef {
+            event: GameEvent::RoundEnded,
+            effect: TriggerEffect::CreateNegativeCopy,
+        }],
+
+        // Chicot (123): Boss Blind 開始時禁用
+        123 => &[TriggerDef {
+            event: GameEvent::BlindSelected,
+            effect: TriggerEffect::DisableBossBlind,
+        }],
+
+        // Cavendish (100): 回合結束 1/1000 機率自毀
+        100 => &[TriggerDef {
+            event: GameEvent::RoundEnded,
+            effect: TriggerEffect::SelfDestruct { chance: 250 }, // 1/250 per round (approx 1/1000 total)
+        }],
+
+        // Gros Michel (105): 回合結束 1/6 機率自毀
+        105 => &[TriggerDef {
+            event: GameEvent::RoundEnded,
+            effect: TriggerEffect::SelfDestruct { chance: 6 },
+        }],
+
+        // GreenJoker (28): 每手 +1 Mult，每輪重置
+        28 => &[
+            TriggerDef {
+                event: GameEvent::HandPlayed,
+                effect: TriggerEffect::AddToState { chips: 0, mult: 1, x_mult: 0.0 },
+            },
+            TriggerDef {
+                event: GameEvent::RoundEnded,
+                effect: TriggerEffect::ResetState,
+            },
+        ],
+
+        // RideTheBus (20): 連續非人頭牌手 +1 Mult
+        20 => &[TriggerDef {
+            event: GameEvent::HandPlayed,
+            effect: TriggerEffect::Custom, // 需要檢查是否為人頭牌
+        }],
+
+        // Hit_The_Road (110): 棄掉 Jack +0.5 X Mult
+        110 => &[TriggerDef {
+            event: GameEvent::CardDiscarded,
+            effect: TriggerEffect::Custom, // 需要檢查是否為 Jack
+        }],
+
+        // Castle (72): 棄掉特定花色牌 +3 Chips
+        72 => &[TriggerDef {
+            event: GameEvent::CardDiscarded,
+            effect: TriggerEffect::Custom, // 需要檢查花色
+        }],
+
+        // 其他 Joker 沒有事件觸發器
+        _ => &[],
+    }
+}
+
+// ============================================================================
 // 測試
 // ============================================================================
 
