@@ -2041,12 +2041,14 @@ impl JokerEnv for EnvService {
 
                             state.money += sell_value;
 
+                            // 使用 trigger 系統處理 JokerSold 事件
                             // Campfire: 每賣一張卡 +0.25 X Mult
-                            for joker in &mut state.jokers {
-                                if joker.enabled && joker.id == JokerId::Campfire {
-                                    joker.state.add_x_mult(0.25);
-                                }
-                            }
+                            let trigger_ctx = TriggerContext::default();
+                            let _trigger_result = trigger_joker_slot_events(
+                                GameEvent::JokerSold,
+                                &mut state.jokers,
+                                &trigger_ctx,
+                            );
                         }
                     }
 
