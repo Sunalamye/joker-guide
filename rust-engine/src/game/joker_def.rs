@@ -1323,6 +1323,134 @@ pub fn get_effect_def(id_index: usize) -> EffectDef {
         // #141: ToDoList (155): +$4 for target hand type (Target state)
         155 => EffectDef::Stateful,
 
+        // ====================================================================
+        // 2.4.6 手牌計數類 Joker (6 個)
+        // ====================================================================
+
+        // #142: HalfJoker (15): +20 Mult if <=3 cards played
+        15 => EffectDef::Conditional {
+            condition: Condition::PlayedCardCount { min: None, max: Some(3) },
+            bonus: BonusDef::Mult(20),
+        },
+
+        // #143: Banner (16): +30 Chips per discard remaining (Stateful)
+        16 => EffectDef::Stateful,
+
+        // #144: MysticSummit (17): +15 Mult if 0 discards remaining (Stateful)
+        17 => EffectDef::Stateful,
+
+        // #145: Square (94): +4 Chips if exactly 4 cards played
+        94 => EffectDef::Conditional {
+            condition: Condition::PlayedCardCount { min: Some(4), max: Some(4) },
+            bonus: BonusDef::Chips(4),
+        },
+
+        // #146: BlueJoker (62): +2 Chips per deck card (Stateful)
+        62 => EffectDef::Stateful,
+
+        // #147: Erosion (38): +4 Mult per card below 52 (Stateful)
+        38 => EffectDef::Stateful,
+
+        // ====================================================================
+        // 2.4.7 重觸發類 Joker (3 個)
+        // ====================================================================
+
+        // #148: SockAndBuskin (78): Retrigger Face cards
+        78 => EffectDef::Retrigger {
+            filter: CardFilter::FaceCard,
+            count: 1,
+        },
+
+        // #149: HangingChad (84): Retrigger first card (Stateful)
+        84 => EffectDef::Stateful,
+
+        // #150: Hack (103): Retrigger 2/3/4/5 cards
+        103 => EffectDef::Retrigger {
+            filter: CardFilter::LowNumber,
+            count: 1,
+        },
+
+        // ====================================================================
+        // 2.4.8 條件加成類 Joker (6 個)
+        // ====================================================================
+
+        // #151: DuskJoker (30): X2 final hand
+        30 => EffectDef::Conditional {
+            condition: Condition::Timing { first_hand: false, final_hand: true },
+            bonus: BonusDef::XMult(2.0),
+        },
+
+        // #152: Acrobat (77): X3 final hand
+        77 => EffectDef::Conditional {
+            condition: Condition::Timing { first_hand: false, final_hand: true },
+            bonus: BonusDef::XMult(3.0),
+        },
+
+        // #153: DNA (61): X2 first hand
+        61 => EffectDef::Conditional {
+            condition: Condition::Timing { first_hand: true, final_hand: false },
+            bonus: BonusDef::XMult(2.0),
+        },
+
+        // #154: Photograph (27): X2 first Face card (Stateful)
+        27 => EffectDef::Stateful,
+
+        // #155: Stencil (116): X1 per empty Joker slot (Stateful)
+        116 => EffectDef::Stateful,
+
+        // #156: DriversLicense (109): X3 if 16+ enhanced cards (Stateful)
+        109 => EffectDef::Stateful,
+
+        // ====================================================================
+        // 2.4.9 規則修改類 Joker (6 個)
+        // ====================================================================
+
+        // #157: FourFingers (24): 4-card Straights/Flushes
+        24 => EffectDef::RuleModifier,
+
+        // #158: Shortcut (25): Straights can skip 1 rank
+        25 => EffectDef::RuleModifier,
+
+        // #159: Splash (26): All cards count for scoring
+        26 => EffectDef::RuleModifier,
+
+        // #160: Pareidolia (104): All cards are Face cards
+        104 => EffectDef::RuleModifier,
+
+        // #161: Smeared (82): Red/Black count as same suit
+        82 => EffectDef::RuleModifier,
+
+        // #162: OopsAll6s (158): 6s count as all suits
+        158 => EffectDef::RuleModifier,
+
+        // ====================================================================
+        // 2.4.10 特殊效果類 Joker (8 個)
+        // ====================================================================
+
+        // #163: Misprint (18): random 0-23 Mult (Stateful - RNG)
+        18 => EffectDef::Stateful,
+
+        // #164: Cavendish (100): X3 + self-destruct chance (Stateful)
+        100 => EffectDef::Stateful,
+
+        // #165: Gros_Michel (105): +15 Mult + self-destruct (Stateful)
+        105 => EffectDef::Stateful,
+
+        // #166: MrBones (76): Prevent death (Stateful)
+        76 => EffectDef::Stateful,
+
+        // #167: Brainstorm (51): Copy leftmost Joker (Stateful)
+        51 => EffectDef::Stateful,
+
+        // #168: Blueprint (89): Copy right Joker (Stateful)
+        89 => EffectDef::Stateful,
+
+        // #169: Perkeo (117): Negative consumable copy (Stateful)
+        117 => EffectDef::Stateful,
+
+        // #170: Chicot (123): Disable Boss Blind (Stateful)
+        123 => EffectDef::Stateful,
+
         // 其他 Joker 暫時返回默認效果（待實現）
         _ => EffectDef::default(),
     }
