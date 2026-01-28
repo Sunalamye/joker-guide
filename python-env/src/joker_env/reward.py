@@ -931,15 +931,21 @@ class RewardCalculator:
             reward += discard_reward(info.cards_discarded, info.discards_left)
 
         elif action_type == ACTION_TYPE_BUY_JOKER:
+            # Fix: 檢查購買是否成功（joker_count 增加且 money 減少）
+            # 防止失敗的購買嘗試不受懲罰（reward hacking 防護）
             if prev is not None:
-                reward += joker_buy_reward(
-                    info.last_action_cost,
-                    prev.money,
-                    info.ante,
-                    prev.joker_count,
-                    info.joker_count,
-                    info.joker_slot_limit
-                )
+                if info.joker_count > prev.joker_count and info.money_delta < 0:
+                    reward += joker_buy_reward(
+                        info.last_action_cost,
+                        prev.money,
+                        info.ante,
+                        prev.joker_count,
+                        info.joker_count,
+                        info.joker_slot_limit
+                    )
+                elif info.joker_count <= prev.joker_count:
+                    # 購買失敗：懲罰無效動作
+                    reward -= 0.05
 
         elif action_type == ACTION_TYPE_SELL_JOKER:
             if prev is not None:
@@ -969,16 +975,26 @@ class RewardCalculator:
             reward += consumable_use_reward(info.ante, info.consumable_id)
 
         elif action_type == ACTION_TYPE_BUY_VOUCHER:
-            if prev is not None:
+            # Fix: 檢查購買是否成功（cost > 0 且 money 減少）
+            # 防止失敗的購買嘗試獲得正向獎勵（reward hacking 防護）
+            if prev is not None and info.last_action_cost > 0 and info.money_delta < 0:
                 reward += voucher_buy_reward(
                     info.last_action_cost,
                     prev.money,
                     info.ante
                 )
+            elif info.last_action_cost == 0:
+                # 購買失敗：懲罰無效動作
+                reward -= 0.05
 
         elif action_type == ACTION_TYPE_BUY_PACK:
-            # 簡化：卡包購買給予小獎勵
-            reward += 0.05
+            # Fix: 檢查購買是否成功（cost > 0 且 money 減少）
+            # 防止失敗的購買嘗試獲得正向獎勵
+            if info.last_action_cost > 0 and info.money_delta < 0:
+                reward += 0.05
+            elif info.last_action_cost == 0:
+                # 購買失敗：懲罰無效動作
+                reward -= 0.03
 
         elif action_type == ACTION_TYPE_CASH_OUT:
             # Cash out 後給予金幣狀態獎勵

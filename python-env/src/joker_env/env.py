@@ -291,16 +291,28 @@ class EpisodeMetrics:
             if joker_count < self._prev_joker_count:
                 self.jokers_sold += 1
         elif action_type == ACTION_TYPE_REROLL:
-            self.rerolls_used += 1
+            # Fix: 只有金幣減少時才計數（表示 reroll 成功執行）
+            money_delta = int(info.get("money_delta", 0))
+            if money_delta < 0:
+                self.rerolls_used += 1
         elif action_type == ACTION_TYPE_SKIP_BLIND:
             self.blinds_skipped += 1
             self.reward_from_skip += max(0, reward)
         elif action_type == ACTION_TYPE_USE_CONSUMABLE:
-            self.consumables_used += 1
+            # Fix: 只有 consumable_id >= 0 時才計數（表示實際使用了消耗品）
+            consumable_id = int(info.get("consumable_id", -1))
+            if consumable_id >= 0:
+                self.consumables_used += 1
         elif action_type == ACTION_TYPE_BUY_VOUCHER:
-            self.vouchers_bought += 1
+            # Fix: 只有 money_delta < 0 時才計數（表示購買成功）
+            money_delta = int(info.get("money_delta", 0))
+            if money_delta < 0:
+                self.vouchers_bought += 1
         elif action_type == ACTION_TYPE_BUY_PACK:
-            self.packs_bought += 1
+            # Fix: 只有 money_delta < 0 時才計數（表示購買成功）
+            money_delta = int(info.get("money_delta", 0))
+            if money_delta < 0:
+                self.packs_bought += 1
 
         # 階段轉換檢測
         if self._prev_stage != stage:

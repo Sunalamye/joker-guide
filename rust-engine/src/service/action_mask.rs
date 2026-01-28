@@ -43,14 +43,23 @@ pub fn action_mask_from_state(state: &EnvState, done: bool) -> Tensor {
     }; // DISCARD（需要已選牌）
     data[3] = if in_pre_blind { 1.0 } else { 0.0 }; // SELECT_BLIND
     data[4] = if in_post_blind { 1.0 } else { 0.0 }; // CASH_OUT
-    data[5] = if in_shop { 1.0 } else { 0.0 }; // BUY_JOKER
+    // BUY_JOKER: 需要在商店、有槽位、且至少有一個買得起的 Joker
+    // Fix: action type mask 層級需檢查是否有可購買的 Joker，避免無效動作刷分
+    let effective_joker_slots = state.effective_joker_slot_limit();
+    let has_buyable_joker = in_shop
+        && state.jokers.len() < effective_joker_slots
+        && state.shop.items.iter().any(|item| item.cost <= state.money);
+    data[5] = if has_buyable_joker { 1.0 } else { 0.0 }; // BUY_JOKER
     data[6] = if in_shop { 1.0 } else { 0.0 }; // NEXT_ROUND
     data[7] = if in_shop && state.shop.current_reroll_cost() <= state.money {
         1.0
     } else {
         0.0
     }; // REROLL
-    data[8] = if in_shop && !state.jokers.is_empty() {
+    // SELL_JOKER: 需要在商店、且至少有一個非 Eternal 的 Joker 可賣
+    // Fix: 檢查是否有任何非 Eternal Joker，避免 agent 選擇無效的賣出動作
+    let has_sellable_joker = state.jokers.iter().any(|j| !j.is_eternal);
+    data[8] = if in_shop && has_sellable_joker {
         1.0
     } else {
         0.0
@@ -66,12 +75,25 @@ pub fn action_mask_from_state(state: &EnvState, done: bool) -> Tensor {
     } else {
         0.0
     }; // USE_CONSUMABLE
-    data[11] = if in_shop && state.shop_voucher.is_some() {
+    // BUY_VOUCHER: 需要在商店、有 voucher、且有足夠金幣
+    // Fix: action type mask 層級也需檢查金幣，與詳細 voucher mask (line 142-149) 保持一致
+    data[11] = if in_shop
+        && state.shop_voucher.is_some()
+        && state
+            .shop_voucher
+            .as_ref()
+            .map(|v| v.cost() <= state.money)
+            .unwrap_or(false)
+    {
         1.0
     } else {
         0.0
     }; // BUY_VOUCHER
-    data[12] = if in_shop { 1.0 } else { 0.0 }; // BUY_PACK
+    // BUY_PACK: 需要在商店、且至少有一個買得起的卡包
+    // Fix: action type mask 層級需檢查是否有可購買的卡包，避免無效動作刷分
+    let has_buyable_pack = in_shop
+        && state.shop_packs.iter().any(|p| p.cost <= state.money);
+    data[12] = if has_buyable_pack { 1.0 } else { 0.0 }; // BUY_PACK
     offset += ACTION_TYPE_COUNT as usize;
 
     // Card selection (8 * 2 = 16)
