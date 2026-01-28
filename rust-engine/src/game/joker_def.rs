@@ -920,6 +920,14 @@ pub fn get_effect_def(id_index: usize) -> EffectDef {
         // 需要 ScoringContext::money_held，標記為 Stateful
         41 => EffectDef::Stateful,
 
+        // #74: Stuntman (50): +250 Chips
+        50 => EffectDef::Fixed {
+            chips: 250,
+            mult: 0,
+            x_mult: 1.0,
+            money: 0,
+        },
+
         // 其他 Joker 暫時返回默認效果（待實現）
         _ => EffectDef::default(),
     }
@@ -1106,5 +1114,21 @@ mod tests {
         // 41: Bull - +2 Chips per $1 held (Stateful)
         let effect = get_effect_def(41);
         assert!(matches!(effect, EffectDef::Stateful));
+    }
+
+    #[test]
+    fn test_effect_def_stuntman() {
+        use super::get_effect_def;
+
+        // 50: Stuntman - +250 Chips (Fixed)
+        let effect = get_effect_def(50);
+        if let EffectDef::Fixed { chips, mult, x_mult, money } = effect {
+            assert_eq!(chips, 250);
+            assert_eq!(mult, 0);
+            assert!((x_mult - 1.0).abs() < 0.001);
+            assert_eq!(money, 0);
+        } else {
+            panic!("Stuntman should have Fixed effect");
+        }
     }
 }
