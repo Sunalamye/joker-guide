@@ -1,6 +1,48 @@
 //! Stake 難度系統
 //!
 //! 定義 8 種難度等級，每種都有不同的懲罰
+//!
+//! # 架構
+//!
+//! 使用聲明式 `STAKE_DEFS` 表定義所有 Stake 的元數據。
+
+// ============================================================================
+// Stake 定義系統
+// ============================================================================
+
+/// Stake 定義結構
+#[derive(Clone, Copy)]
+pub struct StakeDef {
+    pub name: &'static str,
+    pub score_multiplier: f32,
+    pub discard_modifier: i32,
+    pub hand_modifier: i32,
+    pub hand_size_modifier: i32,
+    pub small_blind_gives_reward: bool,
+    pub booster_cost_modifier: i64,
+    pub has_eternal_jokers: bool,
+    pub has_perishable_jokers: bool,
+}
+
+/// Stake 定義表（順序與 Stake 枚舉值一致）
+pub static STAKE_DEFS: [StakeDef; 8] = [
+    // 0: White - 預設，無修正
+    StakeDef { name: "White Stake", score_multiplier: 1.0, discard_modifier: 0, hand_modifier: 0, hand_size_modifier: 0, small_blind_gives_reward: true, booster_cost_modifier: 0, has_eternal_jokers: false, has_perishable_jokers: false },
+    // 1: Red - Small Blind 無獎勵
+    StakeDef { name: "Red Stake", score_multiplier: 1.0, discard_modifier: 0, hand_modifier: 0, hand_size_modifier: 0, small_blind_gives_reward: false, booster_cost_modifier: 0, has_eternal_jokers: false, has_perishable_jokers: false },
+    // 2: Green - 基礎分數 +25%
+    StakeDef { name: "Green Stake", score_multiplier: 1.25, discard_modifier: 0, hand_modifier: 0, hand_size_modifier: 0, small_blind_gives_reward: false, booster_cost_modifier: 0, has_eternal_jokers: false, has_perishable_jokers: false },
+    // 3: Black - 永恆 Joker
+    StakeDef { name: "Black Stake", score_multiplier: 1.25, discard_modifier: 0, hand_modifier: 0, hand_size_modifier: 0, small_blind_gives_reward: false, booster_cost_modifier: 0, has_eternal_jokers: true, has_perishable_jokers: false },
+    // 4: Blue - -1 棄牌
+    StakeDef { name: "Blue Stake", score_multiplier: 1.25, discard_modifier: -1, hand_modifier: 0, hand_size_modifier: 0, small_blind_gives_reward: false, booster_cost_modifier: 0, has_eternal_jokers: true, has_perishable_jokers: false },
+    // 5: Purple - -1 手牌大小
+    StakeDef { name: "Purple Stake", score_multiplier: 1.25, discard_modifier: -1, hand_modifier: 0, hand_size_modifier: -1, small_blind_gives_reward: false, booster_cost_modifier: 0, has_eternal_jokers: true, has_perishable_jokers: false },
+    // 6: Orange - 補充包 +$1, 易腐 Joker
+    StakeDef { name: "Orange Stake", score_multiplier: 1.25, discard_modifier: -1, hand_modifier: 0, hand_size_modifier: -1, small_blind_gives_reward: false, booster_cost_modifier: 1, has_eternal_jokers: true, has_perishable_jokers: true },
+    // 7: Gold - -1 出牌
+    StakeDef { name: "Gold Stake", score_multiplier: 1.25, discard_modifier: -1, hand_modifier: -1, hand_size_modifier: -1, small_blind_gives_reward: false, booster_cost_modifier: 1, has_eternal_jokers: true, has_perishable_jokers: true },
+];
 
 /// Stake 難度等級
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
@@ -33,79 +75,47 @@ impl Stake {
 
     /// Stake 名稱
     pub fn name(&self) -> &'static str {
-        match self {
-            Stake::White => "White Stake",
-            Stake::Red => "Red Stake",
-            Stake::Green => "Green Stake",
-            Stake::Black => "Black Stake",
-            Stake::Blue => "Blue Stake",
-            Stake::Purple => "Purple Stake",
-            Stake::Orange => "Orange Stake",
-            Stake::Gold => "Gold Stake",
-        }
+        STAKE_DEFS[self.to_index()].name
     }
 
     /// 分數倍數（Green Stake +25%）
     pub fn score_multiplier(&self) -> f32 {
-        match self {
-            Stake::Green
-            | Stake::Black
-            | Stake::Blue
-            | Stake::Purple
-            | Stake::Orange
-            | Stake::Gold => 1.25,
-            _ => 1.0,
-        }
+        STAKE_DEFS[self.to_index()].score_multiplier
     }
 
     /// 棄牌修正（Blue Stake 及以上 -1）
     pub fn discard_modifier(&self) -> i32 {
-        match self {
-            Stake::Blue | Stake::Purple | Stake::Orange | Stake::Gold => -1,
-            _ => 0,
-        }
+        STAKE_DEFS[self.to_index()].discard_modifier
     }
 
     /// 出牌修正（Gold Stake -1）
     pub fn hand_modifier(&self) -> i32 {
-        match self {
-            Stake::Gold => -1,
-            _ => 0,
-        }
+        STAKE_DEFS[self.to_index()].hand_modifier
     }
 
     /// 手牌大小修正（Purple Stake 及以上 -1）
     pub fn hand_size_modifier(&self) -> i32 {
-        match self {
-            Stake::Purple | Stake::Orange | Stake::Gold => -1,
-            _ => 0,
-        }
+        STAKE_DEFS[self.to_index()].hand_size_modifier
     }
 
     /// Small Blind 是否給獎勵（Red Stake 及以上不給）
     pub fn small_blind_gives_reward(&self) -> bool {
-        matches!(self, Stake::White)
+        STAKE_DEFS[self.to_index()].small_blind_gives_reward
     }
 
     /// 補充包價格修正（Orange Stake 及以上 +$1）
     pub fn booster_cost_modifier(&self) -> i64 {
-        match self {
-            Stake::Orange | Stake::Gold => 1,
-            _ => 0,
-        }
+        STAKE_DEFS[self.to_index()].booster_cost_modifier
     }
 
     /// 商店是否有永恆 Joker（Black Stake 及以上）
     pub fn has_eternal_jokers(&self) -> bool {
-        matches!(
-            self,
-            Stake::Black | Stake::Blue | Stake::Purple | Stake::Orange | Stake::Gold
-        )
+        STAKE_DEFS[self.to_index()].has_eternal_jokers
     }
 
     /// 商店是否有易腐 Joker（Orange Stake 及以上）
     pub fn has_perishable_jokers(&self) -> bool {
-        matches!(self, Stake::Orange | Stake::Gold)
+        STAKE_DEFS[self.to_index()].has_perishable_jokers
     }
 
     /// to_index 用於 observation
@@ -115,17 +125,7 @@ impl Stake {
 
     /// 從索引創建 Stake
     pub fn from_index(index: usize) -> Option<Self> {
-        match index {
-            0 => Some(Stake::White),
-            1 => Some(Stake::Red),
-            2 => Some(Stake::Green),
-            3 => Some(Stake::Black),
-            4 => Some(Stake::Blue),
-            5 => Some(Stake::Purple),
-            6 => Some(Stake::Orange),
-            7 => Some(Stake::Gold),
-            _ => None,
-        }
+        Self::all().get(index).copied()
     }
 }
 
