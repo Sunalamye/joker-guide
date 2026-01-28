@@ -1032,6 +1032,9 @@ pub struct TriggerContext<'a> {
     /// 是否是 Boss Blind
     pub is_boss_blind: bool,
 
+    /// 是否是 Small 或 Big Blind（用於 Madness 觸發）
+    pub is_small_or_big_blind: bool,
+
     /// 額外數據（可選）
     pub extra: Option<&'a dyn std::any::Any>,
 }
@@ -1045,6 +1048,7 @@ impl Default for TriggerContext<'_> {
             discarded_suit_count: [0; 4],
             discarded_count: 0,
             is_boss_blind: false,
+            is_small_or_big_blind: false,
             extra: None,
         }
     }
@@ -2144,6 +2148,8 @@ pub struct TriggerResult {
     pub disable_boss_blind: bool,
     /// 是否創建負片消耗品
     pub create_negative_copy: bool,
+    /// Madness 效果需要銷毀的隨機 Joker 數量（調用者負責執行實際銷毀）
+    pub madness_destroys: i32,
 }
 
 impl TriggerResult {
@@ -2156,6 +2162,7 @@ impl TriggerResult {
         self.jokers_to_destroy.extend(other.jokers_to_destroy.iter().copied());
         self.disable_boss_blind |= other.disable_boss_blind;
         self.create_negative_copy |= other.create_negative_copy;
+        self.madness_destroys += other.madness_destroys;
     }
 }
 
@@ -2226,9 +2233,13 @@ pub fn trigger_joker_events(
                 }
 
                 TriggerEffect::DestroyRandomJoker => {
-                    // 標記需要銷毀隨機 Joker（調用者處理）
-                    // 同時增加 Madness 的 X Mult
-                    state.add_x_mult(0.5);
+                    // Madness: 只在選擇 Small/Big Blind 時觸發
+                    if ctx.is_small_or_big_blind {
+                        // 標記需要銷毀隨機 Joker（調用者負責執行實際銷毀）
+                        // 每個 Madness 觸發銷毀一個隨機 Joker
+                        // X Mult 加成將在調用者確認銷毀成功後處理
+                        result.madness_destroys += 1;
+                    }
                 }
 
                 TriggerEffect::DisableBossBlind => {

@@ -10,6 +10,7 @@ use super::hand_types::HandId;
 use super::joker_def::{
     JokerState, get_joker_def, compute_joker_effect_v2, ComputeContextV2,
     JokerBonus as JokerBonusNew,
+    GameEvent, TriggerContext, TriggerResult, trigger_joker_events,
 };
 
 // ============================================================================
@@ -1725,6 +1726,74 @@ pub fn compute_joker_effect_with_state(
     rng_value: u8,
 ) -> JokerBonus {
     compute_joker_effect_with_state_v2(joker, ctx, rng_value)
+}
+
+// ============================================================================
+// 事件觸發系統 - JokerSlot 高階包裝
+// ============================================================================
+
+/// 處理遊戲事件，更新所有 JokerSlot 狀態並收集結果
+///
+/// 這是 `trigger_joker_events` 的高階包裝，直接操作 JokerSlot 數組。
+///
+/// # 參數
+/// - `event`: 發生的遊戲事件
+/// - `jokers`: 所有 Joker 的槽位（可變引用）
+/// - `ctx`: 觸發器上下文（包含額外信息）
+///
+/// # 返回
+/// 觸發器執行結果（金幣變化、銷毀列表等）
+pub fn trigger_joker_slot_events(
+    event: GameEvent,
+    jokers: &mut [JokerSlot],
+    ctx: &TriggerContext,
+) -> TriggerResult {
+    // 收集啟用的 Joker 索引和 ID 索引
+    let enabled_indices: Vec<(usize, usize)> = jokers
+        .iter()
+        .enumerate()
+        .filter(|(_, j)| j.enabled)
+        .map(|(slot_idx, j)| (slot_idx, j.id.to_index()))
+        .collect();
+
+    if enabled_indices.is_empty() {
+        return TriggerResult::new();
+    }
+
+    // 提取狀態和 ID 索引
+    let mut states: Vec<JokerState> = enabled_indices
+        .iter()
+        .map(|(slot_idx, _)| jokers[*slot_idx].state.clone())
+        .collect();
+    let joker_indices: Vec<usize> = enabled_indices
+        .iter()
+        .map(|(_, id_idx)| *id_idx)
+        .collect();
+
+    // 調用底層觸發函數
+    let result = trigger_joker_events(event, &mut states, &joker_indices, ctx);
+
+    // 將修改後的狀態寫回 JokerSlot
+    for (i, (slot_idx, _)) in enabled_indices.iter().enumerate() {
+        jokers[*slot_idx].state = states[i].clone();
+    }
+
+    // 處理銷毀的 Joker（映射回實際的 slot 索引）
+    let mut actual_destroy_indices = Vec::new();
+    for &state_idx in &result.jokers_to_destroy {
+        if state_idx < enabled_indices.len() {
+            actual_destroy_indices.push(enabled_indices[state_idx].0);
+        }
+    }
+
+    // 返回帶有正確索引的結果
+    TriggerResult {
+        money_delta: result.money_delta,
+        jokers_to_destroy: actual_destroy_indices,
+        disable_boss_blind: result.disable_boss_blind,
+        create_negative_copy: result.create_negative_copy,
+        madness_destroys: result.madness_destroys,
+    }
 }
 
 // ============================================================================

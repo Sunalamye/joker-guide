@@ -22,6 +22,7 @@ use game::{
     ACTION_TYPE_PLAY, ACTION_TYPE_REROLL, ACTION_TYPE_SELECT, ACTION_TYPE_SELECT_BLIND,
     ACTION_TYPE_SELL_JOKER, ACTION_TYPE_SKIP_BLIND, ACTION_TYPE_USE_CONSUMABLE, DISCARDS_PER_BLIND,
     HAND_SIZE, MAX_SELECTED, MAX_STEPS, OBS_SIZE, PLAYS_PER_BLIND,
+    trigger_joker_slot_events, GameEvent, TriggerContext,
 };
 
 // 從 service 模組導入
@@ -359,30 +360,42 @@ impl JokerEnv for EnvService {
                             }
                         }
 
-                        // Madness: 選擇 Small/Big Blind 時銷毀隨機非 Madness Joker
+                        // 使用觸發系統處理 Madness 和 Chicot
                         let is_small_or_big_blind =
                             next_blind == BlindType::Small || next_blind == BlindType::Big;
-                        let madness_count = state
-                            .jokers
-                            .iter()
-                            .filter(|j| j.enabled && j.id == JokerId::Madness)
-                            .count();
+                        let is_boss_blind = next_blind == BlindType::Boss;
+                        let trigger_ctx = TriggerContext {
+                            rng_value: state.rng.gen(),
+                            is_boss_blind,
+                            is_small_or_big_blind,
+                            ..Default::default()
+                        };
+                        let trigger_result = trigger_joker_slot_events(
+                            GameEvent::BlindSelected,
+                            &mut state.jokers,
+                            &trigger_ctx,
+                        );
+
+                        // Chicot: 禁用 Boss Blind
+                        if trigger_result.disable_boss_blind {
+                            state.boss_blind = None;
+                        }
+
+                        // Madness: 銷毀隨機非 Madness Joker
                         let mut jokers_destroyed_by_madness = 0;
-                        if is_small_or_big_blind && madness_count > 0 {
-                            for _ in 0..madness_count {
-                                // 找所有非 Madness 且 enabled 的 Joker
-                                let targets: Vec<usize> = state
-                                    .jokers
-                                    .iter()
-                                    .enumerate()
-                                    .filter(|(_, j)| j.enabled && j.id != JokerId::Madness)
-                                    .map(|(i, _)| i)
-                                    .collect();
-                                if !targets.is_empty() {
-                                    let target_idx = targets[state.rng.gen_range(0..targets.len())];
-                                    state.jokers[target_idx].enabled = false;
-                                    jokers_destroyed_by_madness += 1;
-                                }
+                        for _ in 0..trigger_result.madness_destroys {
+                            // 找所有非 Madness 且 enabled 的 Joker
+                            let targets: Vec<usize> = state
+                                .jokers
+                                .iter()
+                                .enumerate()
+                                .filter(|(_, j)| j.enabled && j.id != JokerId::Madness)
+                                .map(|(i, _)| i)
+                                .collect();
+                            if !targets.is_empty() {
+                                let target_idx = targets[state.rng.gen_range(0..targets.len())];
+                                state.jokers[target_idx].enabled = false;
+                                jokers_destroyed_by_madness += 1;
                             }
                         }
 

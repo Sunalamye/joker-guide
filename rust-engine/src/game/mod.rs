@@ -40,7 +40,7 @@ pub use cards::{Card, Enhancement, Seal, Edition, standard_deck, card_index};
 pub use blinds::{Stage, GameEnd, BlindType, BossBlind, Ante};
 pub use hand_types::{HandId, HandScore};
 pub use scoring::{score_hand, score_hand_with_rules, hand_potential, JokerRules};
-pub use joker::{JokerId, JokerSlot, JokerBonus, ScoringContext, compute_joker_bonus, compute_joker_bonus_v2, JOKER_COUNT};
+pub use joker::{JokerId, JokerSlot, JokerBonus, ScoringContext, compute_joker_bonus, compute_joker_bonus_v2, trigger_joker_slot_events, JOKER_COUNT};
 pub use joker_def::{
     JokerState, CardFilter, Condition, StateField, CompareOp,
     BonusDef, EffectDef, CardScope, GameEvent, Rarity, TriggerContext,
