@@ -165,6 +165,80 @@ cd python-env && pytest
 
 ---
 
+## Joker 系統架構 (`rust-engine/src/game/joker_def.rs`)
+
+**重構後的聲明式 Joker 效果系統**
+
+### 核心概念
+
+```
+JokerDef = 元數據 + 效果定義 + 初始狀態 + 觸發器
+
+效果定義 = 基礎效果類型 × 觸發條件 × 作用目標
+```
+
+### JokerState（統一狀態系統）
+
+取代原有 30+ 個專屬狀態欄位，精簡為 4 種通用狀態：
+
+| 狀態類型 | 用途 | 使用的 Joker |
+|----------|------|--------------|
+| `None` | 無狀態 | 大多數 Joker |
+| `Accumulator { chips, mult, x_mult }` | 累積加成 | Vampire, Hologram, Constellation, Campfire, etc. |
+| `Counter { current, threshold, bonus_mult }` | 計數觸發 | Yorick, Obelisk, Selzer, LoyaltyCard, etc. |
+| `Target { suit, rank, value }` | 目標追蹤 | AncientJoker, Castle, TheIdol, ToDoList |
+
+### EffectDef（效果類型）
+
+| 類型 | 說明 | 範例 |
+|------|------|------|
+| `Fixed` | 固定加成 | Joker (+4 Mult), Stuntman (+250 Chips) |
+| `Conditional` | 條件觸發 | JollyJoker (+8 Mult on Pair) |
+| `CountBonus` | 計數加成 | GreedyJoker (+$3 per Diamond) |
+| `PerCard` | 每張牌加成 | Fibonacci (+8 Mult for A/2/3/5/8) |
+| `Stateful` | 狀態相關 | AbstractJoker (+3 Mult per Joker) |
+| `RuleModifier` | 規則修改 | FourFingers, Shortcut, Smeared |
+
+### GameEvent（事件觸發系統）
+
+| 事件 | 觸發時機 |
+|------|----------|
+| `BlindSelected` | 選擇進入 Blind |
+| `BlindSkipped` | 跳過 Blind |
+| `HandPlayed` | 出牌後 |
+| `CardDiscarded` | 棄牌後 |
+| `PlanetUsed` | 使用 Planet 卡 |
+| `RoundEnded` | 回合結束 |
+| `JokerSold` | 賣出 Joker |
+
+### 添加新 Joker
+
+只需在 `JOKER_DEFINITIONS` 添加一個條目：
+
+```rust
+JokerDef {
+    id: JokerId::NewJoker,
+    cost: 6,
+    rarity: Rarity::Uncommon,
+    effect: EffectDef::CountBonus {
+        filter: CardFilter::Suit(DIAMOND),
+        per_card: BonusDef::Money(3),
+    },
+    initial_state: JokerState::None,
+    triggers: &[],
+}
+```
+
+### 關鍵 API
+
+| 函數 | 用途 |
+|------|------|
+| `compute_joker_effect_v2()` | 計算 Joker 效果（評分時） |
+| `trigger_joker_slot_events()` | 處理事件觸發（非評分時） |
+| `get_joker_def()` | 獲取 Joker 定義 |
+
+---
+
 ## 為什麼分離 Reward 計算？
 
 1. **迭代速度** — 調整獎勵無需重新編譯 Rust
