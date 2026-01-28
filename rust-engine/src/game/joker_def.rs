@@ -1180,6 +1180,70 @@ pub fn get_effect_def(id_index: usize) -> EffectDef {
         // #104: Flower_Pot (118): X3 if all 4 suits (Stateful)
         118 => EffectDef::Stateful,
 
+        // ====================================================================
+        // 2.4.4 點數計數類 Joker (12 個)
+        // ====================================================================
+
+        // #105: Fibonacci (31): A/2/3/5/8 +8 Mult each
+        31 => EffectDef::CountBonus {
+            filter: CardFilter::RankSet(&[1, 2, 3, 5, 8, 14]), // A=1 or 14, 2, 3, 5, 8
+            scope: CardScope::PlayedCards,
+            per_card: BonusDef::Mult(8),
+        },
+
+        // #106: ScaryFace (32): Face cards +30 Chips each
+        32 => EffectDef::CountBonus {
+            filter: CardFilter::FaceCard,
+            scope: CardScope::PlayedCards,
+            per_card: BonusDef::Chips(30),
+        },
+
+        // #107: EvenSteven (33): Even cards +4 Mult each
+        33 => EffectDef::CountBonus {
+            filter: CardFilter::Even,
+            scope: CardScope::PlayedCards,
+            per_card: BonusDef::Mult(4),
+        },
+
+        // #108: OddTodd (34): Odd cards +31 Chips each
+        34 => EffectDef::CountBonus {
+            filter: CardFilter::Odd,
+            scope: CardScope::PlayedCards,
+            per_card: BonusDef::Chips(31),
+        },
+
+        // #109: Scholar (35): Ace +20 Chips +4 Mult (Stateful - composite)
+        35 => EffectDef::Stateful,
+
+        // #110: Smiley (73): Face cards +5 Mult each
+        73 => EffectDef::CountBonus {
+            filter: CardFilter::FaceCard,
+            scope: CardScope::PlayedCards,
+            per_card: BonusDef::Mult(5),
+        },
+
+        // #111: Walkie (70): 10 or 4 in hand +10 Mult (Stateful)
+        70 => EffectDef::Stateful,
+
+        // #112: ShootTheMoon (53): +13 Mult per Queen in hand (Stateful)
+        53 => EffectDef::Stateful,
+
+        // #113: Baron (99): King held X1.5 (Stateful - hand cards)
+        99 => EffectDef::Stateful,
+
+        // #114: Triboulet (121): K/Q X2 Mult each (Stateful)
+        121 => EffectDef::Stateful,
+
+        // #115: Swashbuckler (79): +2 Mult per card below 8 (Stateful)
+        79 => EffectDef::Stateful,
+
+        // #116: Courier (132): +25 Chips per low card
+        132 => EffectDef::CountBonus {
+            filter: CardFilter::LowNumber, // 2, 3, 4, 5
+            scope: CardScope::PlayedCards,
+            per_card: BonusDef::Chips(25),
+        },
+
         // 其他 Joker 暫時返回默認效果（待實現）
         _ => EffectDef::default(),
     }
