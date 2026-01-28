@@ -916,6 +916,10 @@ pub fn get_effect_def(id_index: usize) -> EffectDef {
         // 需要 ScoringContext::joker_count，標記為 Stateful
         19 => EffectDef::Stateful,
 
+        // #73: Bull (41): +2 Chips per $1 held
+        // 需要 ScoringContext::money_held，標記為 Stateful
+        41 => EffectDef::Stateful,
+
         // 其他 Joker 暫時返回默認效果（待實現）
         _ => EffectDef::default(),
     }
@@ -1092,6 +1096,15 @@ mod tests {
 
         // 19: AbstractJoker - +3 Mult per Joker (Stateful)
         let effect = get_effect_def(19);
+        assert!(matches!(effect, EffectDef::Stateful));
+    }
+
+    #[test]
+    fn test_effect_def_bull() {
+        use super::get_effect_def;
+
+        // 41: Bull - +2 Chips per $1 held (Stateful)
+        let effect = get_effect_def(41);
         assert!(matches!(effect, EffectDef::Stateful));
     }
 }
