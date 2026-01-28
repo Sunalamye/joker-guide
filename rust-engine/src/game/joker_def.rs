@@ -928,6 +928,14 @@ pub fn get_effect_def(id_index: usize) -> EffectDef {
             money: 0,
         },
 
+        // #75: GoldenJoker (40): +$4 end of round
+        40 => EffectDef::Fixed {
+            chips: 0,
+            mult: 0,
+            x_mult: 1.0,
+            money: 4,
+        },
+
         // 其他 Joker 暫時返回默認效果（待實現）
         _ => EffectDef::default(),
     }
@@ -1129,6 +1137,22 @@ mod tests {
             assert_eq!(money, 0);
         } else {
             panic!("Stuntman should have Fixed effect");
+        }
+    }
+
+    #[test]
+    fn test_effect_def_golden_joker() {
+        use super::get_effect_def;
+
+        // 40: GoldenJoker - +$4 end of round (Fixed)
+        let effect = get_effect_def(40);
+        if let EffectDef::Fixed { chips, mult, x_mult, money } = effect {
+            assert_eq!(chips, 0);
+            assert_eq!(mult, 0);
+            assert!((x_mult - 1.0).abs() < 0.001);
+            assert_eq!(money, 4);
+        } else {
+            panic!("GoldenJoker should have Fixed effect");
         }
     }
 }
