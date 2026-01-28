@@ -1279,84 +1279,16 @@ pub struct JokerSlot {
     pub edition: Edition,
     pub x_mult_accumulated: f32,
 
-    /// 統一狀態系統（新架構）
-    /// 逐步遷移後將取代下方 30+ 個專屬狀態欄位
+    /// 統一狀態系統
     pub state: JokerState,
 
-    // 觸發/經濟類 Joker 狀態
-    pub trading_card_triggered: bool, // TradingCard: 是否已觸發
-    pub flash_card_mult: i32,         // Flash: 累積 Mult (+2 per reroll)
-    pub red_card_mult: i32,           // RedCard: 累積 Mult (+3 per skip blind)
-
-    // ====== X Mult 狀態追蹤字段 ======
-    /// Vampire: X Mult 累積 (起始 1.0, 每吸收增強 +0.1)
-    pub vampire_mult: f32,
-    /// Canio: X Mult 累積 (起始 1.0, 每銷毀人頭牌 +1.0)
-    pub canio_mult: f32,
-    /// Lucky Cat: X Mult 累積 (起始 1.0, 每觸發 Lucky 牌 +0.25)
-    pub lucky_cat_mult: f32,
-    /// Hologram: X Mult 累積 (起始 1.0, 每加牌到牌組 +0.25)
-    pub hologram_mult: f32,
-    /// Constellation: X Mult 累積 (起始 1.0, 每使用行星牌 +0.1)
-    pub constellation_mult: f32,
-    /// Madness: X Mult 累積 (起始 0.5, 每銷毀 Joker +0.5)
-    pub madness_mult: f32,
-    /// Yorick: 棄牌計數器 (每 23 張觸發)
-    pub yorick_discards: i32,
-    /// Yorick: X Mult 累積 (起始 1.0, 每 23 張棄牌 +1.0)
-    pub yorick_mult: f32,
-    /// Glass Joker: X Mult 累積 (起始 1.0, 每碎 Glass 牌 +0.75)
-    pub glass_mult: f32,
-    /// Rocket: 每回合獎勵金額 (起始 1, 每過 Boss +1)
-    pub rocket_money: i32,
-    /// AncientJoker: 當前選定的花色 (0-3, 每回合隨機變化)
-    pub ancient_suit: u8,
-    /// Castle: 當前選定的花色 (0-3, 每回合隨機變化)
-    pub castle_suit: u8,
-    /// Castle: 累積的 Chips (每棄特定花色牌 +3)
-    pub castle_chips: i32,
-    /// Hit The Road: X Mult 累積 (起始 1.0, 每棄 Jack +0.5)
-    pub hit_the_road_mult: f32,
-    /// Selzer: 剩餘重觸發次數 (起始 10, 用完自毀)
-    pub selzer_charges: i32,
-    /// Obelisk: 連續非最常打牌型次數 (每次 +X0.2 Mult)
-    pub obelisk_streak: i32,
-    /// TurtleBean: 手牌大小加成 (起始 5, 每輪 -1, 到 0 時自毀)
-    pub turtle_hand_mod: i32,
-    /// ToDoList: 目標牌型索引 (0-12, 打出時 +$4, 然後重新隨機選擇)
-    pub todo_hand_type: u8,
-    /// TheIdol: 目標牌的點數 (1-13, 每回合隨機變化)
-    pub idol_rank: u8,
-    /// TheIdol: 目標牌的花色 (0-3, 每回合隨機變化)
-    pub idol_suit: u8,
-    /// ChaosTheClown: 本回合是否已使用免費 reroll
-    pub chaos_free_reroll_used: bool,
-    /// IceCream: 當前 Chips 加成 (起始 100, 每手 -5, 到 0 時自毀)
-    pub ice_cream_chips: i32,
-    /// Popcorn: 當前 Mult 加成 (起始 20, 每輪 -4, 到 0 時自毀)
-    pub popcorn_mult: i32,
-    /// Ramen: X Mult (起始 2.0, 每棄牌 -0.01, 到 1.0 以下時自毀)
-    pub ramen_mult: f32,
-    /// Campfire: X Mult (起始 1.0, 每賣卡 +0.25)
-    pub campfire_mult: f32,
-    /// Wee: Chips 累積 (起始 0, 每輪 +8)
-    pub wee_chips: i32,
-    /// Merry: Mult 累積 (起始 0, 每輪 +3)
-    pub merry_mult: i32,
-    /// GreenJoker: Mult 累積 (起始 0, 每手 +1, 每輪重置)
-    pub green_mult: i32,
-    /// RideTheBus: 連續非人頭牌手數 (每出人頭牌重置)
-    pub ride_the_bus_mult: i32,
+    // 尚未遷移到 JokerState 的欄位
+    pub flash_card_mult: i32, // Flash: 累積 Mult (+2 per reroll)
+    pub red_card_mult: i32,   // RedCard: 累積 Mult (+3 per skip blind)
 }
 
 impl JokerSlot {
     pub fn new(id: JokerId) -> Self {
-        // 根據 Joker 類型設置初始值
-        let madness_mult = match id {
-            JokerId::Madness => 0.5, // Madness 起始 X0.5 Mult
-            _ => 1.0,
-        };
-
         Self {
             id,
             enabled: true,
@@ -1424,41 +1356,42 @@ impl JokerSlot {
                     threshold: 0,   // 不使用閾值
                     bonus_mult: 1.0,
                 },
+                JokerId::Selzer => JokerState::Counter {
+                    current: 10,    // 起始 10 次重觸發
+                    threshold: 0,   // 到 0 時自毀
+                    bonus_mult: 1.0,
+                },
+                JokerId::TurtleBean => JokerState::Counter {
+                    current: 5,     // 起始 +5 手牌大小
+                    threshold: 0,   // 到 0 時自毀
+                    bonus_mult: 1.0,
+                },
+                JokerId::ChaosTheClown => JokerState::Counter {
+                    current: 0,     // 0 = 未使用免費 reroll, 1 = 已使用
+                    threshold: 1,   // 閾值 1（每回合重置為 0）
+                    bonus_mult: 1.0,
+                },
+                JokerId::TradingCard => JokerState::Counter {
+                    current: 0,     // 0 = 未觸發, 1 = 已觸發
+                    threshold: 1,   // 一次性觸發
+                    bonus_mult: 1.0,
+                },
+                // Target 狀態 Jokers（額外）
+                JokerId::ToDoList => JokerState::Target {
+                    suit: 0,
+                    rank: 0,    // 牌型索引，在購買時隨機設置
+                    value: 4,   // +$4 獎勵
+                },
+                // Accumulator 狀態 Jokers（額外）
+                JokerId::Rocket => JokerState::Accumulator {
+                    chips: 0,
+                    mult: 1,    // 起始每回合 +$1
+                    x_mult: 1.0,
+                },
                 _ => JokerState::None,
             },
-            trading_card_triggered: false,
             flash_card_mult: 0,
             red_card_mult: 0,
-            // X Mult 狀態
-            vampire_mult: 1.0,
-            canio_mult: 1.0,
-            lucky_cat_mult: 1.0,
-            hologram_mult: 1.0,
-            constellation_mult: 1.0,
-            madness_mult,
-            yorick_discards: 0,
-            yorick_mult: 1.0,
-            glass_mult: 1.0,
-            rocket_money: 1,        // Rocket: 初始每回合 +$1
-            ancient_suit: 0,        // AncientJoker: 初始為 Diamonds (0)
-            castle_suit: 0,         // Castle: 初始為 Diamonds (0)
-            castle_chips: 0,        // Castle: 初始 0 chips
-            hit_the_road_mult: 1.0, // Hit The Road: 初始 X1.0 Mult
-            selzer_charges: if id == JokerId::Selzer { 10 } else { 0 }, // Selzer: 10 張牌重觸發
-            obelisk_streak: 0,      // Obelisk: 連續非最常打牌型次數
-            turtle_hand_mod: if id == JokerId::TurtleBean { 5 } else { 0 }, // TurtleBean: +5 手牌大小
-            todo_hand_type: 0,             // ToDoList: 在購買時隨機初始化
-            idol_rank: 1,                  // TheIdol: 初始點數 (1=Ace, 在購買時隨機初始化)
-            idol_suit: 0,                  // TheIdol: 初始花色 (0-3, 在購買時隨機初始化)
-            chaos_free_reroll_used: false, // ChaosTheClown: 每回合重置
-            ice_cream_chips: if id == JokerId::IceCream { 100 } else { 0 }, // IceCream: 起始 100 Chips
-            popcorn_mult: if id == JokerId::Popcorn { 20 } else { 0 },      // Popcorn: 起始 20 Mult
-            ramen_mult: if id == JokerId::Ramen { 2.0 } else { 1.0 },       // Ramen: 起始 X2 Mult
-            campfire_mult: 1.0,   // Campfire: 起始 X1.0 Mult
-            wee_chips: 0,         // Wee: 起始 0 Chips (每輪 +8)
-            merry_mult: 0,        // Merry: 起始 0 Mult (每輪 +3)
-            green_mult: 0,        // GreenJoker: 起始 0 Mult (每手 +1, 每輪重置)
-            ride_the_bus_mult: 0, // RideTheBus: 起始 0 Mult (每連續非人頭牌手 +1)
         }
     }
 
@@ -1488,74 +1421,60 @@ impl JokerSlot {
         self
     }
 
-    // ====== X Mult 狀態更新方法 ======
+    // ====== JokerState 狀態更新方法 ======
 
     /// Vampire: 吸收增強時調用 (+0.1 X Mult per enhancement)
     pub fn update_vampire_on_enhancement(&mut self, enhancements_absorbed: i32) {
         if self.id == JokerId::Vampire {
-            let increment = enhancements_absorbed as f32 * 0.1;
-            // 更新新的統一狀態
-            self.state.add_x_mult(increment);
-            // 暫時同步更新舊欄位（遷移完成後刪除）
-            self.vampire_mult += increment;
+            self.state.add_x_mult(enhancements_absorbed as f32 * 0.1);
         }
     }
 
     /// Canio: 銷毀人頭牌時調用 (+1.0 X Mult per face card)
     pub fn update_canio_on_face_destroyed(&mut self, face_cards_destroyed: i32) {
         if self.id == JokerId::Canio {
-            let increment = face_cards_destroyed as f32 * 1.0;
-            // 更新新的統一狀態
-            self.state.add_x_mult(increment);
-            // 暫時同步更新舊欄位（遷移完成後刪除）
-            self.canio_mult += increment;
+            self.state.add_x_mult(face_cards_destroyed as f32);
         }
     }
 
     /// Lucky Cat: Lucky 牌觸發時調用 (+0.25 X Mult per trigger)
     pub fn update_lucky_cat_on_trigger(&mut self, triggers: i32) {
         if self.id == JokerId::Lucky_Cat {
-            let increment = triggers as f32 * 0.25;
-            self.state.add_x_mult(increment);
-            self.lucky_cat_mult += increment;
+            self.state.add_x_mult(triggers as f32 * 0.25);
         }
     }
 
     /// Hologram: 加牌到牌組時調用 (+0.25 X Mult per card)
     pub fn update_hologram_on_card_added(&mut self, cards_added: i32) {
         if self.id == JokerId::Hologram {
-            let increment = cards_added as f32 * 0.25;
-            self.state.add_x_mult(increment);
-            self.hologram_mult += increment;
+            self.state.add_x_mult(cards_added as f32 * 0.25);
         }
     }
 
     /// Constellation: 使用行星牌時調用 (+0.1 X Mult per planet)
     pub fn update_constellation_on_planet_used(&mut self) {
         if self.id == JokerId::Constellation {
-            let increment = 0.1;
-            self.state.add_x_mult(increment);
-            self.constellation_mult += increment;
+            self.state.add_x_mult(0.1);
         }
     }
 
     /// Madness: 銷毀 Joker 時調用 (+0.5 X Mult per Joker destroyed)
     pub fn update_madness_on_joker_destroyed(&mut self, jokers_destroyed: i32) {
         if self.id == JokerId::Madness {
-            let increment = jokers_destroyed as f32 * 0.5;
-            self.state.add_x_mult(increment);
-            self.madness_mult += increment;
+            self.state.add_x_mult(jokers_destroyed as f32 * 0.5);
         }
     }
 
     /// Yorick: 棄牌時調用 (每 23 張 +1.0 X Mult)
+    /// Yorick 使用 Accumulator 狀態：x_mult 追蹤累積倍率，chips 追蹤棄牌計數
     pub fn update_yorick_on_discard(&mut self, cards_discarded: i32) {
         if self.id == JokerId::Yorick {
-            self.yorick_discards += cards_discarded;
-            while self.yorick_discards >= 23 {
-                self.yorick_discards -= 23;
-                self.state.add_x_mult(1.0);
-                self.yorick_mult += 1.0;
+            if let JokerState::Accumulator { chips, x_mult, .. } = &mut self.state {
+                *chips += cards_discarded;
+                while *chips >= 23 {
+                    *chips -= 23;
+                    *x_mult += 1.0;
+                }
             }
         }
     }
@@ -1563,44 +1482,29 @@ impl JokerSlot {
     /// Glass Joker: Glass 牌碎裂時調用 (+0.75 X Mult per glass broken)
     pub fn update_glass_on_break(&mut self, glass_broken: i32) {
         if self.id == JokerId::GlassJoker {
-            let increment = glass_broken as f32 * 0.75;
-            self.state.add_x_mult(increment);
-            self.glass_mult += increment;
+            self.state.add_x_mult(glass_broken as f32 * 0.75);
         }
     }
 
     /// AncientJoker: 設置當前花色 (每回合開始時隨機調用)
     pub fn set_ancient_suit(&mut self, suit: u8) {
         if self.id == JokerId::AncientJoker {
-            let normalized_suit = suit % 4; // 確保在 0-3 範圍內
-            // 更新新的統一狀態
-            self.state.set_target_suit(normalized_suit);
-            // 暫時同步更新舊欄位（遷移完成後刪除）
-            self.ancient_suit = normalized_suit;
+            self.state.set_target_suit(suit % 4);
         }
     }
 
     /// Castle: 設置當前花色 (每回合開始時隨機調用)
     pub fn set_castle_suit(&mut self, suit: u8) {
         if self.id == JokerId::Castle {
-            let normalized_suit = suit % 4; // 確保在 0-3 範圍內
-            // 更新新的統一狀態
-            self.state.set_target_suit(normalized_suit);
-            // 暫時同步更新舊欄位（遷移完成後刪除）
-            self.castle_suit = normalized_suit;
+            self.state.set_target_suit(suit % 4);
         }
     }
 
     /// Castle: 棄牌時調用 (如果花色匹配，+3 Chips)
     pub fn update_castle_on_discard(&mut self, discarded_suit: u8) {
         if self.id == JokerId::Castle {
-            // 使用新的統一狀態檢查花色
-            let target_suit = self.state.get_target_suit();
-            if discarded_suit == target_suit {
-                // 更新新的統一狀態
+            if discarded_suit == self.state.get_target_suit() {
                 self.state.add_target_value(3);
-                // 暫時同步更新舊欄位（遷移完成後刪除）
-                self.castle_chips += 3;
             }
         }
     }
@@ -1608,112 +1512,73 @@ impl JokerSlot {
     /// TheIdol: 設置目標牌 (每回合開始時隨機調用)
     pub fn set_idol_target(&mut self, rank: u8, suit: u8) {
         if self.id == JokerId::TheIdol {
-            // 更新新的統一狀態
             self.state.set_target_rank(rank);
             self.state.set_target_suit(suit);
-            // 暫時同步更新舊欄位（遷移完成後刪除）
-            self.idol_rank = rank;
-            self.idol_suit = suit;
         }
     }
 
     /// Hit The Road: 棄 Jack 時調用 (+0.5 X Mult per Jack)
     pub fn update_hit_the_road_on_jack_discard(&mut self, jacks_discarded: i32) {
         if self.id == JokerId::Hit_The_Road {
-            let increment = jacks_discarded as f32 * 0.5;
-            self.state.add_x_mult(increment);
-            self.hit_the_road_mult += increment;
+            self.state.add_x_mult(jacks_discarded as f32 * 0.5);
         }
     }
 
     /// 獲取此 Joker 的 X Mult 值（用於計分）
     pub fn get_x_mult(&self) -> f32 {
-        match self.id {
-            JokerId::Vampire => self.vampire_mult,
-            JokerId::Canio => self.canio_mult,
-            JokerId::Lucky_Cat => self.lucky_cat_mult,
-            JokerId::Hologram => self.hologram_mult,
-            JokerId::Constellation => self.constellation_mult,
-            JokerId::Madness => self.madness_mult,
-            JokerId::Yorick => self.yorick_mult,
-            JokerId::GlassJoker => self.glass_mult,
-            JokerId::Hit_The_Road => self.hit_the_road_mult,
-            _ => 1.0,
-        }
+        self.state.get_x_mult()
     }
 
     /// Wee: 每輪開始時增加 chips (+8 Chips per round)
     pub fn update_wee_on_round(&mut self) {
         if self.id == JokerId::Wee {
-            // 更新新的統一狀態
             self.state.add_chips(8);
-            // 暫時同步更新舊欄位（遷移完成後刪除）
-            self.wee_chips += 8;
         }
     }
 
     /// Merry: 每輪開始時增加 mult (+3 Mult per round)
     pub fn update_merry_on_round(&mut self) {
         if self.id == JokerId::Merry {
-            // 更新新的統一狀態
             self.state.add_mult(3);
-            // 暫時同步更新舊欄位（遷移完成後刪除）
-            self.merry_mult += 3;
         }
     }
 
     /// GreenJoker: 每回合重置 mult
     pub fn reset_green_joker(&mut self) {
         if self.id == JokerId::GreenJoker {
-            // 更新新的統一狀態
             if let JokerState::Accumulator { mult, .. } = &mut self.state {
                 *mult = 0;
             }
-            // 暫時同步更新舊欄位（遷移完成後刪除）
-            self.green_mult = 0;
         }
     }
 
     /// GreenJoker: 每手牌增加 mult (+1 Mult per hand)
     pub fn update_green_joker_on_hand(&mut self) {
         if self.id == JokerId::GreenJoker {
-            // 更新新的統一狀態
             self.state.add_mult(1);
-            // 暫時同步更新舊欄位（遷移完成後刪除）
-            self.green_mult += 1;
         }
     }
 
     /// RideTheBus: 重置 mult（出現人頭牌時）
     pub fn reset_ride_the_bus(&mut self) {
         if self.id == JokerId::RideTheBus {
-            // 更新新的統一狀態
             if let JokerState::Accumulator { mult, .. } = &mut self.state {
                 *mult = 0;
             }
-            // 暫時同步更新舊欄位（遷移完成後刪除）
-            self.ride_the_bus_mult = 0;
         }
     }
 
     /// RideTheBus: 增加 mult（無人頭牌時，+1 Mult per hand）
     pub fn update_ride_the_bus_on_hand(&mut self) {
         if self.id == JokerId::RideTheBus {
-            // 更新新的統一狀態
             self.state.add_mult(1);
-            // 暫時同步更新舊欄位（遷移完成後刪除）
-            self.ride_the_bus_mult += 1;
         }
     }
 
     /// IceCream: 每手牌減少 chips，返回是否應該銷毀
     pub fn update_ice_cream_on_hand(&mut self) -> bool {
         if self.id == JokerId::IceCream {
-            // 更新新的統一狀態
             self.state.add_chips(-5);
-            // 暫時同步更新舊欄位（遷移完成後刪除）
-            self.ice_cream_chips -= 5;
-            // 檢查是否應該銷毀
             return self.state.get_chips() <= 0;
         }
         false
@@ -1722,11 +1587,7 @@ impl JokerSlot {
     /// Popcorn: 每輪減少 mult，返回是否應該銷毀
     pub fn update_popcorn_on_round(&mut self) -> bool {
         if self.id == JokerId::Popcorn {
-            // 更新新的統一狀態
             self.state.add_mult(-4);
-            // 暫時同步更新舊欄位（遷移完成後刪除）
-            self.popcorn_mult -= 4;
-            // 檢查是否應該銷毀
             return self.state.get_mult() <= 0;
         }
         false
@@ -1735,22 +1596,125 @@ impl JokerSlot {
     /// Obelisk: 重置連續計數（打出最常打牌型時）
     pub fn reset_obelisk_streak(&mut self) {
         if self.id == JokerId::Obelisk {
-            // 更新新的統一狀態
             self.state.reset_counter();
-            // 暫時同步更新舊欄位（遷移完成後刪除）
-            self.obelisk_streak = 0;
         }
     }
 
     /// Obelisk: 增加連續計數（打出非最常打牌型時）
     pub fn increment_obelisk_streak(&mut self) {
         if self.id == JokerId::Obelisk {
-            // 更新新的統一狀態
             if let JokerState::Counter { current, .. } = &mut self.state {
                 *current += 1;
             }
-            // 暫時同步更新舊欄位（遷移完成後刪除）
-            self.obelisk_streak += 1;
+        }
+    }
+
+    /// Selzer: 獲取剩餘重觸發次數
+    pub fn get_selzer_charges(&self) -> i32 {
+        if self.id == JokerId::Selzer {
+            return self.state.get_counter();
+        }
+        0
+    }
+
+    /// Selzer: 扣減已使用的 charges，返回是否應該銷毀
+    pub fn use_selzer_charges(&mut self, used: i32) -> bool {
+        if self.id == JokerId::Selzer {
+            if let JokerState::Counter { current, .. } = &mut self.state {
+                *current -= used;
+            }
+            return self.state.get_counter() <= 0;
+        }
+        false
+    }
+
+    /// TurtleBean: 每輪 -1 手牌大小，返回是否應該銷毀
+    pub fn update_turtle_bean_on_round(&mut self) -> bool {
+        if self.id == JokerId::TurtleBean {
+            if let JokerState::Counter { current, .. } = &mut self.state {
+                *current -= 1;
+            }
+            return self.state.get_counter() <= 0;
+        }
+        false
+    }
+
+    /// TurtleBean: 獲取當前手牌大小加成
+    pub fn get_turtle_hand_mod(&self) -> i32 {
+        if self.id == JokerId::TurtleBean {
+            return self.state.get_counter();
+        }
+        0
+    }
+
+    /// Rocket: 過 Boss Blind 後增加每回合獎勵
+    pub fn increment_rocket_money(&mut self) {
+        if self.id == JokerId::Rocket {
+            self.state.add_mult(1);
+        }
+    }
+
+    /// Rocket: 獲取當前每回合獎勵金額
+    pub fn get_rocket_money(&self) -> i32 {
+        if self.id == JokerId::Rocket {
+            return self.state.get_mult();
+        }
+        0
+    }
+
+    /// ToDoList: 設置目標牌型
+    pub fn set_todo_hand_type(&mut self, hand_type: u8) {
+        if self.id == JokerId::ToDoList {
+            self.state.set_target_rank(hand_type);
+        }
+    }
+
+    /// ToDoList: 獲取目標牌型
+    pub fn get_todo_hand_type(&self) -> u8 {
+        if self.id == JokerId::ToDoList {
+            return self.state.get_target_rank();
+        }
+        0
+    }
+
+    /// ChaosTheClown: 重置免費 reroll（每回合開始）
+    pub fn reset_chaos_free_reroll(&mut self) {
+        if self.id == JokerId::ChaosTheClown {
+            self.state.reset_counter();
+        }
+    }
+
+    /// ChaosTheClown: 檢查是否有免費 reroll 可用
+    pub fn has_chaos_free_reroll(&self) -> bool {
+        if self.id == JokerId::ChaosTheClown {
+            return self.state.get_counter() == 0;
+        }
+        false
+    }
+
+    /// ChaosTheClown: 標記免費 reroll 已使用
+    pub fn use_chaos_free_reroll(&mut self) {
+        if self.id == JokerId::ChaosTheClown {
+            if let JokerState::Counter { current, .. } = &mut self.state {
+                *current = 1;
+            }
+        }
+    }
+
+    /// TradingCard: 檢查是否已觸發
+    pub fn is_trading_card_triggered(&self) -> bool {
+        if self.id == JokerId::TradingCard {
+            return self.state.get_counter() > 0;
+        }
+        false
+    }
+
+    /// TradingCard: 標記為已觸發
+    pub fn trigger_trading_card(&mut self) {
+        if self.id == JokerId::TradingCard {
+            if let JokerState::Counter { current, .. } = &mut self.state {
+                *current = 1;
+            }
         }
     }
 }
@@ -1929,7 +1893,7 @@ pub fn compute_joker_effect_with_state(
         }
         JokerId::Ramen => {
             // Ramen: 使用當前 X Mult 值 (每棄牌 -0.01, 在 main.rs 更新)
-            bonus.mul_mult = joker.ramen_mult;
+            bonus.mul_mult = joker.state.get_x_mult();
         }
         JokerId::Campfire => {
             // Campfire: 優先使用新的統一狀態系統
@@ -2121,7 +2085,6 @@ mod tests {
     #[test]
     fn test_vampire_initial_mult() {
         let joker = JokerSlot::new(JokerId::Vampire);
-        assert_eq!(joker.vampire_mult, 1.0);
         assert_eq!(joker.get_x_mult(), 1.0);
     }
 
@@ -2129,35 +2092,34 @@ mod tests {
     fn test_vampire_enhancement_absorption() {
         let mut joker = JokerSlot::new(JokerId::Vampire);
         joker.update_vampire_on_enhancement(3); // 吸收 3 個增強
-        assert!((joker.vampire_mult - 1.3).abs() < 0.001); // 1.0 + 0.3
-        assert!((joker.get_x_mult() - 1.3).abs() < 0.001);
+        assert!((joker.get_x_mult() - 1.3).abs() < 0.001); // 1.0 + 0.3
     }
 
     #[test]
     fn test_canio_initial_mult() {
         let joker = JokerSlot::new(JokerId::Canio);
-        assert_eq!(joker.canio_mult, 1.0);
+        assert_eq!(joker.get_x_mult(), 1.0);
     }
 
     #[test]
     fn test_canio_face_destroyed() {
         let mut joker = JokerSlot::new(JokerId::Canio);
         joker.update_canio_on_face_destroyed(2); // 銷毀 2 張人頭牌
-        assert!((joker.canio_mult - 3.0).abs() < 0.001); // 1.0 + 2.0
+        assert!((joker.get_x_mult() - 3.0).abs() < 0.001); // 1.0 + 2.0
     }
 
     #[test]
     fn test_lucky_cat_trigger() {
         let mut joker = JokerSlot::new(JokerId::Lucky_Cat);
         joker.update_lucky_cat_on_trigger(4); // 4 次 Lucky 觸發
-        assert!((joker.lucky_cat_mult - 2.0).abs() < 0.001); // 1.0 + 1.0
+        assert!((joker.get_x_mult() - 2.0).abs() < 0.001); // 1.0 + 1.0
     }
 
     #[test]
     fn test_hologram_cards_added() {
         let mut joker = JokerSlot::new(JokerId::Hologram);
         joker.update_hologram_on_card_added(4); // 加 4 張牌
-        assert!((joker.hologram_mult - 2.0).abs() < 0.001); // 1.0 + 1.0
+        assert!((joker.get_x_mult() - 2.0).abs() < 0.001); // 1.0 + 1.0
     }
 
     #[test]
@@ -2166,49 +2128,45 @@ mod tests {
         for _ in 0..5 {
             joker.update_constellation_on_planet_used();
         }
-        assert!((joker.constellation_mult - 1.5).abs() < 0.001); // 1.0 + 0.5
+        assert!((joker.get_x_mult() - 1.5).abs() < 0.001); // 1.0 + 0.5
     }
 
     #[test]
     fn test_madness_initial_mult() {
         let joker = JokerSlot::new(JokerId::Madness);
-        assert_eq!(joker.madness_mult, 0.5); // 起始 X0.5
+        assert!((joker.get_x_mult() - 0.5).abs() < 0.001); // 起始 X0.5
     }
 
     #[test]
     fn test_madness_joker_destroyed() {
         let mut joker = JokerSlot::new(JokerId::Madness);
         joker.update_madness_on_joker_destroyed(2); // 銷毀 2 個 Joker
-        assert!((joker.madness_mult - 1.5).abs() < 0.001); // 0.5 + 1.0
+        assert!((joker.get_x_mult() - 1.5).abs() < 0.001); // 0.5 + 1.0
     }
 
     #[test]
     fn test_yorick_discards() {
         let mut joker = JokerSlot::new(JokerId::Yorick);
-        assert_eq!(joker.yorick_mult, 1.0);
-        assert_eq!(joker.yorick_discards, 0);
+        assert_eq!(joker.get_x_mult(), 1.0);
 
         // 棄 22 張 (不觸發)
         joker.update_yorick_on_discard(22);
-        assert_eq!(joker.yorick_mult, 1.0);
-        assert_eq!(joker.yorick_discards, 22);
+        assert_eq!(joker.get_x_mult(), 1.0);
 
         // 再棄 1 張 (觸發第一次)
         joker.update_yorick_on_discard(1);
-        assert_eq!(joker.yorick_mult, 2.0);
-        assert_eq!(joker.yorick_discards, 0);
+        assert_eq!(joker.get_x_mult(), 2.0);
 
         // 棄 46 張 (觸發兩次)
         joker.update_yorick_on_discard(46);
-        assert_eq!(joker.yorick_mult, 4.0);
-        assert_eq!(joker.yorick_discards, 0);
+        assert_eq!(joker.get_x_mult(), 4.0);
     }
 
     #[test]
     fn test_glass_joker_break() {
         let mut joker = JokerSlot::new(JokerId::GlassJoker);
         joker.update_glass_on_break(2); // 2 張 Glass 碎裂
-        assert!((joker.glass_mult - 2.5).abs() < 0.001); // 1.0 + 1.5
+        assert!((joker.get_x_mult() - 2.5).abs() < 0.001); // 1.0 + 1.5
     }
 
     #[test]

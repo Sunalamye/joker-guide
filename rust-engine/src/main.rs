@@ -17,7 +17,7 @@ mod service;
 use game::{
     score_hand, BlindType, BossBlind, Card, Consumable, DeckType, Edition, Enhancement, GameEnd,
     JokerId, JokerSlot, PackContents, PackItem, PlanetId, Seal, SpectralId, Stage, Tag, TagId,
-    TarotId, ACTION_MASK_SIZE, ACTION_TYPE_BUY_JOKER, ACTION_TYPE_BUY_PACK,
+    TarotId, joker_def::JokerState, ACTION_MASK_SIZE, ACTION_TYPE_BUY_JOKER, ACTION_TYPE_BUY_PACK,
     ACTION_TYPE_BUY_VOUCHER, ACTION_TYPE_CASH_OUT, ACTION_TYPE_DISCARD, ACTION_TYPE_NEXT_ROUND,
     ACTION_TYPE_PLAY, ACTION_TYPE_REROLL, ACTION_TYPE_SELECT, ACTION_TYPE_SELECT_BLIND,
     ACTION_TYPE_SELL_JOKER, ACTION_TYPE_SKIP_BLIND, ACTION_TYPE_USE_CONSUMABLE, DISCARDS_PER_BLIND,
@@ -195,15 +195,16 @@ impl JokerEnv for EnvService {
                         // Hit The Road: 每 Blind 開始時重置 X Mult
                         for joker in &mut state.jokers {
                             if joker.enabled && joker.id == JokerId::Hit_The_Road {
-                                joker.hit_the_road_mult = 1.0;
+                                if let JokerState::Accumulator { x_mult, .. } = &mut joker.state {
+                                    *x_mult = 1.0;
+                                }
                             }
                         }
 
                         // TurtleBean: 每輪 -1 手牌大小，到 0 時自毀
                         for joker in &mut state.jokers {
                             if joker.enabled && joker.id == JokerId::TurtleBean {
-                                joker.turtle_hand_mod -= 1;
-                                if joker.turtle_hand_mod <= 0 {
+                                if joker.update_turtle_bean_on_round() {
                                     joker.enabled = false; // 自毀
                                 }
                             }
@@ -283,7 +284,7 @@ impl JokerEnv for EnvService {
                         // ChaosTheClown: 每回合重置免費 reroll
                         for joker in &mut state.jokers {
                             if joker.id == JokerId::ChaosTheClown {
-                                joker.chaos_free_reroll_used = false;
+                                joker.reset_chaos_free_reroll();
                             }
                         }
 
@@ -612,7 +613,7 @@ impl JokerEnv for EnvService {
                                     .jokers
                                     .iter()
                                     .find(|j| j.enabled && j.id == JokerId::Selzer)
-                                    .map(|j| j.selzer_charges)
+                                    .map(|j| j.get_selzer_charges())
                                     .unwrap_or(0);
                                 // 克隆 hand_levels 以避免借用檢查問題
                                 let hand_levels_clone = state.hand_levels.clone();
@@ -698,9 +699,7 @@ impl JokerEnv for EnvService {
                                 if score_result.selzer_charges_used > 0 {
                                     for joker in &mut state.jokers {
                                         if joker.enabled && joker.id == JokerId::Selzer {
-                                            joker.selzer_charges -=
-                                                score_result.selzer_charges_used;
-                                            if joker.selzer_charges <= 0 {
+                                            if joker.use_selzer_charges(score_result.selzer_charges_used) {
                                                 joker.enabled = false; // 用完自毀
                                             }
                                             break;
@@ -870,15 +869,15 @@ impl JokerEnv for EnvService {
                                     .filter(|(_, j)| {
                                         j.enabled
                                             && j.id == JokerId::ToDoList
-                                            && hand_type_idx == j.todo_hand_type as usize
+                                            && hand_type_idx == j.get_todo_hand_type() as usize
                                     })
                                     .map(|(i, _)| i)
                                     .collect();
                                 state.money += todo_matches.len() as i64 * 4;
                                 for idx in todo_matches {
                                     // 重新隨機選擇牌型 (0-12)
-                                    state.jokers[idx].todo_hand_type =
-                                        state.rng.gen_range(0..13) as u8;
+                                    let new_type = state.rng.gen_range(0..13) as u8;
+                                    state.jokers[idx].set_todo_hand_type(new_type);
                                 }
 
                                 // Seance: Straight Flush 或 Royal Flush 時生成 Spectral 卡
@@ -1056,8 +1055,8 @@ impl JokerEnv for EnvService {
                                     }
                                     // TradingCard: 首次棄人頭牌時創建 Tarot (標記觸發，之後創建)
                                     JokerId::TradingCard => {
-                                        if has_face && !joker.trading_card_triggered {
-                                            joker.trading_card_triggered = true;
+                                        if has_face && !joker.is_trading_card_triggered() {
+                                            joker.trigger_trading_card();
                                             trading_cards_to_trigger += 1;
                                         }
                                     }
@@ -1135,8 +1134,8 @@ impl JokerEnv for EnvService {
                             let discard_count = cards_discarded;
                             for joker in &mut state.jokers {
                                 if joker.enabled && joker.id == JokerId::Ramen {
-                                    joker.ramen_mult -= discard_count as f32 * 0.01;
-                                    if joker.ramen_mult < 1.0 {
+                                    joker.state.add_x_mult(-(discard_count as f32 * 0.01));
+                                    if joker.state.get_x_mult() < 1.0 {
                                         joker.enabled = false;
                                     }
                                 }
@@ -1618,7 +1617,7 @@ impl JokerEnv for EnvService {
                         .jokers
                         .iter()
                         .filter(|j| j.enabled && j.id == JokerId::Rocket)
-                        .map(|j| j.rocket_money as i64)
+                        .map(|j| j.get_rocket_money() as i64)
                         .sum();
                     state.money += rocket_money;
 
@@ -1892,7 +1891,8 @@ impl JokerEnv for EnvService {
                                     let mut joker = bought.joker;
                                     // ToDoList: 購買時隨機設置目標牌型
                                     if joker.id == JokerId::ToDoList {
-                                        joker.todo_hand_type = state.rng.gen_range(0..13) as u8;
+                                        let hand_type = state.rng.gen_range(0..13) as u8;
+                                        joker.set_todo_hand_type(hand_type);
                                     }
                                     state.jokers.push(joker);
                                 }
@@ -1918,7 +1918,7 @@ impl JokerEnv for EnvService {
                                 // Rocket: 過 Boss Blind 後，每回合獎勵 +$1
                                 for joker in state.jokers.iter_mut() {
                                     if joker.enabled && joker.id == JokerId::Rocket {
-                                        joker.rocket_money += 1;
+                                        joker.increment_rocket_money();
                                     }
                                 }
                             } else {
@@ -1974,10 +1974,7 @@ impl JokerEnv for EnvService {
                         // ChaosTheClown: 每回合 1 次免費 reroll
                         let mut chaos_free_reroll = false;
                         for joker in &state.jokers {
-                            if joker.enabled
-                                && joker.id == JokerId::ChaosTheClown
-                                && !joker.chaos_free_reroll_used
-                            {
+                            if joker.enabled && joker.has_chaos_free_reroll() {
                                 chaos_free_reroll = true;
                                 break;
                             }
@@ -2001,7 +1998,7 @@ impl JokerEnv for EnvService {
                             if chaos_free_reroll {
                                 for joker in &mut state.jokers {
                                     if joker.enabled && joker.id == JokerId::ChaosTheClown {
-                                        joker.chaos_free_reroll_used = true;
+                                        joker.use_chaos_free_reroll();
                                         break;
                                     }
                                 }
@@ -2062,7 +2059,6 @@ impl JokerEnv for EnvService {
                             for joker in &mut state.jokers {
                                 if joker.enabled && joker.id == JokerId::Campfire {
                                     joker.state.add_x_mult(0.25);
-                                    joker.campfire_mult += 0.25;
                                 }
                             }
                         }

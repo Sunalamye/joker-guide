@@ -487,9 +487,9 @@ impl EnvState {
                     bonus += nine_count;
                 }
                 JokerId::Rocket => {
-                    // Rocket: 回合結束 +$1（基礎值，實際會隨 Boss 過關縮放）
-                    // 這裡使用 joker.counter 追蹤累積的額外金幣
-                    bonus += 1 + joker.counter as i64;
+                    // Rocket: 回合結束 +rocket_money 金幣
+                    // 優先使用新的統一狀態系統
+                    bonus += joker.get_rocket_money() as i64;
                 }
                 JokerId::Satellite => {
                     // Satellite: 每使用過的 Planet +$1
@@ -751,7 +751,7 @@ impl EnvState {
     /// - Juggler: +1
     /// - Troubadour: +2
     /// - Stuntman: -2
-    /// - TurtleBean: 由 turtle_hand_mod 追蹤
+    /// - TurtleBean: 由 JokerState::Counter 追蹤
     /// - TheManacle (Boss): -1
     /// - Purple Stake 及以上: -1
     pub fn effective_hand_size(&self) -> usize {
@@ -766,7 +766,7 @@ impl EnvState {
                 JokerId::Juggler => modifier += 1,
                 JokerId::Troubadour => modifier += 2,
                 JokerId::Stuntman => modifier -= 2,
-                JokerId::TurtleBean => modifier += joker.turtle_hand_mod,
+                JokerId::TurtleBean => modifier += joker.get_turtle_hand_mod(),
                 _ => {}
             }
         }
