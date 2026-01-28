@@ -1138,12 +1138,14 @@ impl JokerEnv for EnvService {
                                     // Observatory: 標記此牌型已使用 Planet
                                     state.planet_used_hand_types |= 1 << hand_type_idx;
 
+                                    // 使用 trigger 系統處理 PlanetUsed 事件
                                     // Constellation: 每使用 Planet 卡 +0.1 X Mult
-                                    for joker in &mut state.jokers {
-                                        if joker.enabled && joker.id == JokerId::Constellation {
-                                            joker.update_constellation_on_planet_used();
-                                        }
-                                    }
+                                    let trigger_ctx = TriggerContext::default();
+                                    let _trigger_result = trigger_joker_slot_events(
+                                        GameEvent::PlanetUsed,
+                                        &mut state.jokers,
+                                        &trigger_ctx,
+                                    );
                                     // Satellite: 追蹤使用的 Planet 數量
                                     state.planets_used_this_run += 1;
                                     // 更新 last_used_consumable
@@ -2052,12 +2054,14 @@ impl JokerEnv for EnvService {
                                     // Observatory: 標記此牌型已使用 Planet
                                     state.planet_used_hand_types |= 1 << hand_type_idx;
 
+                                    // 使用 trigger 系統處理 PlanetUsed 事件
                                     // Constellation: 每使用 Planet 卡 +0.1 X Mult
-                                    for joker in &mut state.jokers {
-                                        if joker.enabled && joker.id == JokerId::Constellation {
-                                            joker.update_constellation_on_planet_used();
-                                        }
-                                    }
+                                    let trigger_ctx = TriggerContext::default();
+                                    let _trigger_result = trigger_joker_slot_events(
+                                        GameEvent::PlanetUsed,
+                                        &mut state.jokers,
+                                        &trigger_ctx,
+                                    );
                                     // Satellite: 追蹤使用的 Planet 數量
                                     state.planets_used_this_run += 1;
                                     // 更新 last_used_consumable
