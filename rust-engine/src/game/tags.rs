@@ -1,9 +1,79 @@
 //! Tag 系統
 //!
 //! 跳過 Blind 時獲得的獎勵
+//!
+//! # 架構
+//!
+//! 使用聲明式 `TAG_DEFS` 表定義所有 Tag 的元數據。
 
 use rand::prelude::*;
 use rand::rngs::StdRng;
+
+// ============================================================================
+// Tag 定義系統
+// ============================================================================
+
+/// Tag 定義結構
+#[derive(Clone, Copy)]
+pub struct TagDef {
+    pub immediate_money: i64,
+    pub gives_free_pack: bool,
+    pub doubles_next_tag: bool,
+}
+
+/// Tag 定義表（順序與 TagId 枚舉一致）
+pub static TAG_DEFS: [TagDef; 25] = [
+    // 0: UncommonTag
+    TagDef { immediate_money: 0, gives_free_pack: false, doubles_next_tag: false },
+    // 1: RareTag
+    TagDef { immediate_money: 0, gives_free_pack: false, doubles_next_tag: false },
+    // 2: NegativeTag
+    TagDef { immediate_money: 0, gives_free_pack: false, doubles_next_tag: false },
+    // 3: FoilTag
+    TagDef { immediate_money: 0, gives_free_pack: false, doubles_next_tag: false },
+    // 4: HolographicTag
+    TagDef { immediate_money: 0, gives_free_pack: false, doubles_next_tag: false },
+    // 5: PolychromeTag
+    TagDef { immediate_money: 0, gives_free_pack: false, doubles_next_tag: false },
+    // 6: InvestmentTag - gives money at end of round, not immediate
+    TagDef { immediate_money: 0, gives_free_pack: false, doubles_next_tag: false },
+    // 7: VoucherTag
+    TagDef { immediate_money: 0, gives_free_pack: false, doubles_next_tag: false },
+    // 8: BossTag
+    TagDef { immediate_money: 0, gives_free_pack: false, doubles_next_tag: false },
+    // 9: StandardTag - free Standard Pack
+    TagDef { immediate_money: 0, gives_free_pack: true, doubles_next_tag: false },
+    // 10: BuffoonTag - free Buffoon Pack
+    TagDef { immediate_money: 0, gives_free_pack: true, doubles_next_tag: false },
+    // 11: MeteorTag - free Meteor Pack
+    TagDef { immediate_money: 0, gives_free_pack: true, doubles_next_tag: false },
+    // 12: EtherealTag - free Ethereal Pack
+    TagDef { immediate_money: 0, gives_free_pack: true, doubles_next_tag: false },
+    // 13: CelestialTag - free Celestial Pack
+    TagDef { immediate_money: 0, gives_free_pack: true, doubles_next_tag: false },
+    // 14: CouponTag
+    TagDef { immediate_money: 0, gives_free_pack: false, doubles_next_tag: false },
+    // 15: DoubleTag - doubles next tag
+    TagDef { immediate_money: 0, gives_free_pack: false, doubles_next_tag: true },
+    // 16: JuggleTag
+    TagDef { immediate_money: 0, gives_free_pack: false, doubles_next_tag: false },
+    // 17: D6Tag
+    TagDef { immediate_money: 0, gives_free_pack: false, doubles_next_tag: false },
+    // 18: TopUpTag
+    TagDef { immediate_money: 0, gives_free_pack: false, doubles_next_tag: false },
+    // 19: SpeedTag - +$25
+    TagDef { immediate_money: 25, gives_free_pack: false, doubles_next_tag: false },
+    // 20: OrbitalTag
+    TagDef { immediate_money: 0, gives_free_pack: false, doubles_next_tag: false },
+    // 21: EconomyTag - +$10
+    TagDef { immediate_money: 10, gives_free_pack: false, doubles_next_tag: false },
+    // 22: HandyTag - $1 per hand (base: 4 hands)
+    TagDef { immediate_money: 4, gives_free_pack: false, doubles_next_tag: false },
+    // 23: GarbageTag - $1 per discard (base: 3 discards)
+    TagDef { immediate_money: 3, gives_free_pack: false, doubles_next_tag: false },
+    // 24: CharmTag - free Mega Arcana Pack
+    TagDef { immediate_money: 0, gives_free_pack: true, doubles_next_tag: false },
+];
 
 /// Tag 類型
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -93,63 +163,22 @@ impl TagId {
 
     /// Tag 的金幣即時獎勵
     pub fn immediate_money(&self) -> i64 {
-        match self {
-            TagId::EconomyTag => 10,
-            TagId::SpeedTag => 25,
-            TagId::InvestmentTag => 0, // 回合結束時給
-            TagId::HandyTag => 4,      // $1 per hand (base: 4 hands)
-            TagId::GarbageTag => 3,    // $1 per discard (base: 3 discards)
-            _ => 0,
-        }
+        TAG_DEFS[self.to_index()].immediate_money
     }
 
     /// Tag 的 to_index 用於 observation
     pub fn to_index(&self) -> usize {
-        match self {
-            TagId::UncommonTag => 0,
-            TagId::RareTag => 1,
-            TagId::NegativeTag => 2,
-            TagId::FoilTag => 3,
-            TagId::HolographicTag => 4,
-            TagId::PolychromeTag => 5,
-            TagId::InvestmentTag => 6,
-            TagId::VoucherTag => 7,
-            TagId::BossTag => 8,
-            TagId::StandardTag => 9,
-            TagId::BuffoonTag => 10,
-            TagId::MeteorTag => 11,
-            TagId::EtherealTag => 12,
-            TagId::CelestialTag => 13,
-            TagId::CouponTag => 14,
-            TagId::DoubleTag => 15,
-            TagId::JuggleTag => 16,
-            TagId::D6Tag => 17,
-            TagId::TopUpTag => 18,
-            TagId::SpeedTag => 19,
-            TagId::OrbitalTag => 20,
-            TagId::EconomyTag => 21,
-            TagId::HandyTag => 22,
-            TagId::GarbageTag => 23,
-            TagId::CharmTag => 24,
-        }
+        Self::all().iter().position(|t| t == self).unwrap_or(0)
     }
 
     /// 是否給予免費卡包
     pub fn gives_free_pack(&self) -> bool {
-        matches!(
-            self,
-            TagId::StandardTag
-                | TagId::BuffoonTag
-                | TagId::MeteorTag
-                | TagId::EtherealTag
-                | TagId::CelestialTag
-                | TagId::CharmTag
-        )
+        TAG_DEFS[self.to_index()].gives_free_pack
     }
 
     /// 是否複製下一個 Tag (DoubleTag)
     pub fn doubles_next_tag(&self) -> bool {
-        matches!(self, TagId::DoubleTag)
+        TAG_DEFS[self.to_index()].doubles_next_tag
     }
 }
 
