@@ -1009,6 +1009,108 @@ pub fn get_effect_def(id_index: usize) -> EffectDef {
             bonus: BonusDef::Mult(8),
         },
 
+        // #77: ZanyJoker (6): +12 Mult (Three of a Kind)
+        6 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_WITH_THREE_KIND),
+            bonus: BonusDef::Mult(12),
+        },
+
+        // #78: MadJoker (7): +10 Mult (Two Pair)
+        7 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_TWO_PAIR),
+            bonus: BonusDef::Mult(10),
+        },
+
+        // #79: CrazyJoker (8): +12 Mult (Straight)
+        8 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_WITH_STRAIGHT),
+            bonus: BonusDef::Mult(12),
+        },
+
+        // #80: DrollJoker (9): +10 Mult (Flush)
+        9 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_WITH_FLUSH),
+            bonus: BonusDef::Mult(10),
+        },
+
+        // #81: SlyJoker (10): +50 Chips (Pair)
+        10 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_WITH_PAIR),
+            bonus: BonusDef::Chips(50),
+        },
+
+        // #82: WilyJoker (11): +100 Chips (Three of a Kind)
+        11 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_WITH_THREE_KIND),
+            bonus: BonusDef::Chips(100),
+        },
+
+        // #83: CleverJoker (12): +80 Chips (Two Pair)
+        12 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_TWO_PAIR),
+            bonus: BonusDef::Chips(80),
+        },
+
+        // #84: DeviousJoker (13): +100 Chips (Straight)
+        13 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_WITH_STRAIGHT),
+            bonus: BonusDef::Chips(100),
+        },
+
+        // #85: CraftyJoker (14): +80 Chips (Flush)
+        14 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_WITH_FLUSH),
+            bonus: BonusDef::Chips(80),
+        },
+
+        // #86: The_Duo (111): X2 Mult (Pair)
+        111 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_WITH_ANY_PAIR),
+            bonus: BonusDef::XMult(2.0),
+        },
+
+        // #87: The_Trio (112): X3 Mult (Three of a Kind)
+        112 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_WITH_THREE_KIND),
+            bonus: BonusDef::XMult(3.0),
+        },
+
+        // #88: The_Family (113): X4 Mult (Four of a Kind)
+        113 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_WITH_FOUR_KIND),
+            bonus: BonusDef::XMult(4.0),
+        },
+
+        // #89: The_Order (114): X3 Mult (Straight)
+        114 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_WITH_STRAIGHT),
+            bonus: BonusDef::XMult(3.0),
+        },
+
+        // #90: The_Tribe (115): X2 Mult (Flush)
+        115 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_WITH_FLUSH),
+            bonus: BonusDef::XMult(2.0),
+        },
+
+        // #91: SuperPosition (29): X2 Mult (Straight+Flush)
+        29 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_STRAIGHT_FLUSH),
+            bonus: BonusDef::XMult(2.0),
+        },
+
+        // #92: Spare_Trousers (134): +2 Mult (Two Pair)
+        134 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_TWO_PAIR),
+            bonus: BonusDef::Mult(2),
+        },
+
+        // #93: Trousers (141): +4 Mult (Two Pair)
+        141 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_TWO_PAIR),
+            bonus: BonusDef::Mult(4),
+        },
+
         // 其他 Joker 暫時返回默認效果（待實現）
         _ => EffectDef::default(),
     }
