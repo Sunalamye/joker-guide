@@ -535,20 +535,28 @@ impl JokerEnv for EnvService {
                         // 更新全局計數器（用於 ScoringContext）
                         state.blinds_skipped += 1;
 
-                        // RedCard: 額外的 per-joker 追蹤（可選）
-                        for joker in &mut state.jokers {
-                            if joker.enabled && joker.id == JokerId::RedCard {
-                                joker.red_card_mult += 3;
+                        // 使用觸發系統處理跳過 Blind 的效果
+                        let trigger_ctx = TriggerContext {
+                            rng_value: state.rng.gen(),
+                            ..Default::default()
+                        };
+                        let trigger_result = trigger_joker_slot_events(
+                            GameEvent::BlindSkipped,
+                            &mut state.jokers,
+                            &trigger_ctx,
+                        );
+
+                        // RedCard: 增加 Mult
+                        if trigger_result.red_card_mult_increase > 0 {
+                            for joker in &mut state.jokers {
+                                if joker.enabled && joker.id == JokerId::RedCard {
+                                    joker.red_card_mult += trigger_result.red_card_mult_increase;
+                                }
                             }
                         }
 
-                        // Cartomancer: 跳過 Blind 時生成隨機 Tarot 卡
-                        let cartomancer_count = state
-                            .jokers
-                            .iter()
-                            .filter(|j| j.enabled && j.id == JokerId::Cartomancer)
-                            .count();
-                        for _ in 0..cartomancer_count {
+                        // Cartomancer: 生成隨機 Tarot 卡
+                        for _ in 0..trigger_result.tarot_to_create {
                             if !state.consumables.is_full() {
                                 let all_tarots = TarotId::all();
                                 let idx = state.rng.gen_range(0..all_tarots.len());
@@ -556,13 +564,8 @@ impl JokerEnv for EnvService {
                             }
                         }
 
-                        // Astronomer: 跳過 Blind 時生成隨機 Planet 卡
-                        let astronomer_count = state
-                            .jokers
-                            .iter()
-                            .filter(|j| j.enabled && j.id == JokerId::Astronomer)
-                            .count();
-                        for _ in 0..astronomer_count {
+                        // Astronomer: 生成隨機 Planet 卡
+                        for _ in 0..trigger_result.planet_to_create {
                             if !state.consumables.is_full() {
                                 let all_planets = PlanetId::all();
                                 let idx = state.rng.gen_range(0..all_planets.len());

@@ -1793,6 +1793,9 @@ pub fn trigger_joker_slot_events(
         disable_boss_blind: result.disable_boss_blind,
         create_negative_copy: result.create_negative_copy,
         madness_destroys: result.madness_destroys,
+        tarot_to_create: result.tarot_to_create,
+        planet_to_create: result.planet_to_create,
+        red_card_mult_increase: result.red_card_mult_increase,
     }
 }
 

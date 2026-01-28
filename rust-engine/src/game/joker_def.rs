@@ -1921,6 +1921,15 @@ pub enum TriggerEffect {
     /// 禁用 Boss Blind（Chicot）
     DisableBossBlind,
 
+    /// 創建隨機 Tarot（Cartomancer）
+    CreateTarot,
+
+    /// 創建隨機 Planet（Astronomer）
+    CreatePlanet,
+
+    /// 增加 RedCard 的 Mult
+    AddRedCardMult(i32),
+
     /// 自訂效果（需要在 trigger_joker_events 中特殊處理）
     Custom,
 }
@@ -2128,6 +2137,28 @@ pub fn get_triggers(id_index: usize) -> &'static [TriggerDef] {
             effect: TriggerEffect::Custom, // 需要檢查花色
         }],
 
+        // ====================================================================
+        // 跳過 Blind 觸發器
+        // ====================================================================
+
+        // Cartomancer (43): 跳過 Blind 時生成 Tarot
+        43 => &[TriggerDef {
+            event: GameEvent::BlindSkipped,
+            effect: TriggerEffect::CreateTarot,
+        }],
+
+        // Astronomer (44): 跳過 Blind 時生成 Planet
+        44 => &[TriggerDef {
+            event: GameEvent::BlindSkipped,
+            effect: TriggerEffect::CreatePlanet,
+        }],
+
+        // RedCard (92): 跳過 Blind 時 +3 Mult
+        92 => &[TriggerDef {
+            event: GameEvent::BlindSkipped,
+            effect: TriggerEffect::AddRedCardMult(3),
+        }],
+
         // 其他 Joker 沒有事件觸發器
         _ => &[],
     }
@@ -2150,6 +2181,12 @@ pub struct TriggerResult {
     pub create_negative_copy: bool,
     /// Madness 效果需要銷毀的隨機 Joker 數量（調用者負責執行實際銷毀）
     pub madness_destroys: i32,
+    /// Cartomancer: 需要生成的隨機 Tarot 數量
+    pub tarot_to_create: i32,
+    /// Astronomer: 需要生成的隨機 Planet 數量
+    pub planet_to_create: i32,
+    /// RedCard: 增加的 Mult 數量
+    pub red_card_mult_increase: i32,
 }
 
 impl TriggerResult {
@@ -2163,6 +2200,9 @@ impl TriggerResult {
         self.disable_boss_blind |= other.disable_boss_blind;
         self.create_negative_copy |= other.create_negative_copy;
         self.madness_destroys += other.madness_destroys;
+        self.tarot_to_create += other.tarot_to_create;
+        self.planet_to_create += other.planet_to_create;
+        self.red_card_mult_increase += other.red_card_mult_increase;
     }
 }
 
@@ -2246,6 +2286,18 @@ pub fn trigger_joker_events(
                     if ctx.is_boss_blind {
                         result.disable_boss_blind = true;
                     }
+                }
+
+                TriggerEffect::CreateTarot => {
+                    result.tarot_to_create += 1;
+                }
+
+                TriggerEffect::CreatePlanet => {
+                    result.planet_to_create += 1;
+                }
+
+                TriggerEffect::AddRedCardMult(amount) => {
+                    result.red_card_mult_increase += amount;
                 }
 
                 TriggerEffect::Custom => {
