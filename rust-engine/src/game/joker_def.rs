@@ -701,6 +701,282 @@ pub fn compute_effect(effect: &EffectDef, ctx: &ComputeContext) -> JokerBonus {
 }
 
 // ============================================================================
+// V2 效果計算（整合狀態處理）
+// ============================================================================
+
+/// 擴展計算上下文，包含完整的遊戲狀態
+///
+/// 這個結構從 `joker::ScoringContext` 轉換，包含計算 Stateful 效果所需的所有信息。
+#[derive(Clone, Debug)]
+pub struct ComputeContextV2<'a> {
+    /// 打出的牌
+    pub played_cards: &'a [Card],
+    /// 手中持有的牌
+    pub hand: &'a [Card],
+    /// 牌型
+    pub hand_id: HandId,
+    /// 是否是第一手
+    pub is_first_hand: bool,
+    /// 是否是最後一手
+    pub is_final_hand: bool,
+    /// 持有金幣數量
+    pub money_held: i64,
+    /// Joker 數量
+    pub joker_count: usize,
+    /// Joker 槽位上限
+    pub joker_slot_limit: usize,
+    /// 剩餘棄牌數
+    pub discards_remaining: i32,
+    /// 本輪已打手數
+    pub hands_played_this_round: i32,
+    /// 本局已打手數
+    pub hands_played_this_run: i32,
+    /// 牌組大小
+    pub deck_size: i32,
+    /// 牌組中增強牌數量
+    pub enhanced_cards_in_deck: i32,
+    /// Uncommon Joker 數量
+    pub uncommon_joker_count: usize,
+}
+
+impl<'a> ComputeContextV2<'a> {
+    /// 從簡化上下文創建
+    pub fn from_basic(ctx: &ComputeContext<'a>) -> Self {
+        Self {
+            played_cards: ctx.played_cards,
+            hand: ctx.hand,
+            hand_id: ctx.hand_id,
+            is_first_hand: ctx.is_first_hand,
+            is_final_hand: ctx.is_final_hand,
+            money_held: 0,
+            joker_count: 0,
+            joker_slot_limit: 5,
+            discards_remaining: 0,
+            hands_played_this_round: 0,
+            hands_played_this_run: 0,
+            deck_size: 52,
+            enhanced_cards_in_deck: 0,
+            uncommon_joker_count: 0,
+        }
+    }
+
+    /// 轉換為基本上下文
+    pub fn to_basic(&self) -> ComputeContext<'a> {
+        ComputeContext {
+            played_cards: self.played_cards,
+            hand: self.hand,
+            hand_id: self.hand_id,
+            is_first_hand: self.is_first_hand,
+            is_final_hand: self.is_final_hand,
+        }
+    }
+}
+
+/// 使用新模板系統計算 Joker 效果 (V2)
+///
+/// 這個函數整合了效果定義和狀態處理，逐步替代 `compute_core_joker_effect`。
+///
+/// # 參數
+/// - `joker_index`: Joker 在 JOKER_DEFINITIONS 中的索引
+/// - `state`: Joker 的當前狀態
+/// - `ctx`: 計算上下文
+/// - `_rng_value`: 隨機數值（供隨機效果使用）
+///
+/// # 範例
+/// ```ignore
+/// let bonus = compute_joker_effect_v2(0, &JokerState::None, &ctx, 0);
+/// assert_eq!(bonus.add_mult, 4); // Joker: +4 Mult
+/// ```
+pub fn compute_joker_effect_v2(
+    joker_index: usize,
+    state: &JokerState,
+    ctx: &ComputeContextV2,
+    _rng_value: u8,
+) -> JokerBonus {
+    let effect = get_effect_def(joker_index);
+    let basic_ctx = ctx.to_basic();
+
+    // 非 Stateful 效果直接使用 compute_effect
+    match &effect {
+        EffectDef::Stateful => {
+            // Stateful 效果需要根據 joker_index 和 state 單獨處理
+            compute_stateful_effect(joker_index, state, ctx)
+        }
+        _ => compute_effect(&effect, &basic_ctx),
+    }
+}
+
+/// 計算 Stateful 效果
+///
+/// 這些效果依賴於 JokerState 或 ComputeContextV2 中的擴展信息。
+fn compute_stateful_effect(
+    joker_index: usize,
+    state: &JokerState,
+    ctx: &ComputeContextV2,
+) -> JokerBonus {
+    let mut bonus = JokerBonus::new();
+
+    match joker_index {
+        // === 累加器效果 ===
+        // RideTheBus (20): 使用累積的 mult
+        20 => bonus.add_mult = state.get_mult() as i64,
+
+        // GreenJoker (28): 使用累積的 mult
+        28 => bonus.add_mult = state.get_mult() as i64,
+
+        // IceCream (60): 使用累積的 chips
+        60 => bonus.chip_bonus = state.get_chips() as i64,
+
+        // Popcorn (67): 使用累積的 mult
+        67 => bonus.add_mult = state.get_mult() as i64,
+
+        // Ramen (69): 使用累積的 x_mult
+        69 => bonus.mul_mult = state.get_x_mult(),
+
+        // Campfire (74): 使用累積的 x_mult
+        74 => bonus.mul_mult = state.get_x_mult(),
+
+        // Wee (90): 使用累積的 chips
+        90 => bonus.chip_bonus = state.get_chips() as i64,
+
+        // Merry (91): 使用累積的 mult
+        91 => bonus.add_mult = state.get_mult() as i64,
+
+        // Vampire (97): 使用累積的 x_mult
+        97 => bonus.mul_mult = state.get_x_mult(),
+
+        // GlassJoker (22): 使用累積的 x_mult
+        22 => bonus.mul_mult = state.get_x_mult(),
+
+        // Hologram (23): 使用累積的 x_mult
+        23 => bonus.mul_mult = state.get_x_mult(),
+
+        // Constellation (64): 使用累積的 x_mult
+        64 => bonus.mul_mult = state.get_x_mult(),
+
+        // Yorick (122): 使用累積的 x_mult
+        122 => bonus.mul_mult = state.get_x_mult(),
+
+        // Hit_The_Road (110): 使用累積的 x_mult
+        110 => bonus.mul_mult = state.get_x_mult(),
+
+        // Lucky_Cat (129): 使用累積的 x_mult
+        129 => bonus.mul_mult = state.get_x_mult(),
+
+        // Obelisk (130): 使用累積的 x_mult
+        130 => bonus.mul_mult = state.get_x_mult(),
+
+        // Canio (120): 使用累積的 x_mult
+        120 => bonus.mul_mult = state.get_x_mult(),
+
+        // Caino (139): 使用累積的 x_mult
+        139 => bonus.mul_mult = state.get_x_mult(),
+
+        // Madness (93): 使用累積的 x_mult
+        93 => bonus.mul_mult = state.get_x_mult(),
+
+        // Castle (72): 使用目標值作為 chips
+        72 => bonus.chip_bonus = state.get_target_value() as i64,
+
+        // Rocket (96): 使用累積的金幣加成
+        96 => bonus.money_bonus = state.get_chips() as i64, // 借用 chips 欄位存金幣
+
+        // === 目標效果 ===
+        // AncientJoker (68): 如果手牌包含指定花色，X1.5 Mult
+        68 => {
+            let target_suit = state.get_target_suit();
+            if ctx.played_cards.iter().any(|c| c.suit == target_suit) {
+                bonus.mul_mult = 1.5;
+            }
+        }
+
+        // TheIdol (159): 如果打出目標牌，X2 Mult
+        159 => {
+            let target_suit = state.get_target_suit();
+            let target_rank = state.get_target_rank();
+            if ctx.played_cards.iter().any(|c| c.suit == target_suit && c.rank == target_rank) {
+                bonus.mul_mult = 2.0;
+            }
+        }
+
+        // ToDoList (155): 如果打出目標牌型，+$4
+        155 => {
+            // 需要額外判斷是否打出目標牌型
+            // 目標牌型存在 target_rank 中
+            let target_hand = state.get_target_rank();
+            if ctx.hand_id as u8 == target_hand {
+                bonus.money_bonus = 4;
+            }
+        }
+
+        // === 計數效果 ===
+        // Selzer (71): 10 次用完後消失，每次重觸發所有牌
+        71 => {
+            if state.get_counter() > 0 {
+                bonus.retriggers = ctx.played_cards.len() as i32;
+            }
+        }
+
+        // LoyaltyCard (142): 每 6 手 X4 Mult
+        142 => {
+            // 當計數器達到 6 時觸發
+            if let JokerState::Counter { current, threshold, .. } = state {
+                if *current >= *threshold {
+                    bonus.mul_mult = 4.0;
+                }
+            }
+        }
+
+        // === 上下文相關效果 ===
+        // AbstractJoker (19): +3 Mult per Joker
+        19 => bonus.add_mult = 3 * ctx.joker_count as i64,
+
+        // Bull (41): +2 Chips per $1 held
+        41 => bonus.chip_bonus = 2 * ctx.money_held,
+
+        // Banner (16): +30 Chips per discard left
+        16 => bonus.chip_bonus = 30 * ctx.discards_remaining as i64,
+
+        // BlueJoker (62): +2 Chips per deck card
+        62 => bonus.chip_bonus = 2 * ctx.deck_size as i64,
+
+        // Erosion (38): +4 Mult per card below 52
+        38 => {
+            if ctx.deck_size < 52 {
+                bonus.add_mult = 4 * (52 - ctx.deck_size) as i64;
+            }
+        }
+
+        // Stencil (116): X1 per empty slot
+        116 => {
+            let empty_slots = ctx.joker_slot_limit.saturating_sub(ctx.joker_count);
+            if empty_slots > 0 {
+                bonus.mul_mult = empty_slots as f32;
+            }
+        }
+
+        // DriversLicense (109): X3 if 16+ enhanced
+        109 => {
+            if ctx.enhanced_cards_in_deck >= 16 {
+                bonus.mul_mult = 3.0;
+            }
+        }
+
+        // BaseballCard (152): X1.5 per Uncommon Joker
+        152 => {
+            if ctx.uncommon_joker_count > 0 {
+                bonus.mul_mult = 1.5_f32.powi(ctx.uncommon_joker_count as i32);
+            }
+        }
+
+        // 預設情況
+        _ => {}
+    }
+
+    bonus
+}
+
+// ============================================================================
 // 稀有度
 // ============================================================================
 
@@ -1915,5 +2191,127 @@ mod tests {
         assert_eq!(bonus.add_mult, 0);
         assert_eq!(bonus.chip_bonus, 0);
         assert!((bonus.mul_mult - 1.0).abs() < 0.001);
+    }
+
+    // ========================================================================
+    // compute_joker_effect_v2 測試
+    // ========================================================================
+
+    #[test]
+    fn test_v2_fixed_joker() {
+        use super::{compute_joker_effect_v2, ComputeContextV2, ComputeContext};
+
+        // 0: Joker - +4 Mult (Fixed)
+        let basic_ctx = ComputeContext::new(&[], &[], HandId::HighCard);
+        let ctx = ComputeContextV2::from_basic(&basic_ctx);
+        let bonus = compute_joker_effect_v2(0, &JokerState::None, &ctx, 0);
+        assert_eq!(bonus.add_mult, 4);
+    }
+
+    #[test]
+    fn test_v2_abstract_joker() {
+        use super::{compute_joker_effect_v2, ComputeContextV2, ComputeContext};
+
+        // 19: AbstractJoker - +3 Mult per Joker (Stateful)
+        let basic_ctx = ComputeContext::new(&[], &[], HandId::HighCard);
+        let mut ctx = ComputeContextV2::from_basic(&basic_ctx);
+        ctx.joker_count = 5;
+
+        let bonus = compute_joker_effect_v2(19, &JokerState::None, &ctx, 0);
+        assert_eq!(bonus.add_mult, 15); // 5 * 3 = 15
+    }
+
+    #[test]
+    fn test_v2_bull() {
+        use super::{compute_joker_effect_v2, ComputeContextV2, ComputeContext};
+
+        // 41: Bull - +2 Chips per $1 held (Stateful)
+        let basic_ctx = ComputeContext::new(&[], &[], HandId::HighCard);
+        let mut ctx = ComputeContextV2::from_basic(&basic_ctx);
+        ctx.money_held = 25;
+
+        let bonus = compute_joker_effect_v2(41, &JokerState::None, &ctx, 0);
+        assert_eq!(bonus.chip_bonus, 50); // 25 * 2 = 50
+    }
+
+    #[test]
+    fn test_v2_vampire_with_state() {
+        use super::{compute_joker_effect_v2, ComputeContextV2, ComputeContext};
+
+        // 97: Vampire - uses accumulated x_mult (Stateful)
+        let basic_ctx = ComputeContext::new(&[], &[], HandId::HighCard);
+        let ctx = ComputeContextV2::from_basic(&basic_ctx);
+        let state = JokerState::accumulator(0, 0, 2.5);
+
+        let bonus = compute_joker_effect_v2(97, &state, &ctx, 0);
+        assert!((bonus.mul_mult - 2.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_v2_ancient_joker_trigger() {
+        use super::{compute_joker_effect_v2, ComputeContextV2};
+        use super::super::cards::Card;
+
+        // 68: AncientJoker - X1.5 if target suit in played cards
+        // Card::new(rank, suit)
+        let played_cards = vec![Card::new(5, HEART)];
+        let ctx = ComputeContextV2 {
+            played_cards: &played_cards,
+            hand: &[],
+            hand_id: HandId::HighCard,
+            is_first_hand: false,
+            is_final_hand: false,
+            money_held: 0,
+            joker_count: 1,
+            joker_slot_limit: 5,
+            discards_remaining: 3,
+            hands_played_this_round: 0,
+            hands_played_this_run: 0,
+            deck_size: 52,
+            enhanced_cards_in_deck: 0,
+            uncommon_joker_count: 0,
+        };
+
+        // 目標花色是 HEART
+        let state = JokerState::Target { suit: HEART, rank: 0, value: 0 };
+        let bonus = compute_joker_effect_v2(68, &state, &ctx, 0);
+        assert!((bonus.mul_mult - 1.5).abs() < 0.001);
+
+        // 目標花色是 SPADE (不在 played_cards 中)
+        let state2 = JokerState::Target { suit: SPADE, rank: 0, value: 0 };
+        let bonus2 = compute_joker_effect_v2(68, &state2, &ctx, 0);
+        assert!((bonus2.mul_mult - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_v2_stencil() {
+        use super::{compute_joker_effect_v2, ComputeContextV2, ComputeContext};
+
+        // 116: Stencil - X1 per empty slot (Stateful)
+        let basic_ctx = ComputeContext::new(&[], &[], HandId::HighCard);
+        let mut ctx = ComputeContextV2::from_basic(&basic_ctx);
+        ctx.joker_slot_limit = 5;
+        ctx.joker_count = 2; // 3 empty slots
+
+        let bonus = compute_joker_effect_v2(116, &JokerState::None, &ctx, 0);
+        assert!((bonus.mul_mult - 3.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_v2_conditional_jolly_joker() {
+        use super::{compute_joker_effect_v2, ComputeContextV2, ComputeContext};
+
+        // 5: JollyJoker - +8 Mult on Pair hands (Conditional, not Stateful)
+        let basic_ctx = ComputeContext::new(&[], &[], HandId::Pair);
+        let ctx = ComputeContextV2::from_basic(&basic_ctx);
+
+        let bonus = compute_joker_effect_v2(5, &JokerState::None, &ctx, 0);
+        assert_eq!(bonus.add_mult, 8);
+
+        // Non-pair hand should not trigger
+        let basic_ctx2 = ComputeContext::new(&[], &[], HandId::HighCard);
+        let ctx2 = ComputeContextV2::from_basic(&basic_ctx2);
+        let bonus2 = compute_joker_effect_v2(5, &JokerState::None, &ctx2, 0);
+        assert_eq!(bonus2.add_mult, 0);
     }
 }

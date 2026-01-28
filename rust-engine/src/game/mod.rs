@@ -45,6 +45,7 @@ pub use joker_def::{
     JokerState, CardFilter, Condition, StateField, CompareOp,
     BonusDef, EffectDef, CardScope, GameEvent, Rarity, TriggerContext,
     JokerBonus as JokerBonusNew, JokerDef, JOKER_DEFINITIONS, get_joker_def,
+    ComputeContext, ComputeContextV2, compute_effect, compute_joker_effect_v2,
     SPADE, DIAMOND, HEART, CLUB,
 };
 pub use shop::{Shop, ShopItem};
