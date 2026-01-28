@@ -232,11 +232,9 @@ impl JokerEnv for EnvService {
 
                         // Hologram: 每加牌到牌組 +0.25 X Mult
                         if marble_joker_count > 0 {
-                            for joker in &mut state.jokers {
-                                if joker.enabled && joker.id == JokerId::Hologram {
-                                    joker.update_hologram_on_card_added(marble_joker_count as i32);
-                                }
-                            }
+                            state.update_jokers(JokerId::Hologram, |j| {
+                                j.update_hologram_on_card_added(marble_joker_count as i32);
+                            });
                         }
 
                         // RiffRaff: 選擇 Blind 時生成 2 個 Common Joker
@@ -259,42 +257,32 @@ impl JokerEnv for EnvService {
 
                         // AncientJoker: 每回合開始時隨機設置花色
                         let ancient_joker_random_suit: u8 = state.rng.gen_range(0..4);
-                        for joker in &mut state.jokers {
-                            if joker.enabled && joker.id == JokerId::AncientJoker {
-                                joker.set_ancient_suit(ancient_joker_random_suit);
-                            }
-                        }
+                        state.update_jokers(JokerId::AncientJoker, |j| {
+                            j.set_ancient_suit(ancient_joker_random_suit);
+                        });
 
                         // Castle: 每回合開始時隨機設置花色
                         let castle_random_suit: u8 = state.rng.gen_range(0..4);
-                        for joker in &mut state.jokers {
-                            if joker.enabled && joker.id == JokerId::Castle {
-                                joker.set_castle_suit(castle_random_suit);
-                            }
-                        }
+                        state.update_jokers(JokerId::Castle, |j| {
+                            j.set_castle_suit(castle_random_suit);
+                        });
 
                         // TheIdol: 每回合開始時隨機設置目標牌（rank + suit）
                         let idol_random_rank: u8 = state.rng.gen_range(1..=13);
                         let idol_random_suit: u8 = state.rng.gen_range(0..4);
-                        for joker in &mut state.jokers {
-                            if joker.enabled && joker.id == JokerId::TheIdol {
-                                joker.set_idol_target(idol_random_rank, idol_random_suit);
-                            }
-                        }
+                        state.update_jokers(JokerId::TheIdol, |j| {
+                            j.set_idol_target(idol_random_rank, idol_random_suit);
+                        });
 
                         // ChaosTheClown: 每回合重置免費 reroll
-                        for joker in &mut state.jokers {
-                            if joker.id == JokerId::ChaosTheClown {
-                                joker.reset_chaos_free_reroll();
-                            }
-                        }
+                        state.update_jokers(JokerId::ChaosTheClown, |j| {
+                            j.reset_chaos_free_reroll();
+                        });
 
                         // GreenJoker: 每輪重置 Mult 計數器
-                        for joker in &mut state.jokers {
-                            if joker.enabled && joker.id == JokerId::GreenJoker {
-                                joker.reset_green_joker();
-                            }
-                        }
+                        state.update_jokers(JokerId::GreenJoker, |j| {
+                            j.reset_green_joker();
+                        });
 
                         // Wee: 每輪 +8 Chips
                         for joker in &mut state.jokers {
@@ -403,11 +391,9 @@ impl JokerEnv for EnvService {
                         let total_jokers_destroyed =
                             jokers_destroyed_by_ceremonial + jokers_destroyed_by_madness;
                         if total_jokers_destroyed > 0 {
-                            for joker in &mut state.jokers {
-                                if joker.enabled && joker.id == JokerId::Madness {
-                                    joker.update_madness_on_joker_destroyed(total_jokers_destroyed);
-                                }
-                            }
+                            state.update_jokers(JokerId::Madness, |j| {
+                                j.update_madness_on_joker_destroyed(total_jokers_destroyed);
+                            });
                         }
 
                         state.deal();
@@ -725,13 +711,9 @@ impl JokerEnv for EnvService {
 
                                 // Lucky_Cat: 更新 Lucky 觸發累積的 X Mult
                                 if score_result.lucky_triggers > 0 {
-                                    for joker in &mut state.jokers {
-                                        if joker.enabled && joker.id == JokerId::Lucky_Cat {
-                                            joker.update_lucky_cat_on_trigger(
-                                                score_result.lucky_triggers,
-                                            );
-                                        }
-                                    }
+                                    state.update_jokers(JokerId::Lucky_Cat, |j| {
+                                        j.update_lucky_cat_on_trigger(score_result.lucky_triggers);
+                                    });
                                 }
 
                                 // SpaceJoker: 1/4 機率升級出過的牌型
@@ -1860,14 +1842,8 @@ impl JokerEnv for EnvService {
                 match action_type {
                     ACTION_TYPE_BUY_JOKER => {
                         let index = action_id as usize;
-                        // CreditCard: 允許 $20 負債
-                        let has_credit_card = state
-                            .jokers
-                            .iter()
-                            .any(|j| j.enabled && j.id == JokerId::CreditCard);
-                        let debt_limit = if has_credit_card { 20 } else { 0 };
                         if let Some(item) = state.shop.items.get(index) {
-                            if item.cost <= state.money + debt_limit
+                            if state.can_afford(item.cost)
                                 && state.jokers.len() < state.effective_joker_slot_limit()
                             {
                                 let cost = item.cost;
@@ -1902,11 +1878,9 @@ impl JokerEnv for EnvService {
                                 }
 
                                 // Rocket: 過 Boss Blind 後，每回合獎勵 +$1
-                                for joker in state.jokers.iter_mut() {
-                                    if joker.enabled && joker.id == JokerId::Rocket {
-                                        joker.increment_rocket_money();
-                                    }
-                                }
+                                state.update_jokers(JokerId::Rocket, |j| {
+                                    j.increment_rocket_money();
+                                });
                             } else {
                                 // 遊戲勝利（非無盡模式）
                                 state.stage = Stage::End(GameEnd::Win);
@@ -1969,36 +1943,25 @@ impl JokerEnv for EnvService {
                             reroll_cost = 0;
                         }
 
-                        // CreditCard: 允許 $20 負債
-                        let has_credit_card = state
-                            .jokers
-                            .iter()
-                            .any(|j| j.enabled && j.id == JokerId::CreditCard);
-                        let debt_limit = if has_credit_card { 20 } else { 0 };
-                        if reroll_cost <= state.money + debt_limit {
+                        if reroll_cost <= state.money + state.debt_limit() {
                             action_cost = reroll_cost;
                             state.money -= reroll_cost;
                             state.reroll_shop();
 
                             // 標記 ChaosTheClown 的免費 reroll 已使用
                             if chaos_free_reroll {
-                                for joker in &mut state.jokers {
-                                    if joker.enabled && joker.id == JokerId::ChaosTheClown {
-                                        joker.use_chaos_free_reroll();
-                                        break;
-                                    }
-                                }
+                                state.update_first_joker(JokerId::ChaosTheClown, |j| {
+                                    j.use_chaos_free_reroll();
+                                });
                             }
 
                             // 更新全局計數器（用於 ScoringContext）
                             state.rerolls_this_run += 1;
 
-                            // FlashCard: 額外的 per-joker 追蹤（可選）
-                            for joker in &mut state.jokers {
-                                if joker.enabled && joker.id == JokerId::Flash {
-                                    joker.flash_card_mult += 2;
-                                }
-                            }
+                            // FlashCard: 額外的 per-joker 追蹤
+                            state.update_jokers(JokerId::Flash, |j| {
+                                j.flash_card_mult += 2;
+                            });
                         }
                     }
 
@@ -2114,13 +2077,7 @@ impl JokerEnv for EnvService {
                     ACTION_TYPE_BUY_VOUCHER => {
                         if let Some(voucher_id) = state.shop_voucher {
                             let cost = voucher_id.cost();
-                            // CreditCard: 允許 $20 負債
-                            let has_credit_card = state
-                                .jokers
-                                .iter()
-                                .any(|j| j.enabled && j.id == JokerId::CreditCard);
-                            let debt_limit = if has_credit_card { 20 } else { 0 };
-                            if cost <= state.money + debt_limit {
+                            if state.can_afford(cost) {
                                 action_cost = cost;
                                 state.money -= cost;
                                 state.voucher_effects.buy(voucher_id);
@@ -2131,24 +2088,14 @@ impl JokerEnv for EnvService {
 
                     ACTION_TYPE_BUY_PACK => {
                         let index = action_id as usize;
-                        // CreditCard: 允許 $20 負債
-                        let has_credit_card = state
-                            .jokers
-                            .iter()
-                            .any(|j| j.enabled && j.id == JokerId::CreditCard);
-                        let debt_limit = if has_credit_card { 20 } else { 0 };
                         if let Some(pack) = state.shop_packs.get(index).cloned() {
-                            if pack.cost <= state.money + debt_limit {
+                            if state.can_afford(pack.cost) {
                                 let cost = pack.cost;
                                 action_cost = cost;
                                 state.money -= cost;
 
                                 // Hallucination (#173): 開包時 1/2 機率生成 Tarot 卡
-                                let has_hallucination = state
-                                    .jokers
-                                    .iter()
-                                    .any(|j| j.enabled && j.id == JokerId::Hallucination);
-                                if has_hallucination && state.rng.gen_range(0..2) == 0 {
+                                if state.has_joker(JokerId::Hallucination) && state.rng.gen_range(0..2) == 0 {
                                     let tarot_id = TarotId::from_index(state.rng.gen_range(0..22));
                                     if let Some(tarot) = tarot_id {
                                         state.consumables.add(Consumable::Tarot(tarot));

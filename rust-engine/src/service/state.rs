@@ -582,11 +582,7 @@ impl EnvState {
         self.shop.reroll_count += 1;
 
         // ChaosTheClown: 商店只顯示 1 個 Joker
-        let has_chaos = self
-            .jokers
-            .iter()
-            .any(|j| j.enabled && j.id == JokerId::ChaosTheClown);
-        let joker_count = if has_chaos { 1 } else { SHOP_JOKER_COUNT };
+        let joker_count = if self.has_joker(JokerId::ChaosTheClown) { 1 } else { SHOP_JOKER_COUNT };
 
         self.shop.refresh(&mut self.rng, joker_count);
 
@@ -1003,5 +999,40 @@ impl EnvState {
         let destroyed = self.destroy_cards_from_hand(indices);
         self.money += 20;
         destroyed
+    }
+
+    // ========================================================================
+    // Joker 助手方法
+    // ========================================================================
+
+    /// 檢查是否擁有指定 ID 的啟用 Joker
+    pub fn has_joker(&self, id: JokerId) -> bool {
+        self.jokers.iter().any(|j| j.enabled && j.id == id)
+    }
+
+    /// 更新所有指定 ID 的啟用 Joker
+    pub fn update_jokers(&mut self, id: JokerId, mut f: impl FnMut(&mut JokerSlot)) {
+        for joker in &mut self.jokers {
+            if joker.enabled && joker.id == id {
+                f(joker);
+            }
+        }
+    }
+
+    /// 更新第一個指定 ID 的啟用 Joker
+    pub fn update_first_joker(&mut self, id: JokerId, f: impl FnOnce(&mut JokerSlot)) {
+        if let Some(joker) = self.jokers.iter_mut().find(|j| j.enabled && j.id == id) {
+            f(joker);
+        }
+    }
+
+    /// CreditCard: 計算負債限制（有 CreditCard 時 $20，否則 $0）
+    pub fn debt_limit(&self) -> i64 {
+        if self.has_joker(JokerId::CreditCard) { 20 } else { 0 }
+    }
+
+    /// 檢查是否負擔得起指定費用（考慮 CreditCard 負債）
+    pub fn can_afford(&self, cost: i64) -> bool {
+        cost <= self.money + self.debt_limit()
     }
 }
