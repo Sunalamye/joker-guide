@@ -4,6 +4,10 @@
 //! - Tarot: 修改卡牌
 //! - Planet: 升級牌型
 //! - Spectral: 特殊效果
+//!
+//! # 架構
+//!
+//! 使用聲明式定義表簡化 name() 和 to_index() 方法。
 
 use rand::prelude::*;
 use rand::rngs::StdRng;
@@ -19,6 +23,58 @@ pub const PLANET_COUNT: usize = 12;
 pub const SPECTRAL_COUNT: usize = 18;
 /// 消耗品總數
 pub const CONSUMABLE_COUNT: usize = TAROT_COUNT + PLANET_COUNT + SPECTRAL_COUNT;
+
+// ============================================================================
+// Tarot 定義表
+// ============================================================================
+
+/// Tarot 名稱表（順序與 TarotId 枚舉一致）
+static TAROT_NAMES: [&str; TAROT_COUNT] = [
+    "The Fool", "The Magician", "The High Priestess", "The Empress",
+    "The Emperor", "The Hierophant", "The Lovers", "The Chariot",
+    "Justice", "The Hermit", "The Wheel of Fortune", "Strength",
+    "The Hanged Man", "Death", "Temperance", "The Devil",
+    "The Tower", "The Star", "The Moon", "The Sun",
+    "Judgement", "The World",
+];
+
+// ============================================================================
+// Planet 定義表
+// ============================================================================
+
+/// Planet 定義結構
+#[derive(Clone, Copy)]
+struct PlanetDef {
+    name: &'static str,
+    hand_type_index: usize,
+}
+
+/// Planet 定義表（順序與 PlanetId 枚舉一致）
+static PLANET_DEFS: [PlanetDef; PLANET_COUNT] = [
+    PlanetDef { name: "Mercury", hand_type_index: 1 },  // Pair
+    PlanetDef { name: "Venus", hand_type_index: 3 },    // Three of a Kind
+    PlanetDef { name: "Earth", hand_type_index: 6 },    // Full House
+    PlanetDef { name: "Mars", hand_type_index: 7 },     // Four of a Kind
+    PlanetDef { name: "Jupiter", hand_type_index: 5 },  // Flush
+    PlanetDef { name: "Saturn", hand_type_index: 4 },   // Straight
+    PlanetDef { name: "Uranus", hand_type_index: 2 },   // Two Pair
+    PlanetDef { name: "Neptune", hand_type_index: 8 },  // Straight Flush
+    PlanetDef { name: "Pluto", hand_type_index: 0 },    // High Card
+    PlanetDef { name: "Planet X", hand_type_index: 9 }, // Five of a Kind
+    PlanetDef { name: "Ceres", hand_type_index: 10 },   // Flush House
+    PlanetDef { name: "Eris", hand_type_index: 11 },    // Flush Five
+];
+
+// ============================================================================
+// Spectral 定義表
+// ============================================================================
+
+/// Spectral 名稱表（順序與 SpectralId 枚舉一致）
+static SPECTRAL_NAMES: [&str; SPECTRAL_COUNT] = [
+    "Familiar", "Grim", "Incantation", "Talisman", "Aura", "Wraith",
+    "Sigil", "Ouija", "Ectoplasm", "Immolate", "Ankh", "Deja Vu",
+    "Hex", "Trance", "Medium", "Cryptid", "The Soul", "Black Hole",
+];
 
 /// 消耗品類型
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -106,32 +162,9 @@ impl TarotId {
         ]
     }
 
-    /// 名稱
+    /// 名稱（使用 TAROT_NAMES 表查詢）
     pub fn name(&self) -> &'static str {
-        match self {
-            TarotId::TheFool => "The Fool",
-            TarotId::TheMagician => "The Magician",
-            TarotId::TheHighPriestess => "The High Priestess",
-            TarotId::TheEmpress => "The Empress",
-            TarotId::TheEmperor => "The Emperor",
-            TarotId::TheHierophant => "The Hierophant",
-            TarotId::TheLovers => "The Lovers",
-            TarotId::TheChariot => "The Chariot",
-            TarotId::Justice => "Justice",
-            TarotId::TheHermit => "The Hermit",
-            TarotId::TheWheelOfFortune => "The Wheel of Fortune",
-            TarotId::Strength => "Strength",
-            TarotId::TheHangedMan => "The Hanged Man",
-            TarotId::Death => "Death",
-            TarotId::Temperance => "Temperance",
-            TarotId::TheDevil => "The Devil",
-            TarotId::TheTower => "The Tower",
-            TarotId::TheStar => "The Star",
-            TarotId::TheMoon => "The Moon",
-            TarotId::TheSun => "The Sun",
-            TarotId::Judgement => "Judgement",
-            TarotId::TheWorld => "The World",
-        }
+        TAROT_NAMES[self.to_index()]
     }
 
     /// 需要選擇的牌數量（0 = 不需要選牌）
@@ -147,32 +180,9 @@ impl TarotId {
         }
     }
 
-    /// 轉換為索引
+    /// 轉換為索引（使用 all() 數組位置查詢）
     pub fn to_index(&self) -> usize {
-        match self {
-            TarotId::TheFool => 0,
-            TarotId::TheMagician => 1,
-            TarotId::TheHighPriestess => 2,
-            TarotId::TheEmpress => 3,
-            TarotId::TheEmperor => 4,
-            TarotId::TheHierophant => 5,
-            TarotId::TheLovers => 6,
-            TarotId::TheChariot => 7,
-            TarotId::Justice => 8,
-            TarotId::TheHermit => 9,
-            TarotId::TheWheelOfFortune => 10,
-            TarotId::Strength => 11,
-            TarotId::TheHangedMan => 12,
-            TarotId::Death => 13,
-            TarotId::Temperance => 14,
-            TarotId::TheDevil => 15,
-            TarotId::TheTower => 16,
-            TarotId::TheStar => 17,
-            TarotId::TheMoon => 18,
-            TarotId::TheSun => 19,
-            TarotId::Judgement => 20,
-            TarotId::TheWorld => 21,
-        }
+        Self::all().iter().position(|t| t == self).unwrap_or(0)
     }
 
     /// 從索引創建
@@ -234,77 +244,26 @@ impl PlanetId {
         ]
     }
 
-    /// 名稱
+    /// 名稱（使用 PLANET_DEFS 表查詢）
     pub fn name(&self) -> &'static str {
-        match self {
-            PlanetId::Mercury => "Mercury",
-            PlanetId::Venus => "Venus",
-            PlanetId::Earth => "Earth",
-            PlanetId::Mars => "Mars",
-            PlanetId::Jupiter => "Jupiter",
-            PlanetId::Saturn => "Saturn",
-            PlanetId::Uranus => "Uranus",
-            PlanetId::Neptune => "Neptune",
-            PlanetId::Pluto => "Pluto",
-            PlanetId::PlanetX => "Planet X",
-            PlanetId::Ceres => "Ceres",
-            PlanetId::Eris => "Eris",
-        }
+        PLANET_DEFS[self.to_index()].name
     }
 
-    /// 對應的牌型索引（對應 HandId）
+    /// 對應的牌型索引（使用 PLANET_DEFS 表查詢）
     pub fn hand_type_index(&self) -> usize {
-        match self {
-            PlanetId::Pluto => 0,      // High Card
-            PlanetId::Mercury => 1,    // Pair
-            PlanetId::Uranus => 2,     // Two Pair
-            PlanetId::Venus => 3,      // Three of a Kind
-            PlanetId::Saturn => 4,     // Straight
-            PlanetId::Jupiter => 5,    // Flush
-            PlanetId::Earth => 6,      // Full House
-            PlanetId::Mars => 7,       // Four of a Kind
-            PlanetId::Neptune => 8,    // Straight Flush
-            PlanetId::PlanetX => 9,    // Five of a Kind
-            PlanetId::Ceres => 10,     // Flush House
-            PlanetId::Eris => 11,      // Flush Five
-        }
+        PLANET_DEFS[self.to_index()].hand_type_index
     }
 
-    /// 從牌型索引創建 Planet（反向 hand_type_index）
+    /// 從牌型索引創建 Planet（使用 PLANET_DEFS 表查詢）
     pub fn from_hand_type_index(idx: usize) -> Option<PlanetId> {
-        match idx {
-            0 => Some(PlanetId::Pluto),      // High Card
-            1 => Some(PlanetId::Mercury),    // Pair
-            2 => Some(PlanetId::Uranus),     // Two Pair
-            3 => Some(PlanetId::Venus),      // Three of a Kind
-            4 => Some(PlanetId::Saturn),     // Straight
-            5 => Some(PlanetId::Jupiter),    // Flush
-            6 => Some(PlanetId::Earth),      // Full House
-            7 => Some(PlanetId::Mars),       // Four of a Kind
-            8 => Some(PlanetId::Neptune),    // Straight Flush
-            9 => Some(PlanetId::PlanetX),    // Five of a Kind
-            10 => Some(PlanetId::Ceres),     // Flush House
-            11 => Some(PlanetId::Eris),      // Flush Five
-            _ => None,
-        }
+        PLANET_DEFS.iter()
+            .position(|def| def.hand_type_index == idx)
+            .and_then(Self::from_index)
     }
 
-    /// 轉換為索引
+    /// 轉換為索引（使用 all() 數組位置查詢）
     pub fn to_index(&self) -> usize {
-        match self {
-            PlanetId::Mercury => 0,
-            PlanetId::Venus => 1,
-            PlanetId::Earth => 2,
-            PlanetId::Mars => 3,
-            PlanetId::Jupiter => 4,
-            PlanetId::Saturn => 5,
-            PlanetId::Uranus => 6,
-            PlanetId::Neptune => 7,
-            PlanetId::Pluto => 8,
-            PlanetId::PlanetX => 9,
-            PlanetId::Ceres => 10,
-            PlanetId::Eris => 11,
-        }
+        Self::all().iter().position(|p| p == self).unwrap_or(0)
     }
 
     /// 從索引創建
@@ -384,28 +343,9 @@ impl SpectralId {
         ]
     }
 
-    /// 名稱
+    /// 名稱（使用 SPECTRAL_NAMES 表查詢）
     pub fn name(&self) -> &'static str {
-        match self {
-            SpectralId::Familiar => "Familiar",
-            SpectralId::Grim => "Grim",
-            SpectralId::Incantation => "Incantation",
-            SpectralId::Talisman => "Talisman",
-            SpectralId::Aura => "Aura",
-            SpectralId::Wraith => "Wraith",
-            SpectralId::Sigil => "Sigil",
-            SpectralId::Ouija => "Ouija",
-            SpectralId::Ectoplasm => "Ectoplasm",
-            SpectralId::Immolate => "Immolate",
-            SpectralId::Ankh => "Ankh",
-            SpectralId::DejaVu => "Deja Vu",
-            SpectralId::Hex => "Hex",
-            SpectralId::Trance => "Trance",
-            SpectralId::Medium => "Medium",
-            SpectralId::Cryptid => "Cryptid",
-            SpectralId::TheSoul => "The Soul",
-            SpectralId::BlackHole => "Black Hole",
-        }
+        SPECTRAL_NAMES[self.to_index()]
     }
 
     /// 需要選擇的牌數量
@@ -418,28 +358,9 @@ impl SpectralId {
         }
     }
 
-    /// 轉換為索引
+    /// 轉換為索引（使用 all() 數組位置查詢）
     pub fn to_index(&self) -> usize {
-        match self {
-            SpectralId::Familiar => 0,
-            SpectralId::Grim => 1,
-            SpectralId::Incantation => 2,
-            SpectralId::Talisman => 3,
-            SpectralId::Aura => 4,
-            SpectralId::Wraith => 5,
-            SpectralId::Sigil => 6,
-            SpectralId::Ouija => 7,
-            SpectralId::Ectoplasm => 8,
-            SpectralId::Immolate => 9,
-            SpectralId::Ankh => 10,
-            SpectralId::DejaVu => 11,
-            SpectralId::Hex => 12,
-            SpectralId::Trance => 13,
-            SpectralId::Medium => 14,
-            SpectralId::Cryptid => 15,
-            SpectralId::TheSoul => 16,
-            SpectralId::BlackHole => 17,
-        }
+        Self::all().iter().position(|s| s == self).unwrap_or(0)
     }
 
     /// 從索引創建
