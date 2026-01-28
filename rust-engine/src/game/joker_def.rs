@@ -737,6 +737,12 @@ pub struct ComputeContextV2<'a> {
     pub enhanced_cards_in_deck: i32,
     /// Uncommon Joker 數量
     pub uncommon_joker_count: usize,
+    /// 牌組中 Stone 卡數量
+    pub stone_cards_in_deck: i32,
+    /// Boss Blind 能力是否觸發
+    pub boss_ability_triggered: bool,
+    /// Mime: 手中持有牌的能力是否重觸發
+    pub has_mime: bool,
 }
 
 impl<'a> ComputeContextV2<'a> {
@@ -757,6 +763,9 @@ impl<'a> ComputeContextV2<'a> {
             deck_size: 52,
             enhanced_cards_in_deck: 0,
             uncommon_joker_count: 0,
+            stone_cards_in_deck: 0,
+            boss_ability_triggered: false,
+            has_mime: false,
         }
     }
 
@@ -772,15 +781,15 @@ impl<'a> ComputeContextV2<'a> {
     }
 }
 
-/// 使用新模板系統計算 Joker 效果 (V2)
+/// 使用模板系統計算 Joker 效果 (V2)
 ///
-/// 這個函數整合了效果定義和狀態處理，逐步替代 `compute_core_joker_effect`。
+/// 此函數使用聲明式定義和狀態處理來計算 Joker 效果。
 ///
 /// # 參數
 /// - `joker_index`: Joker 在 JOKER_DEFINITIONS 中的索引
 /// - `state`: Joker 的當前狀態
 /// - `ctx`: 計算上下文
-/// - `_rng_value`: 隨機數值（供隨機效果使用）
+/// - `rng_value`: 隨機數值（供隨機效果使用）
 ///
 /// # 範例
 /// ```ignore
@@ -791,7 +800,7 @@ pub fn compute_joker_effect_v2(
     joker_index: usize,
     state: &JokerState,
     ctx: &ComputeContextV2,
-    _rng_value: u8,
+    rng_value: u8,
 ) -> JokerBonus {
     let effect = get_effect_def(joker_index);
     let basic_ctx = ctx.to_basic();
@@ -800,7 +809,7 @@ pub fn compute_joker_effect_v2(
     match &effect {
         EffectDef::Stateful => {
             // Stateful 效果需要根據 joker_index 和 state 單獨處理
-            compute_stateful_effect(joker_index, state, ctx)
+            compute_stateful_effect(joker_index, state, ctx, rng_value)
         }
         _ => compute_effect(&effect, &basic_ctx),
     }
@@ -813,6 +822,7 @@ fn compute_stateful_effect(
     joker_index: usize,
     state: &JokerState,
     ctx: &ComputeContextV2,
+    rng_value: u8,
 ) -> JokerBonus {
     let mut bonus = JokerBonus::new();
 
@@ -968,6 +978,77 @@ fn compute_stateful_effect(
                 bonus.mul_mult = 1.5_f32.powi(ctx.uncommon_joker_count as i32);
             }
         }
+
+        // === 隨機效果 ===
+        // Misprint (18): +0-23 Mult based on rng_value
+        18 => bonus.add_mult = (rng_value % 24) as i64,
+
+        // === 手牌相關效果 ===
+        // ShootTheMoon (53): +13 Mult per Queen in hand
+        53 => {
+            let queens_in_hand = ctx.hand.iter().filter(|c| c.rank == 12).count();
+            let trigger_count = if ctx.has_mime { 2 } else { 1 };
+            bonus.add_mult = queens_in_hand as i64 * 13 * trigger_count as i64;
+        }
+
+        // Baron (99): X1.5 per King in hand
+        99 => {
+            let kings_in_hand = ctx.hand.iter().filter(|c| c.rank == 13).count();
+            if kings_in_hand > 0 {
+                let trigger_count = if ctx.has_mime { 2 } else { 1 };
+                bonus.mul_mult = 1.5_f32.powi((kings_in_hand * trigger_count) as i32);
+            }
+        }
+
+        // === 打出牌相關效果 ===
+        // Walkie (70): +10 Mult if 10 or 4 in played cards
+        70 => {
+            let has_10_or_4 = ctx.played_cards.iter().any(|c| c.rank == 10 || c.rank == 4);
+            if has_10_or_4 {
+                bonus.add_mult = 10;
+            }
+        }
+
+        // Even_Steven (106): X2 if ALL scoring cards are even
+        106 => {
+            let all_even = ctx
+                .played_cards
+                .iter()
+                .all(|c| c.rank <= 10 && c.rank % 2 == 0);
+            if all_even && !ctx.played_cards.is_empty() {
+                bonus.mul_mult = 2.0;
+            }
+        }
+
+        // Odd_Todd_2 (107): X2 if ALL scoring cards are odd
+        107 => {
+            let all_odd = ctx
+                .played_cards
+                .iter()
+                .all(|c| c.rank == 1 || (c.rank <= 9 && c.rank % 2 == 1));
+            if all_odd && !ctx.played_cards.is_empty() {
+                bonus.mul_mult = 2.0;
+            }
+        }
+
+        // === 固定效果 ===
+        // Cavendish (100): X3 Mult
+        100 => bonus.mul_mult = 3.0,
+
+        // Gros_Michel (105): +15 Mult
+        105 => bonus.add_mult = 15,
+
+        // === Boss 相關效果 ===
+        // Matador (126): +$8 when Boss Blind ability triggers
+        126 => {
+            if ctx.boss_ability_triggered {
+                bonus.money_bonus = 8;
+            }
+        }
+
+        // === 牌組相關效果 ===
+        // Stone (128): +25 Chips per Stone card in deck
+        128 => bonus.chip_bonus = ctx.stone_cards_in_deck as i64 * 25,
 
         // 預設情況
         _ => {}
@@ -1413,7 +1494,6 @@ const HANDS_WITH_ANY_PAIR: &[HandId] = &[
 /// 根據 JokerId 索引獲取效果定義
 ///
 /// 返回該 Joker 的效果模板，用於計算計分效果。
-/// 這個函數將逐步替代 `compute_core_joker_effect` 中的 match 語句。
 ///
 /// # 範例
 /// ```
@@ -1909,6 +1989,18 @@ pub fn get_effect_def(id_index: usize) -> EffectDef {
 
         // #170: Chicot (123): Disable Boss Blind (Stateful)
         123 => EffectDef::Stateful,
+
+        // Even_Steven (106): X2 if all cards are even (Stateful - played cards check)
+        106 => EffectDef::Stateful,
+
+        // Odd_Todd_2 (107): X2 if all cards are odd (Stateful - played cards check)
+        107 => EffectDef::Stateful,
+
+        // Matador (126): +$8 on Boss trigger (Stateful - boss_ability_triggered)
+        126 => EffectDef::Stateful,
+
+        // Stone (128): +25 Chips per Stone card (Stateful - stone_cards_in_deck)
+        128 => EffectDef::Stateful,
 
         // 其他 Joker 暫時返回默認效果（待實現）
         _ => EffectDef::default(),
@@ -2920,6 +3012,9 @@ mod tests {
             deck_size: 52,
             enhanced_cards_in_deck: 0,
             uncommon_joker_count: 0,
+            stone_cards_in_deck: 0,
+            boss_ability_triggered: false,
+            has_mime: false,
         };
 
         // 目標花色是 HEART
