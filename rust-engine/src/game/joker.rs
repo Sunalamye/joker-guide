@@ -1796,6 +1796,8 @@ pub fn trigger_joker_slot_events(
         tarot_to_create: result.tarot_to_create,
         planet_to_create: result.planet_to_create,
         red_card_mult_increase: result.red_card_mult_increase,
+        spectral_to_create: result.spectral_to_create,
+        hand_levels_to_upgrade: result.hand_levels_to_upgrade.clone(),
     }
 }
 

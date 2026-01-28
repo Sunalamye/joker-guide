@@ -1048,9 +1048,6 @@ impl JokerEnv for EnvService {
                                 .filter(|(i, _)| (mask >> i) & 1 == 1)
                                 .map(|(_, c)| *c)
                                 .collect();
-                            let face_count = selected_cards.iter().filter(|c| c.is_face()).count();
-                            let king_count = selected_cards.iter().filter(|c| c.rank == 13).count();
-                            let has_face = face_count > 0;
 
                             cards_discarded = mask.count_ones() as i32;
                             let _purple_count = state.discard_with_seals(mask);
@@ -1058,38 +1055,46 @@ impl JokerEnv for EnvService {
                             state.discards_used_this_blind += 1;
                             state.selected_mask = 0;
 
-                            // 經濟類 Joker 觸發 - 先計算獎勵，避免借用衝突
-                            let mut money_bonus = 0i64;
-                            let mut trading_cards_to_trigger = 0usize;
-                            for joker in &mut state.jokers {
-                                if !joker.enabled {
-                                    continue;
-                                }
-                                match joker.id {
-                                    // Faceless: 棄 3+ 人頭牌時 +$5
-                                    JokerId::Faceless => {
-                                        if face_count >= 3 {
-                                            money_bonus += 5;
-                                        }
-                                    }
-                                    // TradingCard: 首次棄人頭牌時創建 Tarot (標記觸發，之後創建)
-                                    JokerId::TradingCard => {
-                                        if has_face && !joker.is_trading_card_triggered() {
-                                            joker.trigger_trading_card();
-                                            trading_cards_to_trigger += 1;
-                                        }
-                                    }
-                                    // MailInRebate: 棄 K 時 +$5
-                                    JokerId::MailInRebate => {
-                                        money_bonus += king_count as i64 * 5;
-                                    }
-                                    _ => {}
+                            // 計算棄牌相關統計
+                            let face_count = selected_cards.iter().filter(|c| c.is_face()).count() as i32;
+                            let jack_count = selected_cards.iter().filter(|c| c.rank == 11).count() as i32;
+                            let king_count = selected_cards.iter().filter(|c| c.rank == 13).count() as i32;
+                            let mut suit_count = [0i32; 4];
+                            for card in &selected_cards {
+                                if (card.suit as usize) < 4 {
+                                    suit_count[card.suit as usize] += 1;
                                 }
                             }
-                            state.money += money_bonus;
 
-                            // TradingCard: 創建 Tarot 卡
-                            for _ in 0..trading_cards_to_trigger {
+                            // 計算棄牌的牌型（用於 BurntJoker）
+                            let discarded_hand_type = if !selected_cards.is_empty() {
+                                score_hand(&selected_cards).id.to_index()
+                            } else {
+                                0
+                            };
+
+                            // 使用 trigger 系統處理所有棄牌相關 Joker
+                            let trigger_ctx = TriggerContext {
+                                discarded_face_count: face_count,
+                                discarded_jack_count: jack_count,
+                                discarded_king_count: king_count,
+                                discarded_suit_count: suit_count,
+                                discarded_count: cards_discarded,
+                                discarded_hand_type,
+                                ..Default::default()
+                            };
+
+                            let trigger_result = trigger_joker_slot_events(
+                                GameEvent::CardDiscarded,
+                                &mut state.jokers,
+                                &trigger_ctx,
+                            );
+
+                            // 處理觸發結果
+                            state.money += trigger_result.money_delta;
+
+                            // 創建 Tarot 卡 (TradingCard)
+                            for _ in 0..trigger_result.tarot_to_create {
                                 if !state.consumables.is_full() {
                                     let all_tarots = TarotId::all();
                                     let idx = state.rng.gen_range(0..all_tarots.len());
@@ -1097,73 +1102,24 @@ impl JokerEnv for EnvService {
                                 }
                             }
 
-                            // Castle: 每棄特定花色牌 +3 Chips (永久)
-                            for card in &selected_cards {
-                                for joker in &mut state.jokers {
-                                    if joker.enabled && joker.id == JokerId::Castle {
-                                        joker.update_castle_on_discard(card.suit);
-                                    }
+                            // 創建 Spectral 卡 (Sixth)
+                            for _ in 0..trigger_result.spectral_to_create {
+                                if !state.consumables.is_full() {
+                                    let all_spectrals = SpectralId::all();
+                                    let idx = state.rng.gen_range(0..all_spectrals.len());
+                                    state.consumables.add(Consumable::Spectral(all_spectrals[idx]));
                                 }
                             }
 
-                            // Hit The Road: 每棄 Jack +0.5 X Mult
-                            let jack_count =
-                                selected_cards.iter().filter(|c| c.rank == 11).count() as i32;
-                            if jack_count > 0 {
-                                for joker in &mut state.jokers {
-                                    if joker.enabled {
-                                        joker.update_hit_the_road_on_jack_discard(jack_count);
-                                    }
-                                }
+                            // 升級牌型等級 (BurntJoker)
+                            for hand_idx in &trigger_result.hand_levels_to_upgrade {
+                                state.hand_levels.upgrade(*hand_idx);
                             }
 
-                            // Sixth: 棄 6 張牌時銷毀自身並獲得 Spectral 卡
-                            if cards_discarded == 6 {
-                                if let Some(idx) = state
-                                    .jokers
-                                    .iter()
-                                    .position(|j| j.enabled && j.id == JokerId::Sixth)
-                                {
+                            // 銷毀 Joker (Sixth, Ramen)
+                            for &idx in &trigger_result.jokers_to_destroy {
+                                if idx < state.jokers.len() {
                                     state.jokers[idx].enabled = false;
-                                    if !state.consumables.is_full() {
-                                        let all_spectrals = SpectralId::all();
-                                        let spec_idx = state.rng.gen_range(0..all_spectrals.len());
-                                        state
-                                            .consumables
-                                            .add(Consumable::Spectral(all_spectrals[spec_idx]));
-                                    }
-                                }
-                            }
-
-                            // BurntJoker: 棄牌時升級棄掉牌型的等級
-                            let burnt_count = state
-                                .jokers
-                                .iter()
-                                .filter(|j| j.enabled && j.id == JokerId::BurntJoker)
-                                .count();
-                            if burnt_count > 0 && !selected_cards.is_empty() {
-                                let discarded_hand = score_hand(&selected_cards);
-                                let hand_idx = discarded_hand.id.to_index();
-                                for _ in 0..burnt_count {
-                                    state.hand_levels.upgrade(hand_idx);
-                                }
-                            }
-
-                            // Ramen: 每棄一張牌 -0.01 X Mult，低於 1.0 時自毀
-                            let discard_count = cards_discarded;
-                            for joker in &mut state.jokers {
-                                if joker.enabled && joker.id == JokerId::Ramen {
-                                    joker.state.add_x_mult(-(discard_count as f32 * 0.01));
-                                    if joker.state.get_x_mult() < 1.0 {
-                                        joker.enabled = false;
-                                    }
-                                }
-                            }
-
-                            // Yorick: 每棄 23 張牌 +X1 Mult
-                            for joker in &mut state.jokers {
-                                if joker.enabled && joker.id == JokerId::Yorick {
-                                    joker.update_yorick_on_discard(cards_discarded);
                                 }
                             }
                         }

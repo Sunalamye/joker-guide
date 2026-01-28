@@ -1051,6 +1051,16 @@ pub struct TriggerContext<'a> {
     /// 是否是最常打的牌型（用於 Obelisk）
     pub is_most_played_hand: bool,
 
+    // ====== 棄牌相關 ======
+    /// 棄牌中的 Jack 數量（用於 Hit_The_Road）
+    pub discarded_jack_count: i32,
+
+    /// 棄牌中的 King 數量（用於 MailInRebate）
+    pub discarded_king_count: i32,
+
+    /// 棄掉的牌型索引（用於 BurntJoker）
+    pub discarded_hand_type: usize,
+
     /// 額外數據（可選）
     pub extra: Option<&'a dyn std::any::Any>,
 }
@@ -1070,6 +1080,9 @@ impl Default for TriggerContext<'_> {
             has_rank_13: false,
             played_hand_type: 0,
             is_most_played_hand: false,
+            discarded_jack_count: 0,
+            discarded_king_count: 0,
+            discarded_hand_type: 0,
             extra: None,
         }
     }
@@ -1996,10 +2009,10 @@ pub fn get_triggers(id_index: usize) -> &'static [TriggerDef] {
             effect: TriggerEffect::AddToState { chips: 0, mult: -4, x_mult: 0.0 },
         }],
 
-        // Ramen (69): 每次棄牌 -0.01 X Mult
+        // Ramen (69): 每棄一張牌 -0.01 X Mult（需要根據棄牌數量調整）
         69 => &[TriggerDef {
             event: GameEvent::CardDiscarded,
-            effect: TriggerEffect::AddToState { chips: 0, mult: 0, x_mult: -0.01 },
+            effect: TriggerEffect::Custom, // 需要乘以棄牌數量
         }],
 
         // Campfire (74): 每次賣出 +0.25 X Mult
@@ -2070,10 +2083,10 @@ pub fn get_triggers(id_index: usize) -> &'static [TriggerDef] {
         // 計數器觸發器
         // ====================================================================
 
-        // Yorick (122): 每次棄牌增加計數器
+        // Yorick (122): 每棄 23 張牌 +X1 Mult（需要累加棄牌數量）
         122 => &[TriggerDef {
             event: GameEvent::CardDiscarded,
-            effect: TriggerEffect::IncrementCounter,
+            effect: TriggerEffect::Custom, // 需要按棄牌數量累加
         }],
 
         // Selzer (71): 每手減少 charges
@@ -2158,6 +2171,36 @@ pub fn get_triggers(id_index: usize) -> &'static [TriggerDef] {
             effect: TriggerEffect::Custom, // 需要檢查花色
         }],
 
+        // Faceless (47): 棄 3+ 人頭牌時 +$5
+        47 => &[TriggerDef {
+            event: GameEvent::CardDiscarded,
+            effect: TriggerEffect::Custom, // 需要檢查 face_count >= 3
+        }],
+
+        // TradingCard (149): 首次棄人頭牌時創建 Tarot
+        149 => &[TriggerDef {
+            event: GameEvent::CardDiscarded,
+            effect: TriggerEffect::Custom, // 需要檢查首次觸發
+        }],
+
+        // MailInRebate (151): 棄 K 時 +$5
+        151 => &[TriggerDef {
+            event: GameEvent::CardDiscarded,
+            effect: TriggerEffect::Custom, // 需要檢查 K 數量
+        }],
+
+        // Sixth (63): 棄 6 張牌時銷毀自身並獲得 Spectral
+        63 => &[TriggerDef {
+            event: GameEvent::CardDiscarded,
+            effect: TriggerEffect::Custom, // 需要檢查棄牌數量
+        }],
+
+        // BurntJoker (156): 棄牌時升級棄掉牌型的等級
+        156 => &[TriggerDef {
+            event: GameEvent::CardDiscarded,
+            effect: TriggerEffect::Custom, // 需要升級牌型
+        }],
+
         // ====================================================================
         // 跳過 Blind 觸發器
         // ====================================================================
@@ -2208,6 +2251,10 @@ pub struct TriggerResult {
     pub planet_to_create: i32,
     /// RedCard: 增加的 Mult 數量
     pub red_card_mult_increase: i32,
+    /// Sixth: 需要生成的隨機 Spectral 數量
+    pub spectral_to_create: i32,
+    /// BurntJoker: 需要升級的牌型索引列表（可重複以表示多次升級）
+    pub hand_levels_to_upgrade: Vec<usize>,
 }
 
 impl TriggerResult {
@@ -2224,6 +2271,8 @@ impl TriggerResult {
         self.tarot_to_create += other.tarot_to_create;
         self.planet_to_create += other.planet_to_create;
         self.red_card_mult_increase += other.red_card_mult_increase;
+        self.spectral_to_create += other.spectral_to_create;
+        self.hand_levels_to_upgrade.extend(other.hand_levels_to_upgrade.iter().copied());
     }
 }
 
@@ -2324,7 +2373,7 @@ pub fn trigger_joker_events(
                 TriggerEffect::Custom => {
                     // 自訂效果需要在調用者處理
                     // 這裡只標記需要特殊處理
-                    process_custom_trigger(joker_idx, event, state, ctx, &mut result);
+                    process_custom_trigger(slot_idx, joker_idx, event, state, ctx, &mut result);
                 }
             }
         }
@@ -2335,11 +2384,12 @@ pub fn trigger_joker_events(
 
 /// 處理自訂觸發效果
 fn process_custom_trigger(
+    slot_idx: usize,
     joker_idx: usize,
     event: GameEvent,
     state: &mut JokerState,
     ctx: &TriggerContext,
-    _result: &mut TriggerResult,
+    result: &mut TriggerResult,
 ) {
     match (joker_idx, event) {
         // RideTheBus (20): 連續非人頭牌手 +1 Mult
@@ -2355,8 +2405,10 @@ fn process_custom_trigger(
 
         // Hit_The_Road (110): 棄掉 Jack +0.5 X Mult
         (110, GameEvent::CardDiscarded) => {
-            // 使用 discarded_face_count 作為 Jack 數量的近似
-            // 實際實現需要調用者傳遞更精確的信息
+            let jack_count = ctx.discarded_jack_count;
+            if jack_count > 0 {
+                state.add_x_mult(jack_count as f32 * 0.5);
+            }
         }
 
         // Castle (72): 棄掉特定花色牌 +3 Chips
@@ -2406,6 +2458,68 @@ fn process_custom_trigger(
             } else {
                 // 連續非最常打，+1 連勝
                 state.increment_counter();
+            }
+        }
+
+        // ====== 棄牌相關 ======
+
+        // Faceless (47): 棄 3+ 人頭牌時 +$5
+        (47, GameEvent::CardDiscarded) => {
+            if ctx.discarded_face_count >= 3 {
+                result.money_delta += 5;
+            }
+        }
+
+        // TradingCard (149): 首次棄人頭牌時創建 Tarot
+        (149, GameEvent::CardDiscarded) => {
+            // 使用 Counter state 追蹤是否已觸發（0=未觸發，1=已觸發）
+            if ctx.discarded_face_count > 0 && state.get_counter() == 0 {
+                state.increment_counter(); // 標記為已觸發
+                result.tarot_to_create += 1;
+            }
+        }
+
+        // MailInRebate (151): 棄 K 時 +$5
+        (151, GameEvent::CardDiscarded) => {
+            if ctx.discarded_king_count > 0 {
+                result.money_delta += ctx.discarded_king_count as i64 * 5;
+            }
+        }
+
+        // Sixth (63): 棄 6 張牌時銷毀自身並獲得 Spectral
+        (63, GameEvent::CardDiscarded) => {
+            if ctx.discarded_count == 6 {
+                result.jokers_to_destroy.push(slot_idx);
+                result.spectral_to_create += 1;
+            }
+        }
+
+        // BurntJoker (156): 棄牌時升級棄掉牌型的等級
+        (156, GameEvent::CardDiscarded) => {
+            if ctx.discarded_count > 0 {
+                result.hand_levels_to_upgrade.push(ctx.discarded_hand_type);
+            }
+        }
+
+        // Ramen (69): 每棄一張牌 -0.01 X Mult，低於 1.0 時自毀
+        (69, GameEvent::CardDiscarded) => {
+            if ctx.discarded_count > 0 {
+                state.add_x_mult(-(ctx.discarded_count as f32 * 0.01));
+                if state.get_x_mult() < 1.0 {
+                    result.jokers_to_destroy.push(slot_idx);
+                }
+            }
+        }
+
+        // Yorick (122): 每棄 23 張牌 +X1 Mult
+        // 使用 Accumulator 狀態：chips 追蹤當前棄牌計數，x_mult 追蹤累積加成
+        (122, GameEvent::CardDiscarded) => {
+            if let JokerState::Accumulator { chips, x_mult, .. } = state {
+                *chips += ctx.discarded_count;
+                while *chips >= 23 {
+                    *chips -= 23;
+                    *x_mult += 1.0;
+                }
             }
         }
 
