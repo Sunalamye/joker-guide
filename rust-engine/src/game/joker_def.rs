@@ -912,6 +912,10 @@ pub fn get_effect_def(id_index: usize) -> EffectDef {
             money: 0,
         },
 
+        // #72: AbstractJoker (19): +3 Mult per Joker
+        // 需要 ScoringContext::joker_count，標記為 Stateful
+        19 => EffectDef::Stateful,
+
         // 其他 Joker 暫時返回默認效果（待實現）
         _ => EffectDef::default(),
     }
@@ -1080,5 +1084,14 @@ mod tests {
         } else {
             panic!("Joker should have Fixed effect");
         }
+    }
+
+    #[test]
+    fn test_effect_def_abstract_joker() {
+        use super::get_effect_def;
+
+        // 19: AbstractJoker - +3 Mult per Joker (Stateful)
+        let effect = get_effect_def(19);
+        assert!(matches!(effect, EffectDef::Stateful));
     }
 }
