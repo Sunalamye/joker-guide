@@ -4,7 +4,7 @@ use rand::rngs::StdRng;
 use rand::Rng;
 
 use crate::game::{
-    compute_joker_bonus, score_hand_with_rules, BossBlind, Card, Enhancement, HandId, HandLevels,
+    compute_joker_bonus_v2, score_hand_with_rules, BossBlind, Card, Enhancement, HandId, HandLevels,
     JokerId, JokerRules, JokerSlot, ScoringContext, Seal,
 };
 
@@ -79,7 +79,7 @@ pub fn calculate_play_score(
     // 生成隨機值給需要隨機效果的 Joker（如 Misprint）
     let rng_values: Vec<u8> = (0..jokers.len()).map(|_| rng.gen()).collect();
 
-    let bonus = compute_joker_bonus(jokers, &ctx, &rng_values);
+    let bonus = compute_joker_bonus_v2(jokers, &ctx, &rng_values);
 
     // 基礎值 + 等級加成 + Joker 加成
     let mut total_chips = hand_score.base_chips + level_chips + bonus.chip_bonus;

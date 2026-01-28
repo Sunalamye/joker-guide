@@ -7,7 +7,10 @@
 
 use super::cards::{Card, Edition, Enhancement};
 use super::hand_types::HandId;
-use super::joker_def::{JokerState, get_joker_def};
+use super::joker_def::{
+    JokerState, get_joker_def, compute_joker_effect_v2, ComputeContextV2,
+    JokerBonus as JokerBonusNew,
+};
 
 // ============================================================================
 // Joker ID 系統 - 消除字串比對
@@ -1611,6 +1614,97 @@ fn find_copy_target_leftmost(jokers: &[JokerSlot]) -> Option<&JokerSlot> {
 /// 判斷是否為複製類 Joker
 fn is_copy_joker(id: JokerId) -> bool {
     matches!(id, JokerId::Blueprint | JokerId::Brainstorm)
+}
+
+// ============================================================================
+// V2 效果計算（使用 joker_def 模板系統）
+// ============================================================================
+
+/// 從 ScoringContext 創建 ComputeContextV2
+fn scoring_to_compute_context<'a>(ctx: &'a ScoringContext<'a>) -> ComputeContextV2<'a> {
+    ComputeContextV2 {
+        played_cards: ctx.played_cards,
+        hand: ctx.hand,
+        hand_id: ctx.hand_id,
+        is_first_hand: ctx.is_first_hand,
+        is_final_hand: ctx.is_final_hand,
+        money_held: ctx.money_held,
+        joker_count: ctx.joker_count,
+        joker_slot_limit: ctx.joker_slot_limit,
+        discards_remaining: ctx.discards_remaining,
+        hands_played_this_round: ctx.hands_played_this_round,
+        hands_played_this_run: ctx.hands_played_this_run,
+        deck_size: ctx.deck_size,
+        enhanced_cards_in_deck: ctx.enhanced_cards_in_deck,
+        uncommon_joker_count: ctx.uncommon_joker_count,
+    }
+}
+
+/// 將 JokerBonusNew 轉換為 JokerBonus
+fn convert_bonus(new_bonus: &JokerBonusNew) -> JokerBonus {
+    JokerBonus {
+        chip_bonus: new_bonus.chip_bonus,
+        add_mult: new_bonus.add_mult,
+        mul_mult: new_bonus.mul_mult,
+        money_bonus: new_bonus.money_bonus,
+        retriggers: new_bonus.retriggers,
+    }
+}
+
+/// 計算單個 Joker 效果（使用 V2 模板系統）
+pub fn compute_joker_effect_with_state_v2(
+    joker: &JokerSlot,
+    ctx: &ScoringContext,
+    rng_value: u8,
+) -> JokerBonus {
+    let compute_ctx = scoring_to_compute_context(ctx);
+    let joker_index = joker.id as usize;
+    let new_bonus = compute_joker_effect_v2(joker_index, &joker.state, &compute_ctx, rng_value);
+    convert_bonus(&new_bonus)
+}
+
+/// 計算所有 Joker 的總加成（使用 V2 模板系統）
+pub fn compute_joker_bonus_v2(
+    jokers: &[JokerSlot],
+    ctx: &ScoringContext,
+    rng_values: &[u8],
+) -> JokerBonus {
+    let mut total = JokerBonus::new();
+
+    // 收集所有 enabled 的 Joker 及其原始索引
+    let enabled_jokers: Vec<(usize, &JokerSlot)> = jokers
+        .iter()
+        .enumerate()
+        .filter(|(_, j)| j.enabled)
+        .collect();
+
+    for (idx_in_enabled, &(original_idx, joker)) in enabled_jokers.iter().enumerate() {
+        let rng_val = rng_values.get(idx_in_enabled).copied().unwrap_or(0);
+
+        // 檢查是否為複製類 Joker
+        let effect = match joker.id {
+            JokerId::Blueprint => {
+                // Blueprint: 複製右邊第一個非複製類 Joker 的能力
+                if let Some(target) = find_copy_target_right(jokers, original_idx) {
+                    compute_joker_effect_with_state_v2(target, ctx, rng_val)
+                } else {
+                    JokerBonus::new()
+                }
+            }
+            JokerId::Brainstorm => {
+                // Brainstorm: 複製最左邊第一個非複製類 Joker 的能力
+                if let Some(target) = find_copy_target_leftmost(jokers) {
+                    compute_joker_effect_with_state_v2(target, ctx, rng_val)
+                } else {
+                    JokerBonus::new()
+                }
+            }
+            _ => compute_joker_effect_with_state_v2(joker, ctx, rng_val),
+        };
+        total.merge(&effect);
+    }
+
+    total
 }
 
 /// 計算單個 Joker 效果（使用 JokerSlot 狀態）
