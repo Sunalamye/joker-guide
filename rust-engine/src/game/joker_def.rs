@@ -885,6 +885,39 @@ pub const fn get_joker_def(id_index: usize) -> &'static JokerDef {
 }
 
 // ============================================================================
+// 效果定義表
+// ============================================================================
+
+/// 根據 JokerId 索引獲取效果定義
+///
+/// 返回該 Joker 的效果模板，用於計算計分效果。
+/// 這個函數將逐步替代 `compute_core_joker_effect` 中的 match 語句。
+///
+/// # 範例
+/// ```
+/// use joker_guide::game::joker_def::get_effect_def;
+/// let effect = get_effect_def(0); // Joker: +4 Mult
+/// ```
+pub fn get_effect_def(id_index: usize) -> EffectDef {
+    match id_index {
+        // ====================================================================
+        // 2.4.1 固定加成類 Joker (5 個)
+        // ====================================================================
+
+        // #71: Joker (0): +4 Mult
+        0 => EffectDef::Fixed {
+            chips: 0,
+            mult: 4,
+            x_mult: 1.0,
+            money: 0,
+        },
+
+        // 其他 Joker 暫時返回默認效果（待實現）
+        _ => EffectDef::default(),
+    }
+}
+
+// ============================================================================
 // 測試
 // ============================================================================
 
@@ -1031,5 +1064,21 @@ mod tests {
         let yorick = get_joker_def(122);
         assert_eq!(yorick.rarity, Rarity::Legendary);
         assert!(matches!(yorick.initial_state, JokerState::Accumulator { .. }));
+    }
+
+    #[test]
+    fn test_effect_def_fixed_joker() {
+        use super::get_effect_def;
+
+        // 0: Joker - +4 Mult (固定加成)
+        let effect = get_effect_def(0);
+        if let EffectDef::Fixed { chips, mult, x_mult, money } = effect {
+            assert_eq!(chips, 0);
+            assert_eq!(mult, 4);
+            assert!((x_mult - 1.0).abs() < 0.001);
+            assert_eq!(money, 0);
+        } else {
+            panic!("Joker should have Fixed effect");
+        }
     }
 }
