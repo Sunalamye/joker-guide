@@ -888,6 +888,69 @@ pub const fn get_joker_def(id_index: usize) -> &'static JokerDef {
 // 效果定義表
 // ============================================================================
 
+// ============================================================================
+// 牌型常量（用於 Conditional 效果）
+// ============================================================================
+
+/// 包含 Pair 的牌型（用於 JollyJoker, SlyJoker）
+const HANDS_WITH_PAIR: &[HandId] = &[
+    HandId::Pair,
+    HandId::TwoPair,
+    HandId::FullHouse,
+    HandId::FlushHouse,
+];
+
+/// 包含 Three of a Kind 的牌型（用於 ZanyJoker, WilyJoker）
+const HANDS_WITH_THREE_KIND: &[HandId] = &[
+    HandId::ThreeKind,
+    HandId::FullHouse,
+    HandId::FourKind,
+    HandId::FiveKind,
+    HandId::FlushHouse,
+    HandId::FlushFive,
+];
+
+/// Two Pair 牌型（用於 MadJoker, CleverJoker）
+const HANDS_TWO_PAIR: &[HandId] = &[HandId::TwoPair];
+
+/// 包含 Straight 的牌型（用於 CrazyJoker, DeviousJoker, The_Order）
+const HANDS_WITH_STRAIGHT: &[HandId] = &[
+    HandId::Straight,
+    HandId::StraightFlush,
+    HandId::RoyalFlush,
+];
+
+/// 包含 Flush 的牌型（用於 DrollJoker, CraftyJoker, The_Tribe）
+const HANDS_WITH_FLUSH: &[HandId] = &[
+    HandId::Flush,
+    HandId::StraightFlush,
+    HandId::RoyalFlush,
+    HandId::FlushHouse,
+    HandId::FlushFive,
+];
+
+/// Straight + Flush 牌型（用於 SuperPosition）
+const HANDS_STRAIGHT_FLUSH: &[HandId] = &[
+    HandId::StraightFlush,
+    HandId::RoyalFlush,
+];
+
+/// 包含 Four of a Kind 的牌型（用於 The_Family）
+const HANDS_WITH_FOUR_KIND: &[HandId] = &[
+    HandId::FourKind,
+    HandId::FiveKind,
+];
+
+/// 包含 Pair 的所有牌型（用於 The_Duo）
+const HANDS_WITH_ANY_PAIR: &[HandId] = &[
+    HandId::Pair,
+    HandId::TwoPair,
+    HandId::FullHouse,
+    HandId::ThreeKind,
+    HandId::FourKind,
+    HandId::FiveKind,
+];
+
 /// 根據 JokerId 索引獲取效果定義
 ///
 /// 返回該 Joker 的效果模板，用於計算計分效果。
@@ -934,6 +997,16 @@ pub fn get_effect_def(id_index: usize) -> EffectDef {
             mult: 0,
             x_mult: 1.0,
             money: 4,
+        },
+
+        // ====================================================================
+        // 2.4.2 牌型條件類 Joker (18 個)
+        // ====================================================================
+
+        // #76: JollyJoker (5): +8 Mult (Pair)
+        5 => EffectDef::Conditional {
+            condition: Condition::HandTypeIn(HANDS_WITH_PAIR),
+            bonus: BonusDef::Mult(8),
         },
 
         // 其他 Joker 暫時返回默認效果（待實現）
@@ -1153,6 +1226,20 @@ mod tests {
             assert_eq!(money, 4);
         } else {
             panic!("GoldenJoker should have Fixed effect");
+        }
+    }
+
+    #[test]
+    fn test_effect_def_jolly_joker() {
+        use super::get_effect_def;
+
+        // 5: JollyJoker - +8 Mult on Pair hands (Conditional)
+        let effect = get_effect_def(5);
+        if let EffectDef::Conditional { condition, bonus } = effect {
+            assert!(matches!(condition, Condition::HandTypeIn(_)));
+            assert!(matches!(bonus, BonusDef::Mult(8)));
+        } else {
+            panic!("JollyJoker should have Conditional effect");
         }
     }
 }
