@@ -1,0 +1,11 @@
+{
+  "id": "9",
+  "subject": "提高 blind_clear_reward 基礎獎勵值",
+  "description": "**What**: 提高 `blind_clear_reward` 的基礎獎勵，使 Clear 比 Skip 更有吸引力\n\n**Where**: `python-env/src/joker_env/reward.py` lines 527-532\n\n**How**: 修改 base 字典：\n```python\n# 原本\nbase = {\n    BLIND_SMALL: 0.15,\n    BLIND_BIG: 0.20,\n    BLIND_BOSS: 0.30,\n}.get(blind_type, 0.15)\n\n# 改為\nbase = {\n    BLIND_SMALL: 0.25,  # +0.10\n    BLIND_BIG: 0.35,    # +0.15\n    BLIND_BOSS: 0.50,   # +0.20\n}.get(blind_type, 0.25)\n```\n\n**Why**: 目前 Clear Small Blind 只給 0.15，而 Skip 可以拿到 0.44（Negative tag）。提高 Clear 獎勵使其與 Skip 競爭。\n\n**Verify**: 執行 `python -c \"from joker_env.reward import blind_clear_reward; print(blind_clear_reward(2, 0, 1))\"` 應該輸出約 0.25",
+  "activeForm": "提高 blind_clear_reward 基礎值",
+  "status": "pending",
+  "blocks": [
+    "17"
+  ],
+  "blockedBy": []
+}

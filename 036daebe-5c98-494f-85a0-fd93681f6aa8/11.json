@@ -1,0 +1,11 @@
+{
+  "id": "11",
+  "subject": "調整 skip_blind_reward 風險係數和上限",
+  "description": "**What**: 調整 Skip 的風險係數（早期 Skip 應更保守）並降低獎勵上限\n\n**Where**: `python-env/src/joker_env/reward.py` lines 716-721, 728\n\n**How**: \n1. 修改 risk_adjustments 字典（lines 716-721）：\n```python\n# 原本\nrisk_adjustments = {\n    1: 1.0, 2: 1.0,\n    3: 0.9, 4: 0.9,\n    5: 0.75, 6: 0.75,\n    7: 0.5, 8: 0.5,\n}\n\n# 改為\nrisk_adjustments = {\n    1: 0.7, 2: 0.8,     # 早期需要商店累積 Joker\n    3: 0.9, 4: 1.0,     # 中期可以適度 skip\n    5: 0.85, 6: 0.7,\n    7: 0.5, 8: 0.3,     # 後期幾乎不該 skip\n}\n```\n\n2. 修改 clamp 上限（line 728）：\n```python\n# 原本\nreturn clamp(reward, -0.15, 0.35)\n\n# 改為\nreturn clamp(reward, -0.20, 0.25)  # 上限低於最小 Clear 獎勵\n```\n\n**Why**: 早期 Skip 會延遲 Joker 累積，應給予懲罰；獎勵上限應低於 Clear 獎勵以避免 Skip 主導。\n\n**Verify**: \n1. `skip_blind_reward(0, 1, TAG_NEGATIVE)` 應輸出約 0.18（而非原本的 0.44）\n2. `skip_blind_reward(0, 1, TAG_SPEED)` 應輸出負數",
+  "activeForm": "調整 skip_blind_reward 風險係數",
+  "status": "pending",
+  "blocks": [
+    "17"
+  ],
+  "blockedBy": []
+}

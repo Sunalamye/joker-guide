@@ -1,0 +1,11 @@
+{
+  "id": "10",
+  "subject": "提高 skip_blind_reward 機會成本",
+  "description": "**What**: 提高 Skip Blind 的機會成本，加入商店訪問價值\n\n**Where**: `python-env/src/joker_env/reward.py` lines 709-713\n\n**How**: 修改 opportunity_cost 字典：\n```python\n# 原本\nopportunity_cost = {\n    BLIND_SMALL: 0.08,\n    BLIND_BIG: 0.15,\n    BLIND_BOSS: 1.0,\n}.get(blind_type, 0.08)\n\n# 改為\nopportunity_cost = {\n    BLIND_SMALL: 0.18,  # +0.10 (商店訪問價值)\n    BLIND_BIG: 0.25,    # +0.10\n    BLIND_BOSS: 2.0,    # 禁止跳過\n}.get(blind_type, 0.18)\n```\n\n**Why**: Skip 會錯過商店訪問（Joker、Voucher、消耗品），這個機會成本應該被計入。\n\n**Verify**: 執行 `python -c \"from joker_env.reward import skip_blind_reward; print(skip_blind_reward(0, 1, None))\"` 應該輸出約 0.02（平均 tag 0.20 - 成本 0.18）",
+  "activeForm": "提高 skip_blind_reward 機會成本",
+  "status": "pending",
+  "blocks": [
+    "17"
+  ],
+  "blockedBy": []
+}

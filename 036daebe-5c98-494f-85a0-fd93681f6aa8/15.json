@@ -1,0 +1,13 @@
+{
+  "id": "15",
+  "subject": "整合 EntropyScheduleCallback 到訓練流程",
+  "description": "**What**: 將 EntropyScheduleCallback 整合到訓練流程中\n\n**Where**: `python-env/src/joker_env/train_sb3.py` lines 18, 318\n\n**How**: \n1. 添加 import（line 18 附近）：\n```python\nfrom joker_env.callbacks import JokerMetricsCallback, EntropyScheduleCallback\n```\n\n2. 修改 callback 創建邏輯（line 318）：\n```python\n# 原本\ncallback = JokerMetricsCallback(verbose=verbose, log_freq=log_freq, tb_log_freq=tb_log_freq)\n\n# 改為\ncallbacks = [\n    JokerMetricsCallback(verbose=verbose, log_freq=log_freq, tb_log_freq=tb_log_freq),\n    EntropyScheduleCallback(initial_ent=ent_coef, final_ent=0.005, total_steps=total_timesteps),\n]\n```\n\n3. 修改 model.learn 調用（line 321）：\n```python\nmodel.learn(total_timesteps=step, reset_num_timesteps=False, callback=callbacks)\n```\n\n**Why**: 讓 Entropy 自動衰減，無需手動調參。\n\n**Verify**: 執行短訓練（1000 步），確認無報錯且 ent_coef 有變化",
+  "activeForm": "整合 EntropyScheduleCallback",
+  "status": "pending",
+  "blocks": [
+    "17"
+  ],
+  "blockedBy": [
+    "13"
+  ]
+}

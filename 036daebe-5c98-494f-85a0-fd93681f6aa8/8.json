@@ -1,0 +1,11 @@
+{
+  "id": "8",
+  "subject": "修改 ante_progress_reward 公式為漸進式縮放",
+  "description": "**What**: 將 `ante_progress_reward` 從指數縮放 `0.05 * 2^a` 改為漸進式 `0.15 * a^1.5 + 0.1 * a`\n\n**Where**: `python-env/src/joker_env/reward.py` lines 559-566\n\n**How**: 修改 `ante_value()` 內部函數：\n```python\n# 原本：return 0.05 * (2 ** a)\n# 改為：\nreturn 0.15 * (a ** 1.5) + 0.1 * a\n```\n\n**Why**: 目前 Ante 1→2 只給 0.1 獎勵，相對於每個 blind 累積的 0.5-1.0 獎勵太小，導致 agent 學不到進度的價值。新公式讓 Ante 1→2 獎勵提升到 0.48。\n\n**Verify**: \n1. 執行 `python -c \"from joker_env.reward import ante_progress_reward; print(ante_progress_reward(1, 2))\"` 應該輸出約 0.48\n2. 確認 Ante 7→8 約為 2.27",
+  "activeForm": "修改 ante_progress_reward 公式",
+  "status": "pending",
+  "blocks": [
+    "17"
+  ],
+  "blockedBy": []
+}
