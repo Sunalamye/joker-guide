@@ -30,6 +30,7 @@
 
 use super::hand_types::HandId;
 use super::joker::JOKER_COUNT;
+use super::cards::Card;
 
 // ============================================================================
 // 花色常量
@@ -553,6 +554,150 @@ impl JokerBonus {
             && self.money_bonus == 0
             && self.retriggers == 0
     }
+}
+
+// ============================================================================
+// 效果計算上下文
+// ============================================================================
+
+/// 計算效果所需的上下文（簡化版）
+///
+/// 這個結構只包含 `compute_effect` 函數所需的字段，
+/// 可以從 `joker::ScoringContext` 輕鬆轉換。
+#[derive(Clone, Debug)]
+pub struct ComputeContext<'a> {
+    /// 打出的牌
+    pub played_cards: &'a [Card],
+    /// 手中持有的牌
+    pub hand: &'a [Card],
+    /// 牌型
+    pub hand_id: HandId,
+    /// 是否是第一手
+    pub is_first_hand: bool,
+    /// 是否是最後一手
+    pub is_final_hand: bool,
+}
+
+impl<'a> ComputeContext<'a> {
+    pub fn new(played_cards: &'a [Card], hand: &'a [Card], hand_id: HandId) -> Self {
+        Self {
+            played_cards,
+            hand,
+            hand_id,
+            is_first_hand: false,
+            is_final_hand: false,
+        }
+    }
+}
+
+// ============================================================================
+// 效果計算函數
+// ============================================================================
+
+/// 根據效果定義計算 Joker 獎勵
+///
+/// 這個函數處理非 Stateful 的效果定義，返回計算後的 JokerBonus。
+/// Stateful 效果需要額外的狀態信息，應該在調用者處單獨處理。
+///
+/// # 範例
+/// ```ignore
+/// let effect = get_effect_def(0); // Joker: +4 Mult
+/// let ctx = ComputeContext::new(&played_cards, &hand, hand_id);
+/// let bonus = compute_effect(&effect, &ctx);
+/// ```
+pub fn compute_effect(effect: &EffectDef, ctx: &ComputeContext) -> JokerBonus {
+    let mut bonus = JokerBonus::new();
+
+    match effect {
+        // 固定加成 - 直接返回獎勵
+        EffectDef::Fixed { chips, mult, x_mult, money } => {
+            bonus.chip_bonus = *chips;
+            bonus.add_mult = *mult;
+            bonus.mul_mult = *x_mult;
+            bonus.money_bonus = *money;
+        }
+
+        // 計數加成 - 計算符合條件的牌數量
+        EffectDef::CountBonus { filter, scope, per_card } => {
+            let cards = match scope {
+                CardScope::PlayedCards => ctx.played_cards,
+                CardScope::HandCards => ctx.hand,
+                CardScope::DeckCards => &[], // 需要額外信息，暫不支持
+            };
+
+            let count = cards
+                .iter()
+                .filter(|card| filter.matches(card.suit, card.rank))
+                .count() as i64;
+
+            if count > 0 {
+                let scaled = per_card.scale(count);
+                bonus.merge(&scaled);
+            }
+        }
+
+        // 條件觸發 - 檢查條件是否滿足
+        EffectDef::Conditional { condition, bonus: bonus_def } => {
+            let should_trigger = match condition {
+                Condition::Always => true,
+                Condition::HandTypeIn(hand_types) => hand_types.contains(&ctx.hand_id),
+                Condition::PlayedCardCount { min, max } => {
+                    let count = ctx.played_cards.len();
+                    min.map_or(true, |m| count >= m) && max.map_or(true, |m| count <= m)
+                }
+                Condition::Timing { first_hand, final_hand } => {
+                    (*first_hand && ctx.is_first_hand) || (*final_hand && ctx.is_final_hand)
+                }
+                Condition::StateThreshold { .. } => false, // 需要額外狀態
+            };
+
+            if should_trigger {
+                let scaled = bonus_def.scale(1);
+                bonus.merge(&scaled);
+            }
+        }
+
+        // 指數乘法 - 計算 base ^ count
+        EffectDef::PowerMultiply { filter, scope, base } => {
+            let cards = match scope {
+                CardScope::PlayedCards => ctx.played_cards,
+                CardScope::HandCards => ctx.hand,
+                CardScope::DeckCards => &[],
+            };
+
+            let count = cards
+                .iter()
+                .filter(|card| filter.matches(card.suit, card.rank))
+                .count();
+
+            if count > 0 {
+                bonus.mul_mult = base.powi(count as i32);
+            }
+        }
+
+        // 重觸發 - 計算重觸發次數
+        EffectDef::Retrigger { filter, count } => {
+            let retrigger_count = ctx.played_cards
+                .iter()
+                .filter(|card| filter.matches(card.suit, card.rank))
+                .count() as i32;
+
+            bonus.retriggers = retrigger_count * count;
+        }
+
+        // 規則修改 - 不直接提供獎勵
+        EffectDef::RuleModifier => {
+            // 規則修改在其他地方處理，這裡不返回獎勵
+        }
+
+        // 狀態相關 - 需要額外狀態信息
+        EffectDef::Stateful => {
+            // Stateful 效果需要在調用者處單獨處理
+            // 返回空獎勵
+        }
+    }
+
+    bonus
 }
 
 // ============================================================================
@@ -1683,5 +1828,92 @@ mod tests {
         } else {
             panic!("JollyJoker should have Conditional effect");
         }
+    }
+
+    #[test]
+    fn test_compute_effect_fixed() {
+        use super::{compute_effect, get_effect_def, ComputeContext};
+
+        // 0: Joker - +4 Mult (Fixed)
+        let effect = get_effect_def(0);
+        let ctx = ComputeContext::new(&[], &[], HandId::HighCard);
+
+        let bonus = compute_effect(&effect, &ctx);
+        assert_eq!(bonus.add_mult, 4);
+        assert_eq!(bonus.chip_bonus, 0);
+        assert!((bonus.mul_mult - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_compute_effect_conditional_pass() {
+        use super::{compute_effect, get_effect_def, ComputeContext};
+
+        // 5: JollyJoker - +8 Mult on Pair hands
+        let effect = get_effect_def(5);
+        let ctx = ComputeContext::new(&[], &[], HandId::Pair);
+
+        let bonus = compute_effect(&effect, &ctx);
+        assert_eq!(bonus.add_mult, 8);
+    }
+
+    #[test]
+    fn test_compute_effect_conditional_fail() {
+        use super::{compute_effect, get_effect_def, ComputeContext};
+
+        // 5: JollyJoker - +8 Mult on Pair hands (should NOT trigger on HighCard)
+        let effect = get_effect_def(5);
+        let ctx = ComputeContext::new(&[], &[], HandId::HighCard);
+
+        let bonus = compute_effect(&effect, &ctx);
+        assert_eq!(bonus.add_mult, 0); // 條件不滿足，不觸發
+    }
+
+    #[test]
+    fn test_compute_effect_timing_final_hand() {
+        use super::{compute_effect, get_effect_def, ComputeContext};
+
+        // 30: DuskJoker - X2 on final hand
+        let effect = get_effect_def(30);
+
+        // 最後一手
+        let mut ctx = ComputeContext::new(&[], &[], HandId::HighCard);
+        ctx.is_final_hand = true;
+        let bonus = compute_effect(&effect, &ctx);
+        assert!((bonus.mul_mult - 2.0).abs() < 0.001);
+
+        // 非最後一手
+        let ctx2 = ComputeContext::new(&[], &[], HandId::HighCard);
+        let bonus2 = compute_effect(&effect, &ctx2);
+        assert!((bonus2.mul_mult - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_compute_effect_stateful() {
+        use super::{compute_effect, get_effect_def, ComputeContext};
+
+        // 19: AbstractJoker - +3 Mult per Joker (Stateful)
+        let effect = get_effect_def(19);
+        let ctx = ComputeContext::new(&[], &[], HandId::HighCard);
+
+        // Stateful 效果應返回空獎勵
+        let bonus = compute_effect(&effect, &ctx);
+        assert_eq!(bonus.add_mult, 0);
+        assert_eq!(bonus.chip_bonus, 0);
+        assert!((bonus.mul_mult - 1.0).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_compute_effect_rule_modifier() {
+        use super::{compute_effect, get_effect_def, ComputeContext};
+
+        // 24: FourFingers - 4-card Straights/Flushes (RuleModifier)
+        let effect = get_effect_def(24);
+        let ctx = ComputeContext::new(&[], &[], HandId::HighCard);
+
+        // RuleModifier 效果不直接提供獎勵
+        let bonus = compute_effect(&effect, &ctx);
+        assert_eq!(bonus.add_mult, 0);
+        assert_eq!(bonus.chip_bonus, 0);
+        assert!((bonus.mul_mult - 1.0).abs() < 0.001);
     }
 }
