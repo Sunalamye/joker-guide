@@ -464,6 +464,14 @@ impl<'a> ScoringContext<'a> {
 // ============================================================================
 
 /// 計算單個 Core Joker 的效果
+///
+/// # 已棄用
+/// 此函數已被 `compute_joker_effect_v2` 取代。
+/// 所有生產代碼路徑現在都使用 V2 模板系統。
+/// 此函數僅保留以支持舊測試，將在 Phase 4 中完全移除。
+///
+/// 請使用 `compute_joker_effect_with_state_v2` 或 `compute_joker_bonus_v2` 替代。
+#[deprecated(since = "0.2.0", note = "Use compute_joker_effect_v2 instead")]
 pub fn compute_core_joker_effect(id: JokerId, ctx: &ScoringContext, rng_value: u8) -> JokerBonus {
     let mut bonus = JokerBonus::new();
 
@@ -1708,144 +1716,15 @@ pub fn compute_joker_bonus_v2(
 }
 
 /// 計算單個 Joker 效果（使用 JokerSlot 狀態）
+///
+/// 已遷移至 V2 模板系統，此函數現在直接調用 `compute_joker_effect_with_state_v2`。
+#[inline]
 pub fn compute_joker_effect_with_state(
     joker: &JokerSlot,
     ctx: &ScoringContext,
     rng_value: u8,
 ) -> JokerBonus {
-    let mut bonus = compute_core_joker_effect(joker.id, ctx, rng_value);
-
-    // 對於有狀態追蹤的 X Mult Jokers，使用 JokerSlot 中的狀態值
-    match joker.id {
-        JokerId::Vampire => {
-            // Vampire: 優先使用新的統一狀態系統
-            bonus.mul_mult = joker.state.get_x_mult();
-        }
-        JokerId::Canio => {
-            // Canio: 優先使用新的統一狀態系統
-            bonus.mul_mult = joker.state.get_x_mult();
-        }
-        JokerId::Lucky_Cat => {
-            // Lucky Cat: 優先使用新的統一狀態系統
-            bonus.mul_mult = joker.state.get_x_mult();
-        }
-        JokerId::Hologram => {
-            // Hologram: 優先使用新的統一狀態系統
-            bonus.mul_mult = joker.state.get_x_mult();
-        }
-        JokerId::Constellation => {
-            // Constellation: 優先使用新的統一狀態系統
-            bonus.mul_mult = joker.state.get_x_mult();
-        }
-        JokerId::Madness => {
-            // Madness: 優先使用新的統一狀態系統
-            bonus.mul_mult = joker.state.get_x_mult();
-        }
-        JokerId::Ceremonial => {
-            // Ceremonial: 使用 counter 中累積的 Mult (2x 銷毀 Joker 的售價)
-            bonus.add_mult += joker.counter as i64;
-        }
-        JokerId::Yorick => {
-            // Yorick: 優先使用新的統一狀態系統
-            bonus.mul_mult = joker.state.get_x_mult();
-        }
-        JokerId::GlassJoker => {
-            // Glass Joker: 優先使用新的統一狀態系統
-            bonus.mul_mult = joker.state.get_x_mult();
-        }
-        JokerId::AncientJoker => {
-            // AncientJoker: 如果手牌包含指定花色，X1.5 Mult
-            // 優先使用新的統一狀態系統
-            let target_suit = joker.state.get_target_suit();
-            let has_suit = ctx
-                .played_cards
-                .iter()
-                .any(|c| c.suit == target_suit);
-            if has_suit {
-                bonus.mul_mult = 1.5;
-            }
-        }
-        JokerId::Castle => {
-            // Castle: 使用累積的 chips (每棄特定花色牌 +3)
-            // 優先使用新的統一狀態系統
-            bonus.chip_bonus = joker.state.get_target_value() as i64;
-        }
-        JokerId::LoyaltyCard => {
-            // LoyaltyCard: 每 6 手牌打出給 X4 Mult
-            // counter 追蹤手牌數量，達到 6 時觸發
-            if joker.counter >= 6 {
-                bonus.mul_mult = 4.0;
-            }
-        }
-        JokerId::Hit_The_Road => {
-            // Hit The Road: 優先使用新的統一狀態系統
-            bonus.mul_mult = joker.state.get_x_mult();
-        }
-        JokerId::Obelisk => {
-            // Obelisk: X0.2 Mult per consecutive hand without most played type
-            // 優先使用新的統一狀態系統
-            let streak = joker.state.get_counter();
-            bonus.mul_mult = 1.0 + (streak as f32 * 0.2);
-        }
-        JokerId::TheIdol => {
-            // TheIdol: 打出特定牌（rank + suit）時 X2 Mult
-            // 優先使用新的統一狀態系統
-            let target_rank = joker.state.get_target_rank();
-            let target_suit = joker.state.get_target_suit();
-            let has_idol_card = ctx
-                .played_cards
-                .iter()
-                .any(|c| c.rank == target_rank && c.suit == target_suit);
-            if has_idol_card {
-                bonus.mul_mult = 2.0;
-            }
-        }
-        JokerId::IceCream => {
-            // IceCream: 使用當前 chips 值 (每手 -5, 在 main.rs 更新)
-            // 優先使用新的統一狀態系統
-            bonus.chip_bonus = joker.state.get_chips() as i64;
-        }
-        JokerId::Popcorn => {
-            // Popcorn: 使用當前 mult 值 (每輪 -4, 在 main.rs 更新)
-            // 優先使用新的統一狀態系統
-            bonus.add_mult += joker.state.get_mult() as i64;
-        }
-        JokerId::Ramen => {
-            // Ramen: 使用當前 X Mult 值 (每棄牌 -0.01, 在 main.rs 更新)
-            bonus.mul_mult = joker.state.get_x_mult();
-        }
-        JokerId::Campfire => {
-            // Campfire: 優先使用新的統一狀態系統
-            bonus.mul_mult = joker.state.get_x_mult();
-        }
-        JokerId::Wee => {
-            // Wee: 使用累積的 chips (每輪 +8, 在 main.rs 更新)
-            // 優先使用新的統一狀態系統
-            bonus.chip_bonus += joker.state.get_chips() as i64;
-        }
-        JokerId::Merry => {
-            // Merry: 使用累積的 mult (每輪 +3, 在 main.rs 更新)
-            // 優先使用新的統一狀態系統
-            bonus.add_mult += joker.state.get_mult() as i64;
-        }
-        JokerId::SteakJoker => {
-            // SteakJoker: X2 Mult (每輪售價 -$1, 售價在 main.rs 更新)
-            bonus.mul_mult = 2.0;
-        }
-        JokerId::GreenJoker => {
-            // GreenJoker: 使用累積的 mult (每手 +1, 每輪重置, 在 main.rs 更新)
-            // 優先使用新的統一狀態系統
-            bonus.add_mult += joker.state.get_mult() as i64;
-        }
-        JokerId::RideTheBus => {
-            // RideTheBus: 使用累積的 mult (連續非人頭牌手 +1, 在 main.rs 更新)
-            // 優先使用新的統一狀態系統
-            bonus.add_mult += joker.state.get_mult() as i64;
-        }
-        _ => {}
-    }
-
-    bonus
+    compute_joker_effect_with_state_v2(joker, ctx, rng_value)
 }
 
 // ============================================================================
