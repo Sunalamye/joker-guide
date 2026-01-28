@@ -107,6 +107,28 @@ PYTHONPATH=python-env/src python3 -m joker_env.train --episodes 20 --checkpoint 
 - `--checkpoint`: path to save the SB3 model (e.g. `python-env/models/ppo`)
 - `--save-interval`: chunk size (default 25000); triggers intermediate snapshots like `python-env/models/ppo_25000`
 - `--tensorboard-log`: optional path to write TensorBoard summaries
+- `--log-freq`: per-episode console summary frequency from the custom callback (default 10)
+- `--tb-log-freq`: per-episode TensorBoard logging frequency for custom metrics (default 1)
+- `--verbose`: SB3 verbosity level (default 1)
+- `--mps`: use Apple MPS acceleration when available
+- `--n-steps`: rollout steps per update (default 256)
+- `--batch-size`: minibatch size (default 64)
+- `--ent-coef`: entropy coefficient (default 0.1)
+- `--learning-rate`: learning rate (default 0.0003)
+- `--gamma`: discount factor (default 0.99)
+- `--gae-lambda`: GAE lambda (default 0.95)
+- `--clip-range`: PPO clip range (default 0.2)
+- `--clip-range-vf`: value function clip range (default None)
+- `--normalize-advantage` / `--no-normalize-advantage`: toggle advantage normalization (default on)
+- `--n-epochs`: optimization epochs per update (default 10)
+- `--vf-coef`: value function coefficient (default 0.5)
+- `--max-grad-norm`: gradient clipping (default 0.5)
+- `--target-kl`: target KL for early stopping (default None)
+- `--use-sde`: enable generalized state-dependent exploration (default off)
+- `--sde-sample-freq`: SDE sampling frequency (default -1)
+- `--stats-window-size`: rolling stats window for logs (default 100)
+- `--seed`: random seed (default None)
+- `--net-arch`: policy/value MLP hidden sizes (default `128 128`)
 
 Example:
 ```bash

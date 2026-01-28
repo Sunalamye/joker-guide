@@ -1,6 +1,9 @@
 // 這些 API 是為未來擴展保留的公開介面
 #![allow(dead_code)]
 
+use std::collections::HashMap;
+use std::env;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
 use rand::Rng;
@@ -35,17 +38,39 @@ use service::{
 };
 
 // ============================================================================
-// gRPC 服務
+// gRPC 服務（支援多遊戲並發）
 // ============================================================================
 
 struct EnvService {
-    state: Mutex<EnvState>,
+    /// 多個遊戲狀態，用 session_id 區分
+    games: Mutex<HashMap<u64, EnvState>>,
+    /// 下一個 session_id
+    next_session_id: AtomicU64,
 }
 
 impl Default for EnvService {
     fn default() -> Self {
         Self {
-            state: Mutex::new(EnvState::new(0)),
+            games: Mutex::new(HashMap::new()),
+            next_session_id: AtomicU64::new(1),
+        }
+    }
+}
+
+impl EnvService {
+    /// 獲取或創建遊戲狀態
+    fn get_or_create_game(&self, session_id: u64, seed: u64) -> Result<u64, Status> {
+        let mut games = self.games.lock().map_err(|_| Status::internal("lock error"))?;
+
+        if session_id == 0 {
+            // 創建新 session
+            let new_id = self.next_session_id.fetch_add(1, Ordering::SeqCst);
+            games.insert(new_id, EnvState::new(seed));
+            Ok(new_id)
+        } else {
+            // 重置現有 session
+            games.insert(session_id, EnvState::new(seed));
+            Ok(session_id)
         }
     }
 }
@@ -56,17 +81,16 @@ impl JokerEnv for EnvService {
         &self,
         request: Request<ResetRequest>,
     ) -> Result<Response<ResetResponse>, Status> {
-        let seed = request.into_inner().seed;
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|_| Status::internal("lock error"))?;
+        let req = request.into_inner();
+        let seed = req.seed;
+        let session_id = self.get_or_create_game(req.session_id, seed)?;
 
-        *state = EnvState::new(seed);
+        let games = self.games.lock().map_err(|_| Status::internal("lock error"))?;
+        let state = games.get(&session_id).ok_or_else(|| Status::internal("session not found"))?;
 
         let observation = Observation {
-            features: Some(observation_from_state(&state)),
-            action_mask: Some(action_mask_from_state(&state, false)),
+            features: Some(observation_from_state(state)),
+            action_mask: Some(action_mask_from_state(state, false)),
         };
 
         let info = EnvInfo {
@@ -117,21 +141,23 @@ impl JokerEnv for EnvService {
         Ok(Response::new(ResetResponse {
             observation: Some(observation),
             info: Some(info),
+            session_id,
         }))
     }
 
     async fn step(&self, request: Request<StepRequest>) -> Result<Response<StepResponse>, Status> {
-        let StepRequest { action } = request.into_inner();
-        let action = action.unwrap_or(Action {
+        let req = request.into_inner();
+        let session_id = req.session_id;
+        let action = req.action.unwrap_or(Action {
             action_id: 0,
             params: vec![],
             action_type: ACTION_TYPE_SELECT,
         });
 
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|_| Status::internal("lock error"))?;
+        let mut games = self.games.lock().map_err(|_| Status::internal("lock error"))?;
+        let state = games.get_mut(&session_id).ok_or_else(|| {
+            Status::not_found(format!("session {} not found, call Reset first", session_id))
+        })?;
 
         let action_type = action.action_type;
         let action_id = action.action_id as u32;
@@ -2281,7 +2307,25 @@ impl JokerEnv for EnvService {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "127.0.0.1:50051".parse()?;
+    // 解析命令行參數
+    let args: Vec<String> = env::args().collect();
+    let mut port: u16 = 50051;
+
+    let mut i = 1;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--port" | "-p" => {
+                if i + 1 < args.len() {
+                    port = args[i + 1].parse().unwrap_or(50051);
+                    i += 1;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    let addr = format!("127.0.0.1:{}", port).parse()?;
     let env = EnvService::default();
 
     println!("JokerEnv gRPC server listening on {}", addr);

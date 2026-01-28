@@ -107,6 +107,28 @@ PYTHONPATH=python-env/src python3 -m joker_env.train --episodes 20 --checkpoint 
 - `--checkpoint`: SB3 模型儲存路徑 (例如 `python-env/models/ppo`)
 - `--save-interval`: 分段儲存間隔 (預設 25000)，觸發中間快照如 `python-env/models/ppo_25000`
 - `--tensorboard-log`: TensorBoard 摘要寫入路徑
+- `--log-freq`: 自訂 callback 的 console summary 頻率 (預設 10)
+- `--tb-log-freq`: 自訂 metrics 寫入 TensorBoard 的頻率 (預設 1)
+- `--verbose`: SB3 輸出詳細度 (預設 1)
+- `--mps`: 可用時啟用 Apple MPS 加速
+- `--n-steps`: 每次更新的 rollout 步數 (預設 256)
+- `--batch-size`: minibatch 大小 (預設 64)
+- `--ent-coef`: entropy 係數 (預設 0.1)
+- `--learning-rate`: 學習率 (預設 0.0003)
+- `--gamma`: 折扣因子 (預設 0.99)
+- `--gae-lambda`: GAE lambda (預設 0.95)
+- `--clip-range`: PPO clip 範圍 (預設 0.2)
+- `--clip-range-vf`: value function clip 範圍 (預設 None)
+- `--normalize-advantage` / `--no-normalize-advantage`: 是否正規化 advantage (預設開啟)
+- `--n-epochs`: 每次更新的訓練 epoch 數 (預設 10)
+- `--vf-coef`: value function 係數 (預設 0.5)
+- `--max-grad-norm`: 梯度裁切 (預設 0.5)
+- `--target-kl`: 目標 KL，超過可提前停止 (預設 None)
+- `--use-sde`: 啟用 generalized state-dependent exploration (預設關閉)
+- `--sde-sample-freq`: SDE 取樣頻率 (預設 -1)
+- `--stats-window-size`: log 的 rolling 統計視窗 (預設 100)
+- `--seed`: 隨機種子 (預設 None)
+- `--net-arch`: policy/value MLP 隱藏層大小 (預設 `128 128`)
 
 範例：
 ```bash

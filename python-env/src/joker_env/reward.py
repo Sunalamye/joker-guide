@@ -3,20 +3,25 @@
 
 從 Rust reward.rs 移植，為 RL 訓練提供形狀良好的獎勵信號，支持完整遊戲（Ante 1-8）
 
-獎勵範圍設計（v3.1 - 統一尺度）：
+獎勵範圍設計（v4.0 - 突破 Ante 1 陷阱）：
+設計原則：
+- 終端獎勵主導：勝利=5.0，確保長期目標壓過短期收益
+- 指數級 Ante 進度：後期 Ante 獎勵指數增長，打破局部最優
+- 降低密集獎勵：減少出牌/過關獎勵權重，避免短視行為
+
 | 模組                     | 範圍             | 說明                           |
 |--------------------------|------------------|--------------------------------|
-| 遊戲結束 (game_end)      | -0.5 ~ 1.0       | 勝利=1.0，失敗依進度懲罰（終端獎勵）|
-| 過關 (blind_clear)       | 0.2 ~ 0.6        | 含 Boss 難度加成、效率獎勵     |
-| 出牌 (play_reward)       | 0.0 ~ 0.3        | 含超額獎勵                     |
-| 棄牌 (discard_reward)    | 0.0 ~ 0.05       | 鼓勵精準棄牌                   |
+| 遊戲結束 (game_end)      | -2.0 ~ 5.0       | 勝利=5.0，失敗依進度懲罰       |
+| Ante 進度                | 0.1 ~ 2.55       | 指數級增長（2^ante × 0.05）    |
+| 過關 (blind_clear)       | 0.15 ~ 0.5       | Ante 調整，Boss 加成           |
+| 出牌 (play_reward)       | 0.0 ~ 0.15       | 降低以突出終端獎勵             |
+| 棄牌 (discard_reward)    | -0.05 ~ 0.05     | 空棄牌懲罰 + 精準棄牌獎勵     |
 | 購買 Joker               | -0.3 ~ 0.3       | 含階段權重、非線性經濟懲罰     |
 | Skip Blind/Tag           | -0.15 ~ 0.35     | Tag 價值 - 機會成本 × 風險調整 |
 | 消耗品使用               | 0.0 ~ 0.25       | Spectral 後期乘數更強          |
 | 金幣狀態 (money_reward)  | 0.0 ~ 0.2        | 利息閾值階梯獎勵               |
 | Reroll 決策              | -0.15 ~ 0.0      | 考慮利息損失（純經濟懲罰）     |
 | 出售 Joker               | -0.2 ~ 0.2       | 槽位壓力獎勵、相對損失懲罰     |
-| Ante 進度                | 0.0 ~ 0.3        | 非線性，後期更有價值           |
 | Voucher 購買             | -0.25 ~ 0.3      | 含階段權重、經濟懲罰           |
 """
 
@@ -457,10 +462,11 @@ def stage_weight_late(ante: int) -> float:
 
 def play_reward(score_gained: int, required: int) -> float:
     """
-    出牌獎勵：正規化到 0~0.3
+    出牌獎勵：正規化到 0~0.15（v4.0 - 降低密集獎勵）
 
-    - 超額獎勵：得分超過目標有額外獎勵
-    - 非線性獎勵曲線：獎勵高效出牌
+    設計原則：
+    - 降低中間獎勵以突出終端獎勵
+    - 仍保持正向獎勵以引導學習方向
     """
     if required <= 0 or score_gained <= 0:
         return 0.0
@@ -468,26 +474,27 @@ def play_reward(score_gained: int, required: int) -> float:
     ratio = score_gained / required
 
     if ratio >= 1.0:
-        # 超額獎勵：一次出牌達標或超標
-        base = 0.25
-        overkill_bonus = min((ratio - 1.0) * 0.05, 0.05)
+        # 超額獎勵
+        base = 0.12
+        overkill_bonus = min((ratio - 1.0) * 0.03, 0.03)
         reward = base + overkill_bonus
     else:
         # 未達標：線性獎勵進度
-        reward = ratio * 0.25
+        reward = ratio * 0.12
 
-    return min(reward, 0.3)
+    return min(reward, 0.15)
 
 
 def discard_reward(cards_discarded: int, discards_left: int) -> float:
     """
-    棄牌獎勵：策略性棄牌可獲得小獎勵（0~0.05）
+    棄牌獎勵：策略性棄牌可獲得小獎勵（-0.05~0.05）
 
+    - 空棄牌（cards_discarded==0）懲罰 -0.05（阻斷 no-op 漏洞）
     - 棄牌越少（更精準），獎勵越高
     - 最後棄牌機會有小獎勵
     """
     if cards_discarded == 0:
-        return 0.0
+        return -0.05  # 懲罰空棄牌（no-op exploit 防護）
 
     # 精準棄牌獎勵
     if cards_discarded <= 2:
@@ -510,66 +517,71 @@ def blind_clear_reward(
     boss_blind_id: Optional[int] = None
 ) -> float:
     """
-    過關獎勵：正規化到 0.3~0.7
+    過關獎勵：正規化到 0.15~0.5（v4.0 - 階段里程碑）
 
-    - 後期過關獎勵更高
-    - Boss 難度加成
-    - 提高基礎獎勵，使 Clear 明顯優於 Skip
+    設計原則：
+    - 過關獎勵隨 Ante 增加（後期過關更有價值）
+    - Boss 過關獎勵最高（觸發 Ante 進度）
+    - 適度獎勵以配合終端獎勵
     """
+    # 基礎獎勵
     base = {
-        BLIND_SMALL: 0.3,  # 提高：從 0.2 → 0.3
-        BLIND_BIG: 0.4,    # 提高：從 0.3 → 0.4
-        BLIND_BOSS: 0.5,   # 提高：從 0.4 → 0.5
-    }.get(blind_type, 0.3)
+        BLIND_SMALL: 0.15,
+        BLIND_BIG: 0.20,
+        BLIND_BOSS: 0.30,
+    }.get(blind_type, 0.15)
 
-    # Boss 難度加成（簡化版）
+    # Boss 難度加成
     boss_bonus = 0.0
     if blind_type == BLIND_BOSS and boss_blind_id is not None:
-        # 簡化：所有 Boss 給予 0.05 基礎加成
         boss_bonus = 0.05
 
     # 效率獎勵（剩餘出牌次數）
-    efficiency = plays_left * 0.02
+    efficiency = plays_left * 0.01
 
-    # 階段權重（後期稍高）
-    stage_mult = stage_weight_late(ante)
+    # Ante 階段權重（後期過關獎勵更高）
+    # Ante 1: 1.0, Ante 8: 1.5
+    ante_mult = 1.0 + (ante - 1) * 0.07
 
-    return clamp((base + boss_bonus + efficiency) * stage_mult, 0.3, 0.7)
+    return clamp((base + boss_bonus + efficiency) * ante_mult, 0.15, 0.5)
 
 
 def ante_progress_reward(old_ante: int, new_ante: int) -> float:
     """
-    Ante 進度獎勵：每級均勻 0.08 獎勵（0~0.56）
+    Ante 進度獎勵：指數級增長（0~2.55）
 
-    設計原則：
-    - 每級 Ante 都同等重要，給予固定 0.08 獎勵
-    - 總計 Ante 1→8 的累積獎勵為 0.56
-    - 不再使用非線性曲線，避免早期進度被低估
+    設計原則（v4.0 - 突破 Ante 1 陷阱）：
+    - 指數級增長：後期 Ante 進度獎勵顯著更高
+    - 這創造強烈的激勵去嘗試更高 Ante
+    - 公式：reward = 0.05 × (2^ante - 2^old_ante)
+    - 累積獎勵：Ante 1→2: 0.1, 1→3: 0.3, 1→8: 2.55
     """
     def ante_value(a: int) -> float:
-        # 均勻增量：每級 0.08
-        values = {
-            1: 0.0,
-            2: 0.08,
-            3: 0.16,
-            4: 0.24,
-            5: 0.32,
-            6: 0.40,
-            7: 0.48,
-            8: 0.56,
-        }
-        return values.get(a, 0.0)
+        # 指數級增長：2^a × 0.05
+        # Ante 1: 0.1, Ante 2: 0.2, Ante 3: 0.4, ..., Ante 8: 12.8
+        if a < 1:
+            return 0.0
+        return 0.05 * (2 ** a)
 
     return ante_value(new_ante) - ante_value(old_ante)
 
 
 def game_end_reward(game_end: int, ante: int) -> float:
-    """遊戲結束獎勵：正規化到 -0.5~1.0"""
+    """
+    遊戲結束獎勵（v4.0 - 強化終端信號）
+
+    設計原則：
+    - 勝利獎勵大幅提升到 5.0（超過所有中間獎勵累積）
+    - 失敗懲罰根據進度調整：-2.0（Ante 1 失敗）到 -0.5（Ante 8 失敗）
+    - 這確保終端目標（勝利）是最重要的信號
+    """
     if game_end == GAME_END_WIN:
-        return 1.0
+        return 5.0  # 大幅提升勝利獎勵
     elif game_end == GAME_END_LOSE:
+        # 進度越高，懲罰越小（鼓勵嘗試更高 Ante）
         progress = ante / 8.0
-        return -0.5 * (1.0 - progress)
+        # Ante 1 失敗: -2.0, Ante 8 失敗: -0.5
+        return -2.0 + 1.5 * progress
     return 0.0
 
 
@@ -976,6 +988,17 @@ class RewardCalculator:
             # 檢查是否進入新 Ante
             if prev is not None and info.ante > prev.ante:
                 reward += ante_progress_reward(prev.ante, info.ante)
+
+        # 通用 no-op 偵測：任何未產生狀態變化的動作施加小懲罰
+        # 防止 agent 利用 SELECT/DISCARD/PLAY 的 no-op 漏洞
+        if (action_type in (ACTION_TYPE_SELECT, ACTION_TYPE_DISCARD, ACTION_TYPE_PLAY)
+                and info.score_delta == 0
+                and info.money_delta == 0
+                and info.cards_played == 0
+                and info.cards_discarded == 0
+                and not info.blind_cleared
+                and info.game_end == GAME_END_NONE):
+            reward -= 0.03
 
         # 保存當前狀態作為下一步的參考
         self._prev_info = info

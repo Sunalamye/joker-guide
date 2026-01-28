@@ -31,16 +31,16 @@ pub fn action_mask_from_state(state: &EnvState, done: bool) -> Tensor {
     let can_skip = in_pre_blind && state.blind_type != Some(BlindType::Boss);
 
     data[0] = if in_blind { 1.0 } else { 0.0 }; // SELECT
-    data[1] = if in_blind && state.plays_left > 0 {
+    data[1] = if in_blind && state.plays_left > 0 && state.selected_mask > 0 {
         1.0
     } else {
         0.0
-    }; // PLAY
-    data[2] = if in_blind && state.discards_left > 0 {
+    }; // PLAY（需要已選牌）
+    data[2] = if in_blind && state.discards_left > 0 && state.selected_mask > 0 {
         1.0
     } else {
         0.0
-    }; // DISCARD
+    }; // DISCARD（需要已選牌）
     data[3] = if in_pre_blind { 1.0 } else { 0.0 }; // SELECT_BLIND
     data[4] = if in_post_blind { 1.0 } else { 0.0 }; // CASH_OUT
     data[5] = if in_shop { 1.0 } else { 0.0 }; // BUY_JOKER
@@ -219,9 +219,16 @@ mod tests {
 
         let data = mask_data(&state, false);
         assert_eq!(data[0], 1.0); // SELECT
-        assert_eq!(data[1], 1.0); // PLAY
-        assert_eq!(data[2], 1.0); // DISCARD
+        // PLAY 和 DISCARD 需要 selected_mask > 0
+        assert_eq!(data[1], 0.0); // PLAY（無已選牌）
+        assert_eq!(data[2], 0.0); // DISCARD（無已選牌）
         assert_eq!(data[10], 0.0); // USE_CONSUMABLE blocked by Amber
+
+        // 選中牌後 PLAY/DISCARD 應該開啟
+        state.selected_mask = 0b00001; // 選了第一張牌
+        let data2 = mask_data(&state, false);
+        assert_eq!(data2[1], 1.0); // PLAY（有已選牌）
+        assert_eq!(data2[2], 1.0); // DISCARD（有已選牌）
     }
 
     #[test]

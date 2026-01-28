@@ -10,15 +10,18 @@ service JokerEnv {
 
 message ResetRequest {
   uint64 seed = 1;
+  uint64 session_id = 2;  // 可選：指定 session，0 表示創建新 session
 }
 
 message ResetResponse {
   Observation observation = 1;
   EnvInfo info = 2;
+  uint64 session_id = 3;  // 返回 session_id，用於後續請求
 }
 
 message StepRequest {
   Action action = 1;
+  uint64 session_id = 2;  // 指定要操作的 session
 }
 
 message StepResponse {

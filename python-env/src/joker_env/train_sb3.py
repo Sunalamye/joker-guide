@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import inspect
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -9,9 +11,11 @@ import torch
 from gymnasium import spaces
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
+from stable_baselines3.common.vec_env import SubprocVecEnv
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
 from joker_env import JokerGymDictEnv
+from joker_env.callbacks import JokerMetricsCallback
 from joker_env.env import (
     BOSS_BLIND_COUNT,
     CARD_FEATURES,
@@ -210,41 +214,111 @@ def get_device(use_mps: bool = False) -> str:
         return "cpu"
 
 
+def make_env(seed: int | None = None, rank: int = 0, port: int = 50051):
+    """創建單一環境的工廠函數"""
+    def _init():
+        address = f"127.0.0.1:{port}"
+        env = JokerGymDictEnv(address=address)
+        env = ActionMasker(env, lambda e: e.action_masks())
+        if seed is not None:
+            env.reset(seed=seed + rank)
+        return env
+    return _init
+
+
 def train(
     total_timesteps: int = 50000,
     checkpoint: Path | None = None,
     save_interval: int = 25000,
     tensorboard_log: Path | None = None,
     use_mps: bool = False,
+    log_freq: int = 10,
+    tb_log_freq: int = 1,
+    verbose: int = 1,
+    n_steps: int = 256,
+    batch_size: int = 64,
+    ent_coef: float = 0.01,
+    learning_rate: float = 3e-4,
+    gamma: float = 0.99,
+    gae_lambda: float = 0.92,
+    clip_range: float = 0.2,
+    clip_range_vf: float | None = None,
+    normalize_advantage: bool = True,
+    n_epochs: int = 4,
+    vf_coef: float = 0.5,
+    max_grad_norm: float = 0.5,
+    target_kl: float | None = 0.015,
+    use_sde: bool = False,
+    sde_sample_freq: int = -1,
+    stats_window_size: int = 100,
+    seed: int | None = None,
+    net_arch: list[int] | None = None,
+    n_envs: int = 1,
+    resume: Path | None = None,
 ) -> None:
-    env = JokerGymDictEnv()
-    env = ActionMasker(env, lambda e: e.action_masks())
+    # 創建並行環境
+    if n_envs > 1:
+        base_port = int(os.environ.get("JOKER_BASE_PORT", "50051"))
+        n_engines = int(os.environ.get("JOKER_N_ENGINES", str(n_envs)))
+
+        print(f"Using {n_envs} parallel environments (SubprocVecEnv)")
+        print(f"Connecting to {n_engines} Rust engines (ports {base_port}-{base_port + n_engines - 1})")
+
+        # Round-robin 分配環境到引擎
+        env = SubprocVecEnv([
+            make_env(seed, i, port=base_port + (i % n_engines))
+            for i in range(n_envs)
+        ])
+    else:
+        env = JokerGymDictEnv()
+        env = ActionMasker(env, lambda e: e.action_masks())
 
     device = get_device(use_mps)
     joker_vocab_size = load_joker_vocab_size()
     policy_kwargs = dict(
         features_extractor_class=JokerFeaturesExtractor,
         features_extractor_kwargs={"joker_vocab_size": joker_vocab_size},
-        net_arch=[128, 128],
+        net_arch=net_arch or [128, 128],
     )
 
-    model = MaskablePPO(
-        "MultiInputPolicy",
-        env,
-        verbose=1,
-        n_steps=256,
-        batch_size=64,
-        ent_coef=0.1,
-        policy_kwargs=policy_kwargs,
-        tensorboard_log=str(tensorboard_log) if tensorboard_log is not None else None,
-        device=device,
-    )
+    model_kwargs = {
+        "verbose": verbose,
+        "n_steps": n_steps,
+        "batch_size": batch_size,
+        "ent_coef": ent_coef,
+        "learning_rate": learning_rate,
+        "gamma": gamma,
+        "gae_lambda": gae_lambda,
+        "clip_range": clip_range,
+        "clip_range_vf": clip_range_vf,
+        "normalize_advantage": normalize_advantage,
+        "n_epochs": n_epochs,
+        "vf_coef": vf_coef,
+        "max_grad_norm": max_grad_norm,
+        "target_kl": target_kl,
+        "use_sde": use_sde,
+        "sde_sample_freq": sde_sample_freq,
+        "stats_window_size": stats_window_size,
+        "seed": seed,
+        "policy_kwargs": policy_kwargs,
+        "tensorboard_log": str(tensorboard_log) if tensorboard_log is not None else None,
+        "device": device,
+    }
+    accepted = set(inspect.signature(MaskablePPO.__init__).parameters)
+    filtered_kwargs = {k: v for k, v in model_kwargs.items() if k in accepted}
+
+    if resume is not None:
+        print(f"Resuming training from {resume}")
+        model = MaskablePPO.load(resume, env=env, **filtered_kwargs)
+    else:
+        model = MaskablePPO("MultiInputPolicy", env, **filtered_kwargs)
 
     remaining = total_timesteps
     chunk = save_interval if save_interval > 0 else total_timesteps
+    callback = JokerMetricsCallback(verbose=verbose, log_freq=log_freq, tb_log_freq=tb_log_freq)
     while remaining > 0:
         step = min(chunk, remaining)
-        model.learn(total_timesteps=step, reset_num_timesteps=False)
+        model.learn(total_timesteps=step, reset_num_timesteps=False, callback=callback)
         remaining -= step
         if checkpoint:
             _save_checkpoint(
@@ -260,9 +334,44 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Train MaskablePPO on JokerGymDictEnv")
     parser.add_argument("--timesteps", type=int, default=50000)
     parser.add_argument("--checkpoint", type=Path, default=None)
+    parser.add_argument("--resume", type=Path, default=None, help="Resume training from a saved model")
     parser.add_argument("--save-interval", type=int, default=25000)
     parser.add_argument("--tensorboard-log", type=Path, default=None)
     parser.add_argument("--mps", action="store_true", help="Use Apple MPS acceleration")
+    parser.add_argument("--log-freq", type=int, default=10)
+    parser.add_argument("--tb-log-freq", type=int, default=1)
+    parser.add_argument("--verbose", type=int, default=1, help="SB3 verbosity level")
+    parser.add_argument("--n-steps", type=int, default=256)
+    parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--ent-coef", type=float, default=0.01)
+    parser.add_argument("--learning-rate", type=float, default=3e-4)
+    parser.add_argument("--gamma", type=float, default=0.99)
+    parser.add_argument("--gae-lambda", type=float, default=0.92)
+    parser.add_argument("--clip-range", type=float, default=0.2)
+    parser.add_argument("--clip-range-vf", type=float, default=None)
+    parser.add_argument("--normalize-advantage", action="store_true", default=True)
+    parser.add_argument("--no-normalize-advantage", action="store_false", dest="normalize_advantage")
+    parser.add_argument("--n-epochs", type=int, default=4)
+    parser.add_argument("--vf-coef", type=float, default=0.5)
+    parser.add_argument("--max-grad-norm", type=float, default=0.5)
+    parser.add_argument("--target-kl", type=float, default=0.015)
+    parser.add_argument("--use-sde", action="store_true", default=False)
+    parser.add_argument("--sde-sample-freq", type=int, default=-1)
+    parser.add_argument("--stats-window-size", type=int, default=100)
+    parser.add_argument("--seed", type=int, default=None)
+    parser.add_argument(
+        "--net-arch",
+        type=int,
+        nargs="+",
+        default=[128, 128],
+        help="MLP hidden sizes, e.g. --net-arch 128 128",
+    )
+    parser.add_argument(
+        "--n-envs",
+        type=int,
+        default=1,
+        help="Number of parallel environments (default: 1, recommended: 4-8)",
+    )
     args = parser.parse_args()
 
     train(
@@ -271,6 +380,29 @@ def main() -> None:
         save_interval=args.save_interval,
         tensorboard_log=args.tensorboard_log,
         use_mps=args.mps,
+        log_freq=args.log_freq,
+        tb_log_freq=args.tb_log_freq,
+        verbose=args.verbose,
+        n_steps=args.n_steps,
+        batch_size=args.batch_size,
+        ent_coef=args.ent_coef,
+        learning_rate=args.learning_rate,
+        gamma=args.gamma,
+        gae_lambda=args.gae_lambda,
+        clip_range=args.clip_range,
+        clip_range_vf=args.clip_range_vf,
+        normalize_advantage=args.normalize_advantage,
+        n_epochs=args.n_epochs,
+        vf_coef=args.vf_coef,
+        max_grad_norm=args.max_grad_norm,
+        target_kl=args.target_kl,
+        use_sde=args.use_sde,
+        sde_sample_freq=args.sde_sample_freq,
+        stats_window_size=args.stats_window_size,
+        seed=args.seed,
+        net_arch=args.net_arch,
+        n_envs=args.n_envs,
+        resume=args.resume,
     )
 
 

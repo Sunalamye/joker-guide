@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x11joker_guide.proto\x12\x0ejoker_guide.v1\"\x1c\n\x0cResetRequest\x12\x0c\n\x04seed\x18\x01 \x01(\x04\"h\n\rResetResponse\x12\x30\n\x0bobservation\x18\x01 \x01(\x0b\x32\x1b.joker_guide.v1.Observation\x12%\n\x04info\x18\x02 \x01(\x0b\x32\x17.joker_guide.v1.EnvInfo\"5\n\x0bStepRequest\x12&\n\x06\x61\x63tion\x18\x01 \x01(\x0b\x32\x16.joker_guide.v1.Action\"\x85\x01\n\x0cStepResponse\x12\x30\n\x0bobservation\x18\x01 \x01(\x0b\x32\x1b.joker_guide.v1.Observation\x12\x0e\n\x06reward\x18\x02 \x01(\x02\x12\x0c\n\x04\x64one\x18\x03 \x01(\x08\x12%\n\x04info\x18\x04 \x01(\x0b\x32\x17.joker_guide.v1.EnvInfo\"\x10\n\x0eGetSpecRequest\"\x89\x01\n\x0fGetSpecResponse\x12/\n\x0bobservation\x18\x01 \x01(\x0b\x32\x1a.joker_guide.v1.TensorSpec\x12/\n\x0b\x61\x63tion_mask\x18\x02 \x01(\x0b\x32\x1a.joker_guide.v1.TensorSpec\x12\x14\n\x0c\x61\x63tion_space\x18\x03 \x01(\x05\"d\n\x0bObservation\x12(\n\x08\x66\x65\x61tures\x18\x01 \x01(\x0b\x32\x16.joker_guide.v1.Tensor\x12+\n\x0b\x61\x63tion_mask\x18\x02 \x01(\x0b\x32\x16.joker_guide.v1.Tensor\"%\n\x06Tensor\x12\x0c\n\x04\x64\x61ta\x18\x01 \x03(\x02\x12\r\n\x05shape\x18\x02 \x03(\x05\"*\n\nTensorSpec\x12\r\n\x05shape\x18\x01 \x03(\x05\x12\r\n\x05\x64type\x18\x02 \x01(\t\"@\n\x06\x41\x63tion\x12\x11\n\taction_id\x18\x01 \x01(\x05\x12\x0e\n\x06params\x18\x02 \x03(\x05\x12\x13\n\x0b\x61\x63tion_type\x18\x03 \x01(\x05\"\x91\x04\n\x07\x45nvInfo\x12\x14\n\x0c\x65pisode_step\x18\x01 \x01(\x05\x12\r\n\x05\x63hips\x18\x02 \x01(\x03\x12\x0c\n\x04mult\x18\x03 \x01(\x03\x12\x14\n\x0c\x62lind_target\x18\x04 \x01(\x03\x12\x0c\n\x04\x61nte\x18\x05 \x01(\x05\x12\r\n\x05stage\x18\x06 \x01(\x05\x12\x12\n\nblind_type\x18\x07 \x01(\x05\x12\x12\n\nplays_left\x18\x08 \x01(\x05\x12\x15\n\rdiscards_left\x18\t \x01(\x05\x12\r\n\x05money\x18\n \x01(\x05\x12\x13\n\x0bscore_delta\x18\x0b \x01(\x03\x12\x13\n\x0bmoney_delta\x18\x0c \x01(\x05\x12\x18\n\x10last_action_type\x18\r \x01(\x05\x12\x18\n\x10last_action_cost\x18\x0e \x01(\x05\x12\x13\n\x0bjoker_count\x18\x0f \x01(\x05\x12\x18\n\x10joker_slot_limit\x18\x10 \x01(\x05\x12\x10\n\x08game_end\x18\x11 \x01(\x05\x12\x15\n\rblind_cleared\x18\x12 \x01(\x08\x12\x14\n\x0c\x63\x61rds_played\x18\x13 \x01(\x05\x12\x17\n\x0f\x63\x61rds_discarded\x18\x14 \x01(\x05\x12\x11\n\thand_type\x18\x15 \x01(\x05\x12\x0e\n\x06tag_id\x18\x16 \x01(\x05\x12\x15\n\rconsumable_id\x18\x17 \x01(\x05\x12\x15\n\rjoker_sold_id\x18\x18 \x01(\x05\x12\x1c\n\x14\x62\x65st_shop_joker_cost\x18\x19 \x01(\x05\x32\xdf\x01\n\x08JokerEnv\x12\x44\n\x05Reset\x12\x1c.joker_guide.v1.ResetRequest\x1a\x1d.joker_guide.v1.ResetResponse\x12\x41\n\x04Step\x12\x1b.joker_guide.v1.StepRequest\x1a\x1c.joker_guide.v1.StepResponse\x12J\n\x07GetSpec\x12\x1e.joker_guide.v1.GetSpecRequest\x1a\x1f.joker_guide.v1.GetSpecResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x11joker_guide.proto\x12\x0ejoker_guide.v1\"0\n\x0cResetRequest\x12\x0c\n\x04seed\x18\x01 \x01(\x04\x12\x12\n\nsession_id\x18\x02 \x01(\x04\"|\n\rResetResponse\x12\x30\n\x0bobservation\x18\x01 \x01(\x0b\x32\x1b.joker_guide.v1.Observation\x12%\n\x04info\x18\x02 \x01(\x0b\x32\x17.joker_guide.v1.EnvInfo\x12\x12\n\nsession_id\x18\x03 \x01(\x04\"I\n\x0bStepRequest\x12&\n\x06\x61\x63tion\x18\x01 \x01(\x0b\x32\x16.joker_guide.v1.Action\x12\x12\n\nsession_id\x18\x02 \x01(\x04\"\x85\x01\n\x0cStepResponse\x12\x30\n\x0bobservation\x18\x01 \x01(\x0b\x32\x1b.joker_guide.v1.Observation\x12\x0e\n\x06reward\x18\x02 \x01(\x02\x12\x0c\n\x04\x64one\x18\x03 \x01(\x08\x12%\n\x04info\x18\x04 \x01(\x0b\x32\x17.joker_guide.v1.EnvInfo\"\x10\n\x0eGetSpecRequest\"\x89\x01\n\x0fGetSpecResponse\x12/\n\x0bobservation\x18\x01 \x01(\x0b\x32\x1a.joker_guide.v1.TensorSpec\x12/\n\x0b\x61\x63tion_mask\x18\x02 \x01(\x0b\x32\x1a.joker_guide.v1.TensorSpec\x12\x14\n\x0c\x61\x63tion_space\x18\x03 \x01(\x05\"d\n\x0bObservation\x12(\n\x08\x66\x65\x61tures\x18\x01 \x01(\x0b\x32\x16.joker_guide.v1.Tensor\x12+\n\x0b\x61\x63tion_mask\x18\x02 \x01(\x0b\x32\x16.joker_guide.v1.Tensor\"%\n\x06Tensor\x12\x0c\n\x04\x64\x61ta\x18\x01 \x03(\x02\x12\r\n\x05shape\x18\x02 \x03(\x05\"*\n\nTensorSpec\x12\r\n\x05shape\x18\x01 \x03(\x05\x12\r\n\x05\x64type\x18\x02 \x01(\t\"@\n\x06\x41\x63tion\x12\x11\n\taction_id\x18\x01 \x01(\x05\x12\x0e\n\x06params\x18\x02 \x03(\x05\x12\x13\n\x0b\x61\x63tion_type\x18\x03 \x01(\x05\"\x91\x04\n\x07\x45nvInfo\x12\x14\n\x0c\x65pisode_step\x18\x01 \x01(\x05\x12\r\n\x05\x63hips\x18\x02 \x01(\x03\x12\x0c\n\x04mult\x18\x03 \x01(\x03\x12\x14\n\x0c\x62lind_target\x18\x04 \x01(\x03\x12\x0c\n\x04\x61nte\x18\x05 \x01(\x05\x12\r\n\x05stage\x18\x06 \x01(\x05\x12\x12\n\nblind_type\x18\x07 \x01(\x05\x12\x12\n\nplays_left\x18\x08 \x01(\x05\x12\x15\n\rdiscards_left\x18\t \x01(\x05\x12\r\n\x05money\x18\n \x01(\x05\x12\x13\n\x0bscore_delta\x18\x0b \x01(\x03\x12\x13\n\x0bmoney_delta\x18\x0c \x01(\x05\x12\x18\n\x10last_action_type\x18\r \x01(\x05\x12\x18\n\x10last_action_cost\x18\x0e \x01(\x05\x12\x13\n\x0bjoker_count\x18\x0f \x01(\x05\x12\x18\n\x10joker_slot_limit\x18\x10 \x01(\x05\x12\x10\n\x08game_end\x18\x11 \x01(\x05\x12\x15\n\rblind_cleared\x18\x12 \x01(\x08\x12\x14\n\x0c\x63\x61rds_played\x18\x13 \x01(\x05\x12\x17\n\x0f\x63\x61rds_discarded\x18\x14 \x01(\x05\x12\x11\n\thand_type\x18\x15 \x01(\x05\x12\x0e\n\x06tag_id\x18\x16 \x01(\x05\x12\x15\n\rconsumable_id\x18\x17 \x01(\x05\x12\x15\n\rjoker_sold_id\x18\x18 \x01(\x05\x12\x1c\n\x14\x62\x65st_shop_joker_cost\x18\x19 \x01(\x05\x32\xdf\x01\n\x08JokerEnv\x12\x44\n\x05Reset\x12\x1c.joker_guide.v1.ResetRequest\x1a\x1d.joker_guide.v1.ResetResponse\x12\x41\n\x04Step\x12\x1b.joker_guide.v1.StepRequest\x1a\x1c.joker_guide.v1.StepResponse\x12J\n\x07GetSpec\x12\x1e.joker_guide.v1.GetSpecRequest\x1a\x1f.joker_guide.v1.GetSpecResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -32,27 +32,27 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'joker_guide_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
   _globals['_RESETREQUEST']._serialized_start=37
-  _globals['_RESETREQUEST']._serialized_end=65
-  _globals['_RESETRESPONSE']._serialized_start=67
-  _globals['_RESETRESPONSE']._serialized_end=171
-  _globals['_STEPREQUEST']._serialized_start=173
-  _globals['_STEPREQUEST']._serialized_end=226
-  _globals['_STEPRESPONSE']._serialized_start=229
-  _globals['_STEPRESPONSE']._serialized_end=362
-  _globals['_GETSPECREQUEST']._serialized_start=364
-  _globals['_GETSPECREQUEST']._serialized_end=380
-  _globals['_GETSPECRESPONSE']._serialized_start=383
-  _globals['_GETSPECRESPONSE']._serialized_end=520
-  _globals['_OBSERVATION']._serialized_start=522
-  _globals['_OBSERVATION']._serialized_end=622
-  _globals['_TENSOR']._serialized_start=624
-  _globals['_TENSOR']._serialized_end=661
-  _globals['_TENSORSPEC']._serialized_start=663
-  _globals['_TENSORSPEC']._serialized_end=705
-  _globals['_ACTION']._serialized_start=707
-  _globals['_ACTION']._serialized_end=771
-  _globals['_ENVINFO']._serialized_start=774
-  _globals['_ENVINFO']._serialized_end=1303
-  _globals['_JOKERENV']._serialized_start=1306
-  _globals['_JOKERENV']._serialized_end=1529
+  _globals['_RESETREQUEST']._serialized_end=85
+  _globals['_RESETRESPONSE']._serialized_start=87
+  _globals['_RESETRESPONSE']._serialized_end=211
+  _globals['_STEPREQUEST']._serialized_start=213
+  _globals['_STEPREQUEST']._serialized_end=286
+  _globals['_STEPRESPONSE']._serialized_start=289
+  _globals['_STEPRESPONSE']._serialized_end=422
+  _globals['_GETSPECREQUEST']._serialized_start=424
+  _globals['_GETSPECREQUEST']._serialized_end=440
+  _globals['_GETSPECRESPONSE']._serialized_start=443
+  _globals['_GETSPECRESPONSE']._serialized_end=580
+  _globals['_OBSERVATION']._serialized_start=582
+  _globals['_OBSERVATION']._serialized_end=682
+  _globals['_TENSOR']._serialized_start=684
+  _globals['_TENSOR']._serialized_end=721
+  _globals['_TENSORSPEC']._serialized_start=723
+  _globals['_TENSORSPEC']._serialized_end=765
+  _globals['_ACTION']._serialized_start=767
+  _globals['_ACTION']._serialized_end=831
+  _globals['_ENVINFO']._serialized_start=834
+  _globals['_ENVINFO']._serialized_end=1363
+  _globals['_JOKERENV']._serialized_start=1366
+  _globals['_JOKERENV']._serialized_end=1589
 # @@protoc_insertion_point(module_scope)
