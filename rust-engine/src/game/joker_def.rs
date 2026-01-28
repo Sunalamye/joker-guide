@@ -1111,6 +1111,75 @@ pub fn get_effect_def(id_index: usize) -> EffectDef {
             bonus: BonusDef::Mult(4),
         },
 
+        // ====================================================================
+        // 2.4.3 花色計數類 Joker (11 個)
+        // ====================================================================
+
+        // #94: GreedyJoker (1): +$3 per Diamond
+        1 => EffectDef::CountBonus {
+            filter: CardFilter::Suit(DIAMOND),
+            scope: CardScope::PlayedCards,
+            per_card: BonusDef::Money(3),
+        },
+
+        // #95: LustyJoker (2): +$3 per Heart
+        2 => EffectDef::CountBonus {
+            filter: CardFilter::Suit(HEART),
+            scope: CardScope::PlayedCards,
+            per_card: BonusDef::Money(3),
+        },
+
+        // #96: WrathfulJoker (3): +$3 per Spade
+        3 => EffectDef::CountBonus {
+            filter: CardFilter::Suit(SPADE),
+            scope: CardScope::PlayedCards,
+            per_card: BonusDef::Money(3),
+        },
+
+        // #97: GluttonousJoker (4): +$3 per Club
+        4 => EffectDef::CountBonus {
+            filter: CardFilter::Suit(CLUB),
+            scope: CardScope::PlayedCards,
+            per_card: BonusDef::Money(3),
+        },
+
+        // #98: Arrowhead (55): Spade +50 Chips
+        55 => EffectDef::CountBonus {
+            filter: CardFilter::Suit(SPADE),
+            scope: CardScope::PlayedCards,
+            per_card: BonusDef::Chips(50),
+        },
+
+        // #99: Onyx (56): Club +80 Mult
+        56 => EffectDef::CountBonus {
+            filter: CardFilter::Suit(CLUB),
+            scope: CardScope::PlayedCards,
+            per_card: BonusDef::Mult(80),
+        },
+
+        // #100: Opal (57): Diamond X1.5 (uses PowerMultiply)
+        57 => EffectDef::PowerMultiply {
+            filter: CardFilter::Suit(DIAMOND),
+            scope: CardScope::PlayedCards,
+            base: 1.5,
+        },
+
+        // #101: Bloodstone (54): Heart 1/2 chance X1.5 (Stateful due to RNG)
+        54 => EffectDef::Stateful,
+
+        // #102: RoughGem (85): Diamond +$1
+        85 => EffectDef::CountBonus {
+            filter: CardFilter::Suit(DIAMOND),
+            scope: CardScope::PlayedCards,
+            per_card: BonusDef::Money(1),
+        },
+
+        // #103: Seeing_Double (125): X2 if Club + other suit (Stateful)
+        125 => EffectDef::Stateful,
+
+        // #104: Flower_Pot (118): X3 if all 4 suits (Stateful)
+        118 => EffectDef::Stateful,
+
         // 其他 Joker 暫時返回默認效果（待實現）
         _ => EffectDef::default(),
     }
