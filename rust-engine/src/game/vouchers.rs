@@ -2,12 +2,120 @@
 //!
 //! 每個商店最多 1 個 Voucher 可購買
 //! 永久效果持續整局遊戲
+//!
+//! # 架構
+//!
+//! 使用聲明式 `VOUCHER_DEFS` 表定義所有 Voucher 的元數據，
+//! 取代原有的多個 match 語句。
 
 use rand::prelude::*;
 use rand::rngs::StdRng;
 
 /// Voucher 數量
 pub const VOUCHER_COUNT: usize = 36;
+
+// ============================================================================
+// Voucher 定義系統
+// ============================================================================
+
+/// Voucher 定義結構
+#[derive(Clone, Copy, Debug)]
+pub struct VoucherDef {
+    /// Voucher ID
+    pub id: VoucherId,
+    /// 顯示名稱
+    pub name: &'static str,
+    /// 購買價格
+    pub cost: i64,
+    /// 前置需求（升級版需要基礎版）
+    pub prerequisite: Option<VoucherId>,
+    /// 升級版本（基礎版可升級到）
+    pub upgrade: Option<VoucherId>,
+}
+
+/// 獲取 Voucher 定義
+pub fn get_voucher_def(index: usize) -> &'static VoucherDef {
+    &VOUCHER_DEFS[index]
+}
+
+/// Voucher 定義表（順序與原有 to_index() 一致）
+pub static VOUCHER_DEFS: [VoucherDef; VOUCHER_COUNT] = [
+    // ========== 基礎 Voucher (0-15) ==========
+    // 0
+    VoucherDef { id: VoucherId::Overstock, name: "Overstock", cost: 10, prerequisite: None, upgrade: Some(VoucherId::OverstockPlus) },
+    // 1
+    VoucherDef { id: VoucherId::ClearanceSale, name: "Clearance Sale", cost: 10, prerequisite: None, upgrade: Some(VoucherId::Liquidation) },
+    // 2
+    VoucherDef { id: VoucherId::Hone, name: "Hone", cost: 10, prerequisite: None, upgrade: Some(VoucherId::GlowUp) },
+    // 3
+    VoucherDef { id: VoucherId::RerollSurplus, name: "Reroll Surplus", cost: 10, prerequisite: None, upgrade: Some(VoucherId::RerollGlut) },
+    // 4
+    VoucherDef { id: VoucherId::CrystalBall, name: "Crystal Ball", cost: 10, prerequisite: None, upgrade: Some(VoucherId::OmenGlobe) },
+    // 5
+    VoucherDef { id: VoucherId::Telescope, name: "Telescope", cost: 10, prerequisite: None, upgrade: Some(VoucherId::Nadir) },
+    // 6
+    VoucherDef { id: VoucherId::Grabber, name: "Grabber", cost: 10, prerequisite: None, upgrade: Some(VoucherId::GrabberPlus) },
+    // 7
+    VoucherDef { id: VoucherId::Wasteful, name: "Wasteful", cost: 10, prerequisite: None, upgrade: Some(VoucherId::WastefulPlus) },
+    // 8
+    VoucherDef { id: VoucherId::SeedMoney, name: "Seed Money", cost: 10, prerequisite: None, upgrade: Some(VoucherId::MoneyTree) },
+    // 9
+    VoucherDef { id: VoucherId::Blank, name: "Blank", cost: 10, prerequisite: None, upgrade: Some(VoucherId::BlankPlus) },
+    // 10
+    VoucherDef { id: VoucherId::PaintBrush, name: "Paint Brush", cost: 10, prerequisite: None, upgrade: Some(VoucherId::Palette) },
+    // 11
+    VoucherDef { id: VoucherId::Tarot_Merchant, name: "Tarot Merchant", cost: 10, prerequisite: None, upgrade: Some(VoucherId::Tarot_Tycoon) },
+    // 12
+    VoucherDef { id: VoucherId::Planet_Merchant, name: "Planet Merchant", cost: 10, prerequisite: None, upgrade: Some(VoucherId::Planet_Tycoon) },
+    // 13
+    VoucherDef { id: VoucherId::Magic_Trick, name: "Magic Trick", cost: 10, prerequisite: None, upgrade: Some(VoucherId::Illusion) },
+    // 14
+    VoucherDef { id: VoucherId::Antimatter, name: "Antimatter", cost: 10, prerequisite: None, upgrade: Some(VoucherId::Antimatter_Plus) },
+    // 15
+    VoucherDef { id: VoucherId::Hieroglyph, name: "Hieroglyph", cost: 10, prerequisite: None, upgrade: Some(VoucherId::Petroglyph) },
+    // ========== 升級 Voucher (16-31) ==========
+    // 16
+    VoucherDef { id: VoucherId::OverstockPlus, name: "Overstock Plus", cost: 10, prerequisite: Some(VoucherId::Overstock), upgrade: None },
+    // 17
+    VoucherDef { id: VoucherId::Liquidation, name: "Liquidation", cost: 10, prerequisite: Some(VoucherId::ClearanceSale), upgrade: None },
+    // 18
+    VoucherDef { id: VoucherId::GlowUp, name: "Glow Up", cost: 10, prerequisite: Some(VoucherId::Hone), upgrade: None },
+    // 19
+    VoucherDef { id: VoucherId::RerollGlut, name: "Reroll Glut", cost: 10, prerequisite: Some(VoucherId::RerollSurplus), upgrade: None },
+    // 20
+    VoucherDef { id: VoucherId::OmenGlobe, name: "Omen Globe", cost: 10, prerequisite: Some(VoucherId::CrystalBall), upgrade: None },
+    // 21
+    VoucherDef { id: VoucherId::Nadir, name: "Nadir", cost: 10, prerequisite: Some(VoucherId::Telescope), upgrade: None },
+    // 22
+    VoucherDef { id: VoucherId::GrabberPlus, name: "Grabber Plus", cost: 10, prerequisite: Some(VoucherId::Grabber), upgrade: None },
+    // 23
+    VoucherDef { id: VoucherId::WastefulPlus, name: "Wasteful Plus", cost: 10, prerequisite: Some(VoucherId::Wasteful), upgrade: None },
+    // 24
+    VoucherDef { id: VoucherId::MoneyTree, name: "Money Tree", cost: 10, prerequisite: Some(VoucherId::SeedMoney), upgrade: None },
+    // 25
+    VoucherDef { id: VoucherId::Palette, name: "Palette", cost: 10, prerequisite: Some(VoucherId::PaintBrush), upgrade: None },
+    // 26
+    VoucherDef { id: VoucherId::Tarot_Tycoon, name: "Tarot Tycoon", cost: 10, prerequisite: Some(VoucherId::Tarot_Merchant), upgrade: None },
+    // 27
+    VoucherDef { id: VoucherId::Planet_Tycoon, name: "Planet Tycoon", cost: 10, prerequisite: Some(VoucherId::Planet_Merchant), upgrade: None },
+    // 28
+    VoucherDef { id: VoucherId::Illusion, name: "Illusion", cost: 10, prerequisite: Some(VoucherId::Magic_Trick), upgrade: None },
+    // 29
+    VoucherDef { id: VoucherId::Antimatter_Plus, name: "Antimatter Plus", cost: 10, prerequisite: Some(VoucherId::Antimatter), upgrade: None },
+    // 30
+    VoucherDef { id: VoucherId::Petroglyph, name: "Petroglyph", cost: 10, prerequisite: Some(VoucherId::Hieroglyph), upgrade: None },
+    // 31
+    VoucherDef { id: VoucherId::BlankPlus, name: "Blank Plus", cost: 10, prerequisite: Some(VoucherId::Blank), upgrade: None },
+    // ========== 後期新增 Voucher (32-35) ==========
+    // 32
+    VoucherDef { id: VoucherId::Observatory, name: "Observatory", cost: 10, prerequisite: None, upgrade: Some(VoucherId::ObservatoryPlus) },
+    // 33
+    VoucherDef { id: VoucherId::ObservatoryPlus, name: "Observatory Plus", cost: 10, prerequisite: Some(VoucherId::Observatory), upgrade: None },
+    // 34
+    VoucherDef { id: VoucherId::DirectorsCut, name: "Director's Cut", cost: 10, prerequisite: None, upgrade: Some(VoucherId::Retcon) },
+    // 35
+    VoucherDef { id: VoucherId::Retcon, name: "Retcon", cost: 10, prerequisite: Some(VoucherId::DirectorsCut), upgrade: None },
+];
 
 /// Voucher ID
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -115,123 +223,24 @@ impl VoucherId {
         ]
     }
 
-    /// 獲取此 Voucher 的前置需求
+    /// 獲取此 Voucher 的前置需求（使用 VOUCHER_DEFS 表查詢）
     pub fn prerequisite(&self) -> Option<VoucherId> {
-        match self {
-            VoucherId::OverstockPlus => Some(VoucherId::Overstock),
-            VoucherId::Liquidation => Some(VoucherId::ClearanceSale),
-            VoucherId::GlowUp => Some(VoucherId::Hone),
-            VoucherId::RerollGlut => Some(VoucherId::RerollSurplus),
-            VoucherId::OmenGlobe => Some(VoucherId::CrystalBall),
-            VoucherId::Nadir => Some(VoucherId::Telescope),
-            VoucherId::GrabberPlus => Some(VoucherId::Grabber),
-            VoucherId::WastefulPlus => Some(VoucherId::Wasteful),
-            VoucherId::MoneyTree => Some(VoucherId::SeedMoney),
-            VoucherId::Palette => Some(VoucherId::PaintBrush),
-            VoucherId::Tarot_Tycoon => Some(VoucherId::Tarot_Merchant),
-            VoucherId::Planet_Tycoon => Some(VoucherId::Planet_Merchant),
-            VoucherId::Illusion => Some(VoucherId::Magic_Trick),
-            VoucherId::Antimatter_Plus => Some(VoucherId::Antimatter),
-            VoucherId::Petroglyph => Some(VoucherId::Hieroglyph),
-            VoucherId::BlankPlus => Some(VoucherId::Blank),
-            VoucherId::ObservatoryPlus => Some(VoucherId::Observatory),
-            VoucherId::Retcon => Some(VoucherId::DirectorsCut),
-            _ => None,
-        }
+        get_voucher_def(self.to_index()).prerequisite
     }
 
-    /// 獲取此 Voucher 的升級版本
+    /// 獲取此 Voucher 的升級版本（使用 VOUCHER_DEFS 表查詢）
     pub fn upgrade(&self) -> Option<VoucherId> {
-        match self {
-            VoucherId::Overstock => Some(VoucherId::OverstockPlus),
-            VoucherId::ClearanceSale => Some(VoucherId::Liquidation),
-            VoucherId::Hone => Some(VoucherId::GlowUp),
-            VoucherId::RerollSurplus => Some(VoucherId::RerollGlut),
-            VoucherId::CrystalBall => Some(VoucherId::OmenGlobe),
-            VoucherId::Telescope => Some(VoucherId::Nadir),
-            VoucherId::Grabber => Some(VoucherId::GrabberPlus),
-            VoucherId::Wasteful => Some(VoucherId::WastefulPlus),
-            VoucherId::SeedMoney => Some(VoucherId::MoneyTree),
-            VoucherId::PaintBrush => Some(VoucherId::Palette),
-            VoucherId::Tarot_Merchant => Some(VoucherId::Tarot_Tycoon),
-            VoucherId::Planet_Merchant => Some(VoucherId::Planet_Tycoon),
-            VoucherId::Magic_Trick => Some(VoucherId::Illusion),
-            VoucherId::Antimatter => Some(VoucherId::Antimatter_Plus),
-            VoucherId::Hieroglyph => Some(VoucherId::Petroglyph),
-            VoucherId::Blank => Some(VoucherId::BlankPlus),
-            VoucherId::Observatory => Some(VoucherId::ObservatoryPlus),
-            VoucherId::DirectorsCut => Some(VoucherId::Retcon),
-            _ => None,
-        }
+        get_voucher_def(self.to_index()).upgrade
     }
 
-    /// Voucher 名稱
+    /// Voucher 名稱（使用 VOUCHER_DEFS 表查詢）
     pub fn name(&self) -> &'static str {
-        match self {
-            VoucherId::Overstock => "Overstock",
-            VoucherId::ClearanceSale => "Clearance Sale",
-            VoucherId::Hone => "Hone",
-            VoucherId::RerollSurplus => "Reroll Surplus",
-            VoucherId::CrystalBall => "Crystal Ball",
-            VoucherId::Telescope => "Telescope",
-            VoucherId::Grabber => "Grabber",
-            VoucherId::Wasteful => "Wasteful",
-            VoucherId::SeedMoney => "Seed Money",
-            VoucherId::Blank => "Blank",
-            VoucherId::PaintBrush => "Paint Brush",
-            VoucherId::Tarot_Merchant => "Tarot Merchant",
-            VoucherId::Planet_Merchant => "Planet Merchant",
-            VoucherId::Magic_Trick => "Magic Trick",
-            VoucherId::Antimatter => "Antimatter",
-            VoucherId::Hieroglyph => "Hieroglyph",
-            VoucherId::OverstockPlus => "Overstock Plus",
-            VoucherId::Liquidation => "Liquidation",
-            VoucherId::GlowUp => "Glow Up",
-            VoucherId::RerollGlut => "Reroll Glut",
-            VoucherId::OmenGlobe => "Omen Globe",
-            VoucherId::Nadir => "Nadir",
-            VoucherId::GrabberPlus => "Grabber Plus",
-            VoucherId::WastefulPlus => "Wasteful Plus",
-            VoucherId::MoneyTree => "Money Tree",
-            VoucherId::Palette => "Palette",
-            VoucherId::Tarot_Tycoon => "Tarot Tycoon",
-            VoucherId::Planet_Tycoon => "Planet Tycoon",
-            VoucherId::Illusion => "Illusion",
-            VoucherId::Antimatter_Plus => "Antimatter Plus",
-            VoucherId::Petroglyph => "Petroglyph",
-            VoucherId::BlankPlus => "Blank Plus",
-            VoucherId::Observatory => "Observatory",
-            VoucherId::ObservatoryPlus => "Observatory Plus",
-            VoucherId::DirectorsCut => "Director's Cut",
-            VoucherId::Retcon => "Retcon",
-        }
+        get_voucher_def(self.to_index()).name
     }
 
-    /// 購買價格
+    /// 購買價格（使用 VOUCHER_DEFS 表查詢）
     pub fn cost(&self) -> i64 {
-        match self {
-            // 基礎 Voucher: $10
-            VoucherId::Overstock
-            | VoucherId::ClearanceSale
-            | VoucherId::Hone
-            | VoucherId::RerollSurplus
-            | VoucherId::CrystalBall
-            | VoucherId::Telescope
-            | VoucherId::Grabber
-            | VoucherId::Wasteful
-            | VoucherId::SeedMoney
-            | VoucherId::Blank
-            | VoucherId::PaintBrush
-            | VoucherId::Tarot_Merchant
-            | VoucherId::Planet_Merchant
-            | VoucherId::Magic_Trick
-            | VoucherId::Antimatter
-            | VoucherId::Hieroglyph
-            | VoucherId::Observatory
-            | VoucherId::DirectorsCut => 10,
-            // 升級 Voucher: $10
-            _ => 10,
-        }
+        get_voucher_def(self.to_index()).cost
     }
 
     /// 轉換為索引
@@ -276,47 +285,9 @@ impl VoucherId {
         }
     }
 
-    /// 從索引創建
+    /// 從索引創建（使用 VOUCHER_DEFS 表查詢）
     pub fn from_index(index: usize) -> Option<Self> {
-        match index {
-            0 => Some(VoucherId::Overstock),
-            1 => Some(VoucherId::ClearanceSale),
-            2 => Some(VoucherId::Hone),
-            3 => Some(VoucherId::RerollSurplus),
-            4 => Some(VoucherId::CrystalBall),
-            5 => Some(VoucherId::Telescope),
-            6 => Some(VoucherId::Grabber),
-            7 => Some(VoucherId::Wasteful),
-            8 => Some(VoucherId::SeedMoney),
-            9 => Some(VoucherId::Blank),
-            10 => Some(VoucherId::PaintBrush),
-            11 => Some(VoucherId::Tarot_Merchant),
-            12 => Some(VoucherId::Planet_Merchant),
-            13 => Some(VoucherId::Magic_Trick),
-            14 => Some(VoucherId::Antimatter),
-            15 => Some(VoucherId::Hieroglyph),
-            16 => Some(VoucherId::OverstockPlus),
-            17 => Some(VoucherId::Liquidation),
-            18 => Some(VoucherId::GlowUp),
-            19 => Some(VoucherId::RerollGlut),
-            20 => Some(VoucherId::OmenGlobe),
-            21 => Some(VoucherId::Nadir),
-            22 => Some(VoucherId::GrabberPlus),
-            23 => Some(VoucherId::WastefulPlus),
-            24 => Some(VoucherId::MoneyTree),
-            25 => Some(VoucherId::Palette),
-            26 => Some(VoucherId::Tarot_Tycoon),
-            27 => Some(VoucherId::Planet_Tycoon),
-            28 => Some(VoucherId::Illusion),
-            29 => Some(VoucherId::Antimatter_Plus),
-            30 => Some(VoucherId::Petroglyph),
-            31 => Some(VoucherId::BlankPlus),
-            32 => Some(VoucherId::Observatory),
-            33 => Some(VoucherId::ObservatoryPlus),
-            34 => Some(VoucherId::DirectorsCut),
-            35 => Some(VoucherId::Retcon),
-            _ => None,
-        }
+        VOUCHER_DEFS.get(index).map(|def| def.id)
     }
 
     /// 隨機選擇一個可用的 Voucher（考慮已購買的 Voucher）
