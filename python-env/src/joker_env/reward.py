@@ -1213,8 +1213,10 @@ class RewardCalculator:
             reward += joker_shortage_penalty(info.joker_count, info.ante)
 
         # v6.3: Boss 階段動作獎勵 — 鼓勵積極面對 Boss
-        # 在 Boss Blind 中的每個動作都給微小獎勵
-        if info.stage == STAGE_BLIND and info.blind_type == BLIND_BOSS:
+        # 只有 PLAY 和 DISCARD 才給獎勵（SELECT 不算）
+        if (info.stage == STAGE_BLIND
+            and info.blind_type == BLIND_BOSS
+            and action_type in (ACTION_TYPE_PLAY, ACTION_TYPE_DISCARD)):
             reward += 0.0001
 
         # 保存當前狀態作為下一步的參考
