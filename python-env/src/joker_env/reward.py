@@ -3,7 +3,7 @@
 
 從 Rust reward.rs 移植，為 RL 訓練提供形狀良好的獎勵信號，支持完整遊戲（Ante 1-8）
 
-獎勵範圍設計（v6.0 - 修復 Joker 管理問題）：
+獎勵範圍設計（v6.1 - 修復 Joker 管理 + 低分懲罰）：
 設計原則：
 - 終端獎勵主導：勝利=5.0，確保長期目標壓過短期收益
 - Joker 保護機制：低 Joker 數量時嚴禁賣出，持有 Joker 給予獎勵
@@ -15,6 +15,12 @@ v6.0 核心修復：
 2. joker_holding_bonus: 持有 Joker 在 CASH_OUT 時獲得獎勵
 3. hand_type_bonus: 牌型強度獎勵，鼓勵打高階牌
 4. joker_buy_reward: 早期購買價值提升 2x
+
+v6.1 追加修復（針對 High Card 過多問題）：
+1. High Card 懲罰從 -0.01 提升到 -0.05
+2. Pair 從 0.0 提升到 +0.02（正向激勵）
+3. play_reward 新增低分懲罰：得分 < 預期 30% 時 -0.02
+4. 所有牌型獎勵整體上調
 
 | 模組                     | 範圍             | 說明                              |
 |--------------------------|------------------|-----------------------------------|
@@ -169,21 +175,21 @@ _HAND_STRENGTH_ORDER = {
     HAND_FLUSH_FIVE: 12,
 }
 
-# v6.0: 牌型品質獎勵 — 鼓勵打出更強牌型
+# v6.1: 牌型品質獎勵 — 強化 High Card 懲罰，鼓勵組牌
 HAND_TYPE_BONUSES = {
-    HAND_HIGH_CARD: -0.01,   # 輕微懲罰：High Card 太弱
-    HAND_PAIR: 0.0,           # 基線：Pair 是可接受的基礎
-    HAND_TWO_PAIR: 0.01,
-    HAND_THREE_KIND: 0.02,
-    HAND_STRAIGHT: 0.03,
-    HAND_FLUSH: 0.03,
-    HAND_FULL_HOUSE: 0.04,
-    HAND_FOUR_KIND: 0.06,
-    HAND_STRAIGHT_FLUSH: 0.08,
-    HAND_ROYAL_FLUSH: 0.10,
-    HAND_FIVE_KIND: 0.08,
-    HAND_FLUSH_HOUSE: 0.10,
-    HAND_FLUSH_FIVE: 0.12,
+    HAND_HIGH_CARD: -0.05,   # 強懲罰：High Card 幾乎不該打
+    HAND_PAIR: 0.02,          # 正向：Pair 是可接受的基礎（原 0.0）
+    HAND_TWO_PAIR: 0.03,
+    HAND_THREE_KIND: 0.04,
+    HAND_STRAIGHT: 0.05,
+    HAND_FLUSH: 0.05,
+    HAND_FULL_HOUSE: 0.06,
+    HAND_FOUR_KIND: 0.08,
+    HAND_STRAIGHT_FLUSH: 0.10,
+    HAND_ROYAL_FLUSH: 0.12,
+    HAND_FIVE_KIND: 0.10,
+    HAND_FLUSH_HOUSE: 0.12,
+    HAND_FLUSH_FIVE: 0.15,
 }
 
 _BUILD_HANDS = {
@@ -503,20 +509,36 @@ def hand_type_bonus(hand_type: int, ante: int) -> float:
     return base * ante_mult
 
 
-def play_reward(score_gained: int, required: int, hand_type: int = -1, ante: int = 1) -> float:
+def play_reward(score_gained: int, required: int, hand_type: int = -1, ante: int = 1, plays_left: int = 3) -> float:
     """
-    出牌獎勵：正規化到 0.02~0.25（v6.0 - 加入牌型品質獎勵）
+    出牌獎勵：正規化到 -0.05~0.30（v6.1 - 加入低分懲罰）
 
     設計原則：
-    - 基礎獎勵 +0.02：鼓勵模型嘗試出牌而非無限棄牌
+    - 基礎獎勵 +0.02：鼓勵模型嘗試出牌
     - 進度獎勵：根據得分比例給予額外獎勵
-    - 牌型獎勵：打出更強牌型給予額外獎勵（v6.0 新增）
+    - 牌型獎勵：打出更強牌型給予額外獎勵
+    - 低分懲罰：得分低於預期節奏時懲罰（v6.1 新增）
     """
-    # 基礎出牌獎勵：鼓勵「敢出牌」
+    # 基礎出牌獎勵
     base_play_bonus = 0.02
 
-    if required <= 0 or score_gained <= 0:
-        return base_play_bonus  # 即使得分為 0，出牌本身有價值
+    if required <= 0:
+        return base_play_bonus
+
+    # v6.1: 低分懲罰 — 如果得分遠低於應有節奏
+    # 預期每次出牌應達到 (required / 4) 的分數
+    expected_per_play = required / 4.0
+    if score_gained <= 0:
+        # 0 分是嚴重問題
+        return -0.03
+    elif score_gained < expected_per_play * 0.3:
+        # 得分低於預期的 30%：懲罰
+        low_score_penalty = -0.02
+    elif score_gained < expected_per_play * 0.5:
+        # 得分低於預期的 50%：輕微懲罰
+        low_score_penalty = -0.01
+    else:
+        low_score_penalty = 0.0
 
     ratio = score_gained / required
 
@@ -529,10 +551,11 @@ def play_reward(score_gained: int, required: int, hand_type: int = -1, ante: int
         # 未達標：線性獎勵進度
         progress_reward = ratio * 0.12
 
-    # v6.0: 牌型品質獎勵
+    # 牌型品質獎勵
     type_bonus = hand_type_bonus(hand_type, ante)
 
-    return min(base_play_bonus + progress_reward + type_bonus, 0.25)
+    reward = base_play_bonus + progress_reward + type_bonus + low_score_penalty
+    return clamp(reward, -0.05, 0.30)
 
 
 def discard_reward(cards_discarded: int, discards_left: int) -> float:
