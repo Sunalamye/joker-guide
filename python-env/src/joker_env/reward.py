@@ -3,20 +3,20 @@
 
 從 Rust reward.rs 移植，為 RL 訓練提供形狀良好的獎勵信號，支持完整遊戲（Ante 1-8）
 
-獎勵範圍設計（v5.0 - 平衡 Ante 進度與 Skip 決策）：
+獎勵範圍設計（v5.2 - 強化中後期獎勵）：
 設計原則：
 - 終端獎勵主導：勝利=5.0，確保長期目標壓過短期收益
-- 漸進式 Ante 進度：平衡的獎勵增長（0.15×a^1.5+0.1×a）
-- 提高 Clear 獎勵：確保 Clear Blind 比 Skip 更有吸引力
-- 調整 Skip 風險：早期 Skip 更保守，上限低於 Clear 獎勵
+- 強化中後期進度：更陡峭的 Ante 進度曲線（0.12×a^2+0.08×a）
+- Ante 里程碑獎勵：Ante 3/5/7 給予額外獎勵 +0.3/+0.5/+0.8
+- 過關獎勵強化：Ante 係數從 0.07 提升到 0.15
 
 | 模組                     | 範圍             | 說明                              |
 |--------------------------|------------------|-----------------------------------|
 | 遊戲結束 (game_end)      | -2.0 ~ 5.0       | 勝利=5.0，失敗依進度懲罰          |
-| Ante 進度                | 0.48 ~ 2.27      | 漸進式增長（0.15×a^1.5+0.1×a）   |
-| 過關 (blind_clear)       | 0.25 ~ 0.75      | 基礎值提升，Ante 調整加成         |
-| 出牌 (play_reward)       | 0.0 ~ 0.15       | 降低以突出終端獎勵                |
-| 棄牌 (discard_reward)    | -0.05 ~ 0.05     | 空棄牌懲罰 + 精準棄牌獎勵        |
+| Ante 進度                | 0.56 ~ 1.76+里程碑| 更陡峭曲線 + 里程碑獎勵          |
+| 過關 (blind_clear)       | 0.25 ~ 1.05      | Ante 係數 0.15，後期更高          |
+| 出牌 (play_reward)       | 0.02 ~ 0.17      | 基礎出牌獎勵 +0.02                |
+| 棄牌 (discard_reward)    | -0.05 ~ -0.02    | 空棄牌懲罰，抑制棄牌循環          |
 | 購買 Joker               | -0.3 ~ 0.3       | 含階段權重、非線性經濟懲罰        |
 | Skip Blind/Tag           | -0.20 ~ 0.25     | 提高機會成本，調整風險係數        |
 | 消耗品使用               | 0.0 ~ 0.25       | Spectral 後期乘數更強             |
@@ -516,18 +516,18 @@ def blind_clear_reward(
     boss_blind_id: Optional[int] = None
 ) -> float:
     """
-    過關獎勵：正規化到 0.15~0.5（v4.0 - 階段里程碑）
+    過關獎勵：強化中後期（v5.2）
 
     設計原則：
-    - 過關獎勵隨 Ante 增加（後期過關更有價值）
+    - 過關獎勵隨 Ante 顯著增加
     - Boss 過關獎勵最高（觸發 Ante 進度）
-    - 適度獎勵以配合終端獎勵
+    - Ante 3+ 的過關獎勵明顯高於早期
     """
-    # 基礎獎勵（v5.0 提升以確保 Clear > Skip）
+    # 基礎獎勵
     base = {
-        BLIND_SMALL: 0.25,  # +0.10
-        BLIND_BIG: 0.35,    # +0.15
-        BLIND_BOSS: 0.50,   # +0.20
+        BLIND_SMALL: 0.25,
+        BLIND_BIG: 0.35,
+        BLIND_BOSS: 0.50,
     }.get(blind_type, 0.25)
 
     # Boss 難度加成
@@ -538,30 +538,41 @@ def blind_clear_reward(
     # 效率獎勵（剩餘出牌次數）
     efficiency = plays_left * 0.01
 
-    # Ante 階段權重（後期過關獎勵更高）
-    # Ante 1: 1.0, Ante 8: 1.5
-    ante_mult = 1.0 + (ante - 1) * 0.07
+    # Ante 階段權重（v5.2: 更陡峭的增長）
+    # Ante 1: 1.0, Ante 3: 1.3, Ante 5: 1.6, Ante 8: 2.05
+    ante_mult = 1.0 + (ante - 1) * 0.15
 
-    return clamp((base + boss_bonus + efficiency) * ante_mult, 0.25, 0.75)
+    return clamp((base + boss_bonus + efficiency) * ante_mult, 0.25, 1.05)
 
 
 def ante_progress_reward(old_ante: int, new_ante: int) -> float:
     """
-    Ante 進度獎勵：漸進式增長（0.48~2.27）
+    Ante 進度獎勵：強化中後期增長（v5.2）
 
-    設計原則（v5.0 - 平衡 Ante 進度）：
-    - 漸進式增長：避免後期過度激進的獎勵
-    - 公式：reward = 0.15 × a^1.5 + 0.1 × a
-    - 累積獎勵：Ante 1→2: 0.48, 1→3: 0.97, 7→8: 2.27
+    設計原則：
+    - 使用更陡峭的曲線讓中後期獎勵更明顯
+    - 公式：reward = 0.12 × a^2 + 0.08 × a
+    - 累積獎勵：1→2: 0.56, 2→3: 0.80, 3→4: 1.04, 7→8: 1.76
+    - 加入里程碑獎勵：Ante 3/5/7 額外 +0.3/+0.5/+0.8
     """
     def ante_value(a: int) -> float:
-        # 漸進式增長：0.15 × a^1.5 + 0.1 × a
-        # Ante 1: 0.25, Ante 2: 0.62, Ante 3: 1.08, ..., Ante 8: 4.19
+        # 更陡峭的曲線：0.12 × a^2 + 0.08 × a
         if a < 1:
             return 0.0
-        return 0.15 * (a ** 1.5) + 0.1 * a
+        return 0.12 * (a ** 2) + 0.08 * a
 
-    return ante_value(new_ante) - ante_value(old_ante)
+    base_reward = ante_value(new_ante) - ante_value(old_ante)
+
+    # 里程碑獎勵：鼓勵突破關鍵 Ante
+    milestone_bonus = 0.0
+    if old_ante < 3 <= new_ante:
+        milestone_bonus += 0.3  # 首次進入 Ante 3
+    if old_ante < 5 <= new_ante:
+        milestone_bonus += 0.5  # 首次進入 Ante 5
+    if old_ante < 7 <= new_ante:
+        milestone_bonus += 0.8  # 首次進入 Ante 7
+
+    return base_reward + milestone_bonus
 
 
 def game_end_reward(game_end: int, ante: int) -> float:
