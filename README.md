@@ -149,8 +149,8 @@ Rewards are calculated in Python (`python-env/src/joker_env/reward.py`):
 | Game Lose | -2.0 ~ -0.5 | Penalty scaled by progress |
 | Ante Progress | +0.48 ~ +2.27 | Progressive scaling (0.15×a^1.5) |
 | Blind Clear | +0.25 ~ +0.75 | Ante-adjusted bonus |
-| Play Hand | 0 ~ +0.15 | Normalized score reward |
-| Discard | -0.05 ~ -0.01 | Resource cost, no positive reward |
+| Play Hand | +0.02 ~ +0.17 | Base bonus + normalized score reward |
+| Discard | -0.05 ~ -0.03 | Increased cost to prevent discard loops |
 | Buy Joker | -0.3 ~ +0.3 | Phase-weighted with economy penalty |
 | Skip Blind | -0.2 ~ +0.25 | Tag value assessment |
 

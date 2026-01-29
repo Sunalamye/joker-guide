@@ -463,14 +463,18 @@ def stage_weight_late(ante: int) -> float:
 
 def play_reward(score_gained: int, required: int) -> float:
     """
-    出牌獎勵：正規化到 0~0.15（v4.0 - 降低密集獎勵）
+    出牌獎勵：正規化到 0.02~0.17（v5.1 - 加入基礎出牌激勵）
 
     設計原則：
-    - 降低中間獎勵以突出終端獎勵
-    - 仍保持正向獎勵以引導學習方向
+    - 基礎獎勵 +0.02：鼓勵模型嘗試出牌而非無限棄牌
+    - 進度獎勵：根據得分比例給予額外獎勵
+    - 突出終端獎勵的同時保持出牌吸引力
     """
+    # 基礎出牌獎勵：鼓勵「敢出牌」
+    base_play_bonus = 0.02
+
     if required <= 0 or score_gained <= 0:
-        return 0.0
+        return base_play_bonus  # 即使得分為 0，出牌本身有價值
 
     ratio = score_gained / required
 
@@ -483,24 +487,26 @@ def play_reward(score_gained: int, required: int) -> float:
         # 未達標：線性獎勵進度
         reward = ratio * 0.12
 
-    return min(reward, 0.15)
+    return min(base_play_bonus + reward, 0.17)
 
 
 def discard_reward(cards_discarded: int, discards_left: int) -> float:
     """
-    棄牌獎勵：棄牌本身不應有正向獎勵
+    棄牌獎勵：加重棄牌成本以防止「棄牌循環」（v5.1）
 
     - 空棄牌（cards_discarded==0）懲罰 -0.05（阻斷 no-op 漏洞）
-    - 有棄牌：輕微懲罰 -0.01（消耗有限資源）
+    - 有棄牌：懲罰 -0.03（加重成本，原 -0.01 太輕導致過度棄牌）
 
-    Joker 連動效果（Yorick、Castle、Faceless 等）會通過後續的
-    score_delta/money_delta 自動體現，AI 會學習「棄牌是手段而非目標」
+    設計原則：
+    - 棄牌成本需高於「不確定性規避」的心理收益
+    - Joker 連動效果會通過 score_delta/money_delta 自動體現
+    - 配合 play_reward 的 +0.02 基礎獎勵，形成「出牌優於棄牌」的激勵
     """
     if cards_discarded == 0:
         return -0.05  # 懲罰空棄牌（no-op exploit 防護）
 
-    # 棄牌本身不應有正向獎勵，輕微懲罰消耗有限資源
-    return -0.01
+    # 加重棄牌成本，打破棄牌循環
+    return -0.03
 
 
 def blind_clear_reward(
