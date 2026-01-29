@@ -318,7 +318,10 @@ def train(
 
     if resume is not None:
         print(f"Resuming training from {resume}")
-        model = MaskablePPO.load(resume, env=env, **filtered_kwargs)
+        # 恢復時不傳遞 policy_kwargs，因為 class 對象在不同進程中會被視為不同
+        # SB3 會使用 checkpoint 中保存的 policy_kwargs
+        resume_kwargs = {k: v for k, v in filtered_kwargs.items() if k != "policy_kwargs"}
+        model = MaskablePPO.load(resume, env=env, **resume_kwargs)
     else:
         model = MaskablePPO("MultiInputPolicy", env, **filtered_kwargs)
 
