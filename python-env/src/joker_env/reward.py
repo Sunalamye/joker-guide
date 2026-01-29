@@ -3,13 +3,20 @@
 
 從 Rust reward.rs 移植，為 RL 訓練提供形狀良好的獎勵信號，支持完整遊戲（Ante 1-8）
 
-獎勵範圍設計（v6.4 - 強化牌型選擇）：
+獎勵範圍設計（v6.7 - 修復 Joker 經濟循環）：
 設計原則：
 - 終端獎勵主導：勝利=5.0，確保長期目標壓過短期收益
 - Joker 保護機制：低 Joker 數量時嚴禁賣出，持有 Joker 給予獎勵
 - 牌型品質獎勵：大幅強化牌型差距（3.5x），解決 95% High Card/Pair 問題
 - 棄牌改善獎勵：啟用 hand_setup_reward，鼓勵有目的的棄牌
 - 效率獎勵：早期過關給予額外獎勵
+
+v6.7 核心修復（針對「買 1 個 Joker → 金幣耗盡 → 無法過 Boss」循環）：
+1. Joker 購買階梯重新設計：首個 ×1.5（降低），第 2 個 ×3.0（大幅提升）
+2. 商店存錢獎勵：每步給予小獎勵，鼓勵累積金幣
+3. Joker 不足懲罰加重：-0.03/個（原 -0.01）
+4. Boss 準備獎勵：Big Blind 過關後有錢給額外獎勵
+5. Ante 3 最低要求提高到 3 個 Joker
 
 v6.4 核心修復（針對 95% High Card/Pair 問題）：
 1. HAND_TYPE_BONUSES 放大 3.5 倍（對抗 VecNormalize 壓縮）
@@ -796,14 +803,16 @@ def joker_buy_reward(
     # Joker 價值估算（基於成本和可選的 joker_id）
     joker_value = estimate_joker_value(cost, joker_id)
 
-    # v6.0: 早期購買價值大幅提升 — 這是核心修復
-    # 前 2 個 Joker 是生存必需品
-    if ante <= 2 and joker_count_after <= 2:
-        joker_value *= 2.5  # 首批 Joker 價值提升 150%
-    elif ante <= 3 and joker_count_after <= 3:
-        joker_value *= 1.8  # 前 3 個 Joker 價值提升 80%
+    # v6.7: 調整購買階梯 — 強調第 2-3 個 Joker 的重要性
+    # 避免「花光買 1 個」的陷阱，鼓勵存錢買更多
+    if ante <= 3 and joker_count_after == 1:
+        joker_value *= 1.5  # 首個 Joker：降低（原 2.5），避免花光所有錢
+    elif ante <= 3 and joker_count_after == 2:
+        joker_value *= 3.0  # 第 2 個 Joker：大幅提升！這是關鍵突破點
+    elif ante <= 4 and joker_count_after == 3:
+        joker_value *= 2.5  # 第 3 個 Joker：重要（原 1.8）
     elif ante <= 4 and joker_count_after <= 4:
-        joker_value *= 1.3  # 額外 Joker 小幅提升
+        joker_value *= 1.5  # 第 4 個 Joker：穩定提升
 
     # 平滑經濟懲罰（使用對數函數）— 但早期懲罰降低
     cost_ratio = min(cost / money_before, 1.0) if money_before > 0 else 1.0
@@ -1024,27 +1033,68 @@ def joker_holding_bonus(joker_count: int, ante: int) -> float:
     return min(base_bonus * stage_mult, 0.08)
 
 
+def shop_saving_reward(money: int, joker_count: int, ante: int, best_shop_joker_cost: int) -> float:
+    """
+    商店存錢獎勵（v6.7 新增）
+
+    鼓勵在商店階段累積金幣，為購買 Joker 做準備。
+    只有在 Joker 不足時才給予存錢獎勵。
+
+    Args:
+        money: 當前金幣
+        joker_count: 當前 Joker 數量
+        ante: 當前 Ante
+        best_shop_joker_cost: 商店中最佳 Joker 的成本（0 = 無）
+
+    Returns:
+        存錢獎勵 (0.0 ~ 0.04)
+    """
+    # 如果 Joker 已經足夠，不需要存錢獎勵
+    min_jokers = {1: 1, 2: 2, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3, 8: 3}
+    required = min_jokers.get(ante, 2)
+    if joker_count >= required:
+        return 0.0
+
+    # 目標：存夠錢買 Joker
+    # 如果知道商店最佳 Joker 成本，用它；否則假設 $6
+    target_cost = best_shop_joker_cost if best_shop_joker_cost > 0 else 6
+
+    # 接近目標金額的獎勵
+    if money >= target_cost:
+        # 已經夠錢買了！給予小獎勵鼓勵購買
+        return 0.02
+    elif money >= target_cost - 2:
+        # 接近目標（差 $1-2）
+        return 0.015
+    elif money >= target_cost // 2:
+        # 有一半了
+        return 0.01
+    else:
+        # 還差很多
+        return 0.005
+
+
 def joker_shortage_penalty(joker_count: int, ante: int) -> float:
     """
-    Joker 不足懲罰（v6.0 新增，每步檢查）
+    Joker 不足懲罰（v6.7 加重）
 
-    持續施加壓力：Joker 數量低於 Ante 要求時給予小懲罰
+    持續施加壓力：Joker 數量低於 Ante 要求時給予懲罰
     這創造了持續的「購買 Joker」動機
 
     Args:
         joker_count: 當前持有的 Joker 數量
         ante: 當前 Ante
     """
-    # 每個 Ante 的最低 Joker 要求
-    min_jokers = {1: 1, 2: 2, 3: 2, 4: 3, 5: 3, 6: 3, 7: 3, 8: 3}
+    # v6.7: 提高最低要求（特別是早期）
+    min_jokers = {1: 1, 2: 2, 3: 3, 4: 3, 5: 3, 6: 3, 7: 3, 8: 3}
     required = min_jokers.get(ante, 2)
 
     shortage = max(0, required - joker_count)
     if shortage == 0:
         return 0.0
 
-    # 持續小懲罰：每缺 1 個 = -0.01
-    return -0.01 * shortage
+    # v6.7: 加重懲罰：每缺 1 個 = -0.03（原 -0.01）
+    return -0.03 * shortage
 
 
 def consumable_use_reward(ante: int, consumable_id: int = -1) -> float:
@@ -1157,6 +1207,14 @@ class RewardCalculator:
                 info.blind_type,
                 info.ante
             )
+            # v6.7: Big Blind 過關後的 Boss 準備獎勵
+            # 鼓勵在進入 Boss 前累積足夠金幣
+            if info.blind_type == BLIND_BIG:
+                if info.money >= 10:
+                    reward += 0.08  # 有 $10+ 進入 Boss = 有機會買 Joker
+                elif info.money >= 6:
+                    reward += 0.04  # 有 $6+ = 勉強能買
+                # $5 以下不給額外獎勵
             # v6.4: 過關後重置棄牌追蹤狀態
             self._consecutive_discards = 0
             self._prev_hand_type = -1
@@ -1331,6 +1389,13 @@ class RewardCalculator:
         # 只在商店階段檢查（避免戰鬥中干擾）
         if info.stage == STAGE_SHOP:
             reward += joker_shortage_penalty(info.joker_count, info.ante)
+            # v6.7: 存錢獎勵 — 鼓勵累積金幣買 Joker
+            reward += shop_saving_reward(
+                info.money,
+                info.joker_count,
+                info.ante,
+                info.best_shop_joker_cost
+            )
 
         # v6.3: Boss 階段動作獎勵 — 鼓勵積極面對 Boss
         # 只有 PLAY 和 DISCARD 才給獎勵（SELECT 不算）
