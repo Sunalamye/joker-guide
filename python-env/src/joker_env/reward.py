@@ -182,22 +182,23 @@ _HAND_STRENGTH_ORDER = {
     HAND_FLUSH_FIVE: 12,
 }
 
-# v6.4: 牌型品質獎勵 — 放大 3.5 倍以對抗 VecNormalize 壓縮
-# 解決 95% High Card/Pair 問題：讓強牌型獎勵明顯高於弱牌型
+# v6.5: 牌型品質獎勵 — 與過關獎勵對齊
+# 核心思路：Four Kind (+0.60) 應接近 Boss 過關 (+0.80)，因為打出 Four Kind 幾乎等於過關
+# Pair 改為小懲罰，不再是安全基線
 HAND_TYPE_BONUSES = {
-    HAND_HIGH_CARD: -0.05,        # 懲罰弱牌（配合 hand_setup_reward 提供正向出路）
-    HAND_PAIR: 0.00,              # 基線：不獎勵也不懲罰（原 +0.02 導致安全策略）
-    HAND_TWO_PAIR: 0.04,          # 略微提升
-    HAND_THREE_KIND: 0.10,        # 關鍵牌型，2.5x 放大（原 0.04）
-    HAND_STRAIGHT: 0.14,          # 2.8x 放大（原 0.05）
-    HAND_FLUSH: 0.16,             # 3.2x 放大，略優於 Straight（原 0.05）
-    HAND_FULL_HOUSE: 0.20,        # 3.3x 放大（原 0.06）
-    HAND_FOUR_KIND: 0.28,         # 3.5x 放大（原 0.08）
-    HAND_STRAIGHT_FLUSH: 0.35,    # 3.5x 放大（原 0.10）
-    HAND_ROYAL_FLUSH: 0.42,       # 3.5x 放大（原 0.12）
-    HAND_FIVE_KIND: 0.35,         # 3.5x 放大（原 0.10）
-    HAND_FLUSH_HOUSE: 0.42,       # 3.5x 放大（原 0.12）
-    HAND_FLUSH_FIVE: 0.52,        # 3.5x 放大（原 0.15）
+    HAND_HIGH_CARD: -0.08,        # 加重懲罰（原 -0.05）
+    HAND_PAIR: -0.02,             # 小懲罰，不再是安全基線（原 0.00）
+    HAND_TWO_PAIR: 0.05,          # 略微正向
+    HAND_THREE_KIND: 0.20,        # 2x 放大（原 0.10）
+    HAND_STRAIGHT: 0.28,          # 2x 放大（原 0.14）
+    HAND_FLUSH: 0.32,             # 2x 放大（原 0.16）
+    HAND_FULL_HOUSE: 0.40,        # 2x 放大（原 0.20）
+    HAND_FOUR_KIND: 0.60,         # 關鍵！接近 Boss 過關（原 0.28）
+    HAND_STRAIGHT_FLUSH: 0.75,    # 超高獎勵（原 0.35）
+    HAND_ROYAL_FLUSH: 0.85,       # 頂級獎勵（原 0.42）
+    HAND_FIVE_KIND: 0.75,         # 同 Straight Flush（原 0.35）
+    HAND_FLUSH_HOUSE: 0.85,       # 同 Royal Flush（原 0.42）
+    HAND_FLUSH_FIVE: 1.00,        # 最強牌型，超過 Boss 過關（原 0.52）
 }
 
 _BUILD_HANDS = {
@@ -619,7 +620,7 @@ def play_reward(score_gained: int, required: int, hand_type: int = -1, ante: int
         efficiency_bonus = 0.02 * (plays_left - 1)
 
     reward = base_play_bonus + progress_reward + type_bonus + low_score_penalty + efficiency_bonus
-    return clamp(reward, -0.05, 0.35)  # v6.4: 上限提高到 0.35
+    return clamp(reward, -0.10, 1.00)  # v6.5: 上限提高到 1.0（配合強牌型獎勵）
 
 
 def discard_reward(cards_discarded: int, discards_left: int) -> float:
