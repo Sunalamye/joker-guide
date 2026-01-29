@@ -3,26 +3,33 @@
 
 從 Rust reward.rs 移植，為 RL 訓練提供形狀良好的獎勵信號，支持完整遊戲（Ante 1-8）
 
-獎勵範圍設計（v5.2 - 強化中後期獎勵）：
+獎勵範圍設計（v6.0 - 修復 Joker 管理問題）：
 設計原則：
 - 終端獎勵主導：勝利=5.0，確保長期目標壓過短期收益
-- 強化中後期進度：更陡峭的 Ante 進度曲線（0.12×a^2+0.08×a）
-- Ante 里程碑獎勵：Ante 3/5/7 給予額外獎勵 +0.3/+0.5/+0.8
-- 過關獎勵強化：Ante 係數從 0.07 提升到 0.15
+- Joker 保護機制：低 Joker 數量時嚴禁賣出，持有 Joker 給予獎勵
+- 牌型品質獎勵：鼓勵打出更強牌型，不只是 Pair
+- 強化中後期進度：更陡峭的 Ante 進度曲線
+
+v6.0 核心修復：
+1. sell_joker_reward: Joker <= 2 時賣出重罰 (-0.3 ~ -0.5)
+2. joker_holding_bonus: 持有 Joker 在 CASH_OUT 時獲得獎勵
+3. hand_type_bonus: 牌型強度獎勵，鼓勵打高階牌
+4. joker_buy_reward: 早期購買價值提升 2x
 
 | 模組                     | 範圍             | 說明                              |
 |--------------------------|------------------|-----------------------------------|
 | 遊戲結束 (game_end)      | -2.0 ~ 5.0       | 勝利=5.0，失敗依進度懲罰          |
 | Ante 進度                | 0.56 ~ 1.76+里程碑| 更陡峭曲線 + 里程碑獎勵          |
 | 過關 (blind_clear)       | 0.25 ~ 1.05      | Ante 係數 0.15，後期更高          |
-| 出牌 (play_reward)       | 0.02 ~ 0.17      | 基礎出牌獎勵 +0.02                |
+| 出牌 (play_reward)       | 0.02 ~ 0.25      | 基礎 +0.02 + 牌型獎勵             |
 | 棄牌 (discard_reward)    | -0.05 ~ -0.02    | 空棄牌懲罰，抑制棄牌循環          |
-| 購買 Joker               | -0.3 ~ 0.3       | 含階段權重、非線性經濟懲罰        |
+| 購買 Joker               | -0.3 ~ 0.5       | 早期購買加倍獎勵                  |
 | Skip Blind/Tag           | -0.20 ~ 0.25     | 提高機會成本，調整風險係數        |
 | 消耗品使用               | 0.0 ~ 0.25       | Spectral 後期乘數更強             |
 | 金幣狀態 (money_reward)  | 0.0 ~ 0.2        | 利息閾值階梯獎勵                  |
+| Joker 持有獎勵           | -0.05 ~ 0.08     | 持有 Joker 給予獎勵（新增）       |
 | Reroll 決策              | -0.15 ~ 0.0      | 考慮利息損失（純經濟懲罰）        |
-| 出售 Joker               | -0.2 ~ 0.2       | 槽位壓力獎勵、相對損失懲罰        |
+| 出售 Joker               | -0.5 ~ 0.1       | 低數量嚴罰，僅滿槽可正向          |
 | Voucher 購買             | -0.25 ~ 0.3      | 含階段權重、經濟懲罰              |
 """
 
@@ -160,6 +167,23 @@ _HAND_STRENGTH_ORDER = {
     HAND_FIVE_KIND: 10,
     HAND_FLUSH_HOUSE: 11,
     HAND_FLUSH_FIVE: 12,
+}
+
+# v6.0: 牌型品質獎勵 — 鼓勵打出更強牌型
+HAND_TYPE_BONUSES = {
+    HAND_HIGH_CARD: -0.01,   # 輕微懲罰：High Card 太弱
+    HAND_PAIR: 0.0,           # 基線：Pair 是可接受的基礎
+    HAND_TWO_PAIR: 0.01,
+    HAND_THREE_KIND: 0.02,
+    HAND_STRAIGHT: 0.03,
+    HAND_FLUSH: 0.03,
+    HAND_FULL_HOUSE: 0.04,
+    HAND_FOUR_KIND: 0.06,
+    HAND_STRAIGHT_FLUSH: 0.08,
+    HAND_ROYAL_FLUSH: 0.10,
+    HAND_FIVE_KIND: 0.08,
+    HAND_FLUSH_HOUSE: 0.10,
+    HAND_FLUSH_FIVE: 0.12,
 }
 
 _BUILD_HANDS = {
@@ -461,14 +485,32 @@ def stage_weight_late(ante: int) -> float:
 # 核心獎勵函數
 # ============================================================================
 
-def play_reward(score_gained: int, required: int) -> float:
+def hand_type_bonus(hand_type: int, ante: int) -> float:
     """
-    出牌獎勵：正規化到 0.02~0.17（v5.1 - 加入基礎出牌激勵）
+    牌型品質獎勵（v6.0 新增）
+
+    鼓勵打出更強牌型，而非一直打 Pair
+    - High Card: -0.01（輕微懲罰）
+    - Pair: 0.0（基線）
+    - Three Kind+: 正向獎勵
+    - 後期 Ante 需要更強牌型
+    """
+    if hand_type < 0:
+        return 0.0
+    base = HAND_TYPE_BONUSES.get(hand_type, 0.0)
+    # 後期 Ante 牌型獎勵更高
+    ante_mult = 1.0 + (ante - 1) * 0.1
+    return base * ante_mult
+
+
+def play_reward(score_gained: int, required: int, hand_type: int = -1, ante: int = 1) -> float:
+    """
+    出牌獎勵：正規化到 0.02~0.25（v6.0 - 加入牌型品質獎勵）
 
     設計原則：
     - 基礎獎勵 +0.02：鼓勵模型嘗試出牌而非無限棄牌
     - 進度獎勵：根據得分比例給予額外獎勵
-    - 突出終端獎勵的同時保持出牌吸引力
+    - 牌型獎勵：打出更強牌型給予額外獎勵（v6.0 新增）
     """
     # 基礎出牌獎勵：鼓勵「敢出牌」
     base_play_bonus = 0.02
@@ -482,12 +524,15 @@ def play_reward(score_gained: int, required: int) -> float:
         # 超額獎勵
         base = 0.12
         overkill_bonus = min((ratio - 1.0) * 0.03, 0.03)
-        reward = base + overkill_bonus
+        progress_reward = base + overkill_bonus
     else:
         # 未達標：線性獎勵進度
-        reward = ratio * 0.12
+        progress_reward = ratio * 0.12
 
-    return min(base_play_bonus + reward, 0.17)
+    # v6.0: 牌型品質獎勵
+    type_bonus = hand_type_bonus(hand_type, ante)
+
+    return min(base_play_bonus + progress_reward + type_bonus, 0.25)
 
 
 def discard_reward(cards_discarded: int, discards_left: int) -> float:
@@ -645,14 +690,14 @@ def joker_buy_reward(
     joker_id: Optional[int] = None
 ) -> float:
     """
-    購買 Joker 獎勵（-0.3~0.3）
+    購買 Joker 獎勵（-0.3~0.5）（v6.0 - 提高早期購買價值）
 
     考慮因素：
     - Joker 價值（基於成本估算稀有度）
+    - 早期購買獎勵加倍（v6.0 核心修復）
     - 經濟懲罰（成本占比，使用平滑曲線）
     - 利息損失
     - 槽位壓力
-    - 階段權重
     """
     # 是否成功購買
     if joker_count_after <= joker_count_before:
@@ -661,15 +706,29 @@ def joker_buy_reward(
     # Joker 價值估算（基於成本和可選的 joker_id）
     joker_value = estimate_joker_value(cost, joker_id)
 
-    # 平滑經濟懲罰（使用對數函數）
+    # v6.0: 早期購買價值大幅提升 — 這是核心修復
+    # 前 2 個 Joker 是生存必需品
+    if ante <= 2 and joker_count_after <= 2:
+        joker_value *= 2.5  # 首批 Joker 價值提升 150%
+    elif ante <= 3 and joker_count_after <= 3:
+        joker_value *= 1.8  # 前 3 個 Joker 價值提升 80%
+    elif ante <= 4 and joker_count_after <= 4:
+        joker_value *= 1.3  # 額外 Joker 小幅提升
+
+    # 平滑經濟懲罰（使用對數函數）— 但早期懲罰降低
     cost_ratio = min(cost / money_before, 1.0) if money_before > 0 else 1.0
     economic_penalty = smooth_economic_penalty(cost_ratio)
+    if ante <= 2:
+        economic_penalty *= 0.5  # 早期經濟懲罰減半
 
-    # 利息損失
+    # 利息損失（早期忽略）
     money_after = money_before - cost
     interest_before = min(money_before // 5, 5)
     interest_after = min(money_after // 5, 5)
-    interest_loss = 0.02 * (interest_before - interest_after) if interest_after < interest_before else 0.0
+    if ante <= 2:
+        interest_loss = 0.0  # 早期不考慮利息
+    else:
+        interest_loss = 0.02 * (interest_before - interest_after) if interest_after < interest_before else 0.0
 
     # 階段權重（早期購買 Joker 更有價值）
     stage_mult = stage_weight_early(ante)
@@ -680,7 +739,7 @@ def joker_buy_reward(
 
     # 獎勵計算：Joker 價值 × 階段權重 - 各種懲罰
     reward = joker_value * stage_mult - economic_penalty - interest_loss - slot_penalty
-    return clamp(reward, -0.3, 0.3)
+    return clamp(reward, -0.3, 0.5)  # 上限提高到 0.5
 
 
 def get_tag_value(tag_id: Optional[int] = None) -> float:
@@ -778,7 +837,12 @@ def sell_joker_reward(
     joker_sold_id: int = -1
 ) -> float:
     """
-    出售 Joker 獎勵（-0.2~0.2）
+    出售 Joker 獎勵（-0.5~0.1）（v6.0 - 嚴格控制賣出）
+
+    核心原則（v6.0 重大修改）：
+    - Joker 數量 <= 2 時賣出 = 重罰（這是致命錯誤）
+    - 只有槽位真正滿且是弱 Joker 時才可能正向
+    - 打破「賣 Joker 換錢」的套利迴路
 
     Args:
         money_gained: 賣出獲得的金幣
@@ -787,39 +851,110 @@ def sell_joker_reward(
         joker_slot_limit: Joker 槽位上限
         joker_sold_id: 賣出的 Joker ID（用於精確評估損失）
     """
-    # 槽位壓力獎勵
+    # v6.0 核心修復：低 Joker 數量保護機制
+    # 這是最關鍵的修復 — 嚴禁在 Joker 不足時賣出
+    if joker_count_before <= 1:
+        return -0.5  # 嚴重懲罰：只有 1 個還賣，幾乎是自殺行為
+    if joker_count_before <= 2:
+        return -0.3  # 重罰：只有 2 個還賣，高風險行為
+    if joker_count_before <= 3 and ante <= 3:
+        return -0.2  # 中等懲罰：早期 3 個也不該賣
+
+    # 只有真正滿槽才有正向可能
     if joker_count_before >= joker_slot_limit:
-        slot_pressure_bonus = 0.08
+        slot_bonus = 0.05  # 降低（原 0.08），滿槽時賣出勉強接受
     elif joker_count_before >= joker_slot_limit - 1:
-        slot_pressure_bonus = 0.03
+        slot_bonus = 0.0   # 接近滿也不獎勵（原 0.03）
     else:
-        slot_pressure_bonus = 0.0
+        slot_bonus = -0.08  # 未滿槽賣出 = 懲罰
 
-    # 金幣收益價值
-    money_value = min(money_gained / 12.0, 0.1)
+    # 金幣收益價值（降低，打破套利動機）
+    money_value = min(money_gained / 20.0, 0.05)  # 原 /12, max 0.1
 
-    # 階段調整
-    stage_mults = {1: 0.7, 2: 0.7, 3: 0.9, 4: 0.9, 5: 1.0, 6: 1.0, 7: 1.2, 8: 1.2}
-    stage_mult = stage_mults.get(ante, 1.0)
-
-    # 根據 Joker ID 估算損失（基於稀有度）
+    # 損失懲罰（提高）
     if joker_sold_id >= 0:
-        # 使用賣價估算稀有度（賣價約為成本的一半）
         estimated_cost = money_gained * 2
         rarity = estimate_joker_rarity_from_cost(estimated_cost)
-        loss_penalty = JOKER_RARITY_VALUES.get(rarity, 0.08)
+        loss_penalty = JOKER_RARITY_VALUES.get(rarity, 0.08) * 1.5  # 提高 50%
     else:
-        # 未知 Joker，使用平均損失
-        loss_penalty = 0.08
+        loss_penalty = 0.12  # 未知 Joker 懲罰更高（原 0.08）
 
-    reward = (money_value + slot_pressure_bonus - loss_penalty) * stage_mult
-    return clamp(reward, -0.2, 0.2)
+    # 階段調整：早期賣出懲罰加重
+    if ante <= 2:
+        stage_mult = 1.5  # 早期懲罰加重 50%
+    elif ante <= 4:
+        stage_mult = 1.2  # 中期懲罰加重 20%
+    else:
+        stage_mult = 1.0  # 後期正常
+
+    reward = (slot_bonus + money_value - loss_penalty) * stage_mult
+    return clamp(reward, -0.5, 0.1)  # 範圍調整：下限 -0.5，上限 0.1
 
 
 # 消耗品類型範圍（對應 Rust consumables.rs 的 to_global_index）
 TAROT_COUNT = 22
 PLANET_COUNT = 12
 SPECTRAL_COUNT = 18
+
+
+# ============================================================================
+# v6.0 新增：Joker 持有與不足獎懲
+# ============================================================================
+
+def joker_holding_bonus(joker_count: int, ante: int) -> float:
+    """
+    持有 Joker 獎勵（v6.0 新增，在 CASH_OUT 時給予）
+
+    核心原則：持有 Joker 是正確策略，需要直接獎勵
+    - 0 個 Joker：懲罰
+    - 每個 Joker：給予小獎勵
+    - 早期持有更有價值
+
+    Args:
+        joker_count: 當前持有的 Joker 數量
+        ante: 當前 Ante
+    """
+    if joker_count == 0:
+        # 懲罰：0 個 Joker 進入商店是危險信號
+        if ante <= 2:
+            return -0.08  # 早期 0 Joker 更嚴重
+        return -0.05
+
+    # 每個 Joker 給予小獎勵
+    base_bonus = joker_count * 0.015
+
+    # 早期持有更有價值
+    if ante <= 2:
+        stage_mult = 1.5
+    elif ante <= 4:
+        stage_mult = 1.2
+    else:
+        stage_mult = 1.0
+
+    return min(base_bonus * stage_mult, 0.08)
+
+
+def joker_shortage_penalty(joker_count: int, ante: int) -> float:
+    """
+    Joker 不足懲罰（v6.0 新增，每步檢查）
+
+    持續施加壓力：Joker 數量低於 Ante 要求時給予小懲罰
+    這創造了持續的「購買 Joker」動機
+
+    Args:
+        joker_count: 當前持有的 Joker 數量
+        ante: 當前 Ante
+    """
+    # 每個 Ante 的最低 Joker 要求
+    min_jokers = {1: 1, 2: 2, 3: 2, 4: 3, 5: 3, 6: 3, 7: 3, 8: 3}
+    required = min_jokers.get(ante, 2)
+
+    shortage = max(0, required - joker_count)
+    if shortage == 0:
+        return 0.0
+
+    # 持續小懲罰：每缺 1 個 = -0.01
+    return -0.01 * shortage
 
 
 def consumable_use_reward(ante: int, consumable_id: int = -1) -> float:
@@ -923,7 +1058,13 @@ class RewardCalculator:
         # 根據動作類型計算獎勵
         elif action_type == ACTION_TYPE_PLAY:
             if info.score_delta > 0:
-                reward += play_reward(info.score_delta, info.blind_target)
+                # v6.0: 傳入 hand_type 和 ante 以計算牌型獎勵
+                reward += play_reward(
+                    info.score_delta,
+                    info.blind_target,
+                    hand_type=info.hand_type,
+                    ante=info.ante
+                )
             if prev is not None:
                 total_plays = max(1, prev.plays_left + 1)
                 reward += blind_progress_signal(
@@ -1009,6 +1150,8 @@ class RewardCalculator:
         elif action_type == ACTION_TYPE_CASH_OUT:
             # Cash out 後給予金幣狀態獎勵
             reward += money_reward(info.money, info.ante)
+            # v6.0: Joker 持有獎勵 — 鼓勵保留 Joker
+            reward += joker_holding_bonus(info.joker_count, info.ante)
 
         elif action_type == ACTION_TYPE_NEXT_ROUND:
             # 檢查是否進入新 Ante
@@ -1025,6 +1168,11 @@ class RewardCalculator:
                 and not info.blind_cleared
                 and info.game_end == GAME_END_NONE):
             reward -= 0.03
+
+        # v6.0: Joker 不足懲罰 — 持續施加壓力
+        # 只在商店階段檢查（避免戰鬥中干擾）
+        if info.stage == STAGE_SHOP:
+            reward += joker_shortage_penalty(info.joker_count, info.ante)
 
         # 保存當前狀態作為下一步的參考
         self._prev_info = info

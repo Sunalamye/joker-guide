@@ -1,5 +1,23 @@
 # Joker Guide - Balatro RL Training Project
 
+## Quick Reference
+
+```bash
+# 啟動訓練
+./train.sh 4 --timesteps 100000
+
+# Rust 測試
+cd rust-engine && cargo test
+
+# Python 測試
+cd python-env && pytest
+
+# 重新生成 proto
+cd python-env && python -m grpc_tools.protoc -I../proto --python_out=src/joker_env/proto --grpc_python_out=src/joker_env/proto ../proto/joker_guide.proto
+```
+
+---
+
 ## Architecture Overview
 
 本專案採用 **Rust + Python 分離架構**，用於訓練 Balatro 遊戲的強化學習 AI。
@@ -19,15 +37,69 @@
 
 ---
 
+## Claude 開發指南
+
+### 代碼風格
+- **Rust**: 遵循 `cargo fmt` 格式
+- **Python**: 遵循 PEP 8，使用 black formatter
+- 中文註釋用於業務邏輯，英文用於 API 文件
+
+### Commit 規範
+- `feat`: 新功能
+- `fix`: 修復錯誤
+- `docs`: 文件更新
+- `refactor`: 重構
+
+### 測試要求
+- Rust 變更需通過 `cargo test`
+- 獎勵函數變更需通過 `pytest tests/`
+
+### 禁止操作
+- 不可直接修改 `.proto` 而不更新 Rust/Python 兩端
+- 不可移除 EnvInfo 欄位（會破壞訓練兼容性）
+- 不可修改 `reward.py` 中的版本號而不更新相應邏輯
+
+---
+
 ## Rust Engine (`rust-engine/`)
 
 **職責：純遊戲環境，不計算獎勵**
+
+### 目錄結構
+```
+rust-engine/
+├── Cargo.toml          # 依賴：tokio, tonic, prost, rand
+├── build.rs            # tonic-build for proto compilation
+├── src/
+│   ├── lib.rs          # Proto module inclusion
+│   ├── main.rs         # gRPC 服務實現 (EnvService)
+│   ├── game/           # 核心遊戲邏輯 (13 模組)
+│   │   ├── constants.rs    # OBS_SIZE=1130, ACTION_MASK_SIZE=46
+│   │   ├── cards.rs        # Card, Enhancement, Seal, Edition
+│   │   ├── blinds.rs       # Stage, BlindType, BossBlind (27 types)
+│   │   ├── hand_types.rs   # HandId, HandScore
+│   │   ├── scoring.rs      # JokerRules, score_hand_with_rules
+│   │   ├── joker.rs        # JokerId (164 jokers), JokerSlot
+│   │   ├── joker_def.rs    # 聲明式效果系統
+│   │   ├── shop.rs         # Shop, ShopItem
+│   │   ├── tags.rs         # Tag, TagId (25 types)
+│   │   ├── decks.rs        # DeckType (16 types)
+│   │   ├── stakes.rs       # Stake (8 difficulty levels)
+│   │   ├── vouchers.rs     # VoucherId (36 vouchers)
+│   │   ├── consumables.rs  # Tarot/Planet/Spectral
+│   │   └── packs.rs        # PackType, PackContents
+│   └── service/        # gRPC 服務層 (4 模組)
+│       ├── state.rs        # EnvState (game state container)
+│       ├── observation.rs  # Tensor 建構
+│       ├── action_mask.rs  # 合法動作計算
+│       └── scoring.rs      # 出牌評分計算
+```
 
 ### 核心功能
 - 遊戲狀態管理（牌組、手牌、Joker、商店）
 - 動作驗證與執行
 - Action Mask 生成（合法動作遮罩）
-- gRPC 服務端
+- gRPC 服務端（Session-based 狀態管理）
 
 ### 返回數據（EnvInfo）
 ```protobuf
@@ -35,6 +107,7 @@ message EnvInfo {
   // 基本狀態
   int32 episode_step = 1;
   int64 chips = 2;           // 當前分數
+  int64 mult = 3;            // 預留給 mult 顯示
   int64 blind_target = 4;    // 目標分數
 
   // 遊戲階段
@@ -58,6 +131,21 @@ message EnvInfo {
   // 遊戲結束
   int32 game_end = 17;       // 0=None, 1=Win, 2=Lose
   bool blind_cleared = 18;
+
+  // 動作細節（v5.0 新增）
+  int32 cards_played = 19;      // 這次出牌的卡片數量
+  int32 cards_discarded = 20;   // 這次棄牌的卡片數量
+  int32 hand_type = 21;         // 打出的牌型 ID (-1 = 無)
+
+  // Skip Blind 相關
+  int32 tag_id = 22;            // 跳過 Blind 獲得的 Tag ID (-1 = 無)
+
+  // 消耗品相關
+  int32 consumable_id = 23;     // 使用的消耗品 ID (-1 = 無)
+
+  // Joker 交易相關
+  int32 joker_sold_id = 24;     // 賣出的 Joker ID (-1 = 無)
+  int32 best_shop_joker_cost = 25;  // 商店中最強 Joker 的成本 (0 = 無)
 }
 ```
 
@@ -72,31 +160,73 @@ message EnvInfo {
 
 **職責：獎勵計算、訓練、策略優化**
 
-### 核心模組
-- `joker_env/reward.py` — 獎勵計算模組
-- `joker_env/env.py` — Gymnasium 環境包裝器
-- `training/` — PPO/DQN 訓練腳本
+### 目錄結構
+```
+python-env/
+├── pyproject.toml          # 依賴：gymnasium, torch, sb3-contrib, grpcio
+├── src/joker_env/
+│   ├── __init__.py         # 導出 JokerGymEnv, JokerGymDictEnv
+│   ├── client.py           # gRPC 客戶端（JokerEnvClient）
+│   ├── env.py              # Gymnasium 環境包裝器
+│   ├── reward.py           # 獎勵計算模組 (v6.0)
+│   ├── train_sb3.py        # MaskablePPO 訓練腳本
+│   ├── callbacks.py        # SB3 callbacks（Metrics, Entropy Schedule）
+│   └── proto/              # gRPC 生成代碼
+├── tests/
+│   └── test_reward.py      # 獎勵函數測試
+└── models/                 # 模型檢查點
+```
 
-### 獎勵函數 (`reward.py`)
+### 獎勵函數 (`reward.py` v6.0)
 
-| 函數 | 用途 | 觸發條件 |
-|------|------|----------|
-| `play_reward()` | 出牌獎勵 | action_type == PLAY |
-| `discard_reward()` | 棄牌懲罰 | action_type == DISCARD |
-| `blind_clear_reward()` | 過關獎勵 | blind_cleared == true |
-| `ante_progress_reward()` | Ante 進度獎勵 | Ante 提升時 |
-| `game_end_reward()` | 遊戲結束獎勵 | game_end != 0 |
-| `money_reward()` | 金幣管理獎勵 | 利息閾值達成 |
-| `joker_buy_reward()` | 購買 Joker 獎勵 | action_type == BUY_JOKER |
-| `skip_blind_reward()` | 跳過 Blind 獎勵 | action_type == SKIP_BLIND |
-| `reroll_reward()` | Reroll 懲罰 | action_type == REROLL |
-| `sell_joker_reward()` | 賣出 Joker 懲罰 | action_type == SELL_JOKER |
+| 函數 | 用途 | 觸發條件 | 獎勵範圍 |
+|------|------|----------|----------|
+| `play_reward()` | 出牌獎勵 | action_type == PLAY | +0.02 ~ +0.25 |
+| `hand_type_bonus()` | 牌型品質獎勵 | 出牌時 | -0.01 ~ +0.12 |
+| `discard_reward()` | 棄牌懲罰 | action_type == DISCARD | -0.05 ~ -0.02 |
+| `blind_clear_reward()` | 過關獎勵 | blind_cleared == true | +0.25 ~ +1.05 |
+| `ante_progress_reward()` | Ante 進度獎勵 | Ante 提升時 | +0.56 ~ +2.56 |
+| `game_end_reward()` | 遊戲結束獎勵 | game_end != 0 | -2.0 ~ +5.0 |
+| `money_reward()` | 利息閾值獎勵 | CASH_OUT | 0.0 ~ +0.2 |
+| `joker_holding_bonus()` | Joker 持有獎勵 | CASH_OUT | -0.08 ~ +0.08 |
+| `joker_shortage_penalty()` | Joker 不足懲罰 | 商店階段 | -0.03 ~ 0.0 |
+| `joker_buy_reward()` | 購買 Joker | BUY_JOKER 成功 | -0.3 ~ +0.5 |
+| `sell_joker_reward()` | 賣出 Joker | action_type == SELL_JOKER | **-0.5 ~ +0.1** |
+| `skip_blind_reward()` | 跳過 Blind | action_type == SKIP_BLIND | -0.2 ~ +0.25 |
+| `reroll_reward()` | Reroll 懲罰 | action_type == REROLL | -0.15 ~ 0.0 |
+| `consumable_use_reward()` | 使用消耗品 | action_type == USE_CONSUMABLE | 0.0 ~ +0.25 |
+| `voucher_buy_reward()` | 購買 Voucher | BUY_VOUCHER 成功 | -0.25 ~ +0.3 |
 
 ### 獎勵設計原則
-1. **Ante-aware scaling** — 獎勵隨 Ante 縮放
-2. **非線性經濟懲罰** — 過度消費指數懲罰
-3. **利息閾值獎勵** — $5/$10/$15/$20/$25 階梯獎勵
-4. **階段感知** — 早期/晚期不同策略
+1. **終端獎勵主導** — Win=+5.0, Lose=-2.0~-0.5（依 Ante 進度縮放）
+2. **Joker 保護機制** — 低數量時嚴禁賣出 (-0.3~-0.5)，持有給予獎勵 (v6.0)
+3. **牌型品質獎勵** — Flush/Straight +0.03, Full House +0.04, Four Kind +0.06 (v6.0)
+4. **早期購買加倍** — 首 2 個 Joker 價值提升 2.5x (v6.0)
+5. **非線性經濟懲罰** — 使用 `log1p` 平滑懲罰
+6. **利息閾值獎勵** — $5/$10/$15/$20/$25 階梯獎勵
+7. **反作弊機制** — No-op 偵測 (-0.03)、空棄牌懲罰 (-0.05)
+
+### Tag 價值系統
+
+Skip Blind 決策的關鍵，25 種 Tag 的價值映射：
+
+| Tag 類型 | 價值 | 說明 |
+|----------|------|------|
+| TAG_NEGATIVE | 0.52 | 最高（額外 Joker 槽位）|
+| TAG_RARE | 0.40 | 免費 Rare Joker |
+| TAG_POLYCHROME | 0.35 | ×1.5 mult |
+| TAG_VOUCHER | 0.30 | 免費 Voucher |
+| ... | ... | ... |
+| TAG_SPEED | 0.06 | 最低（跳過商店風險）|
+
+**平均 Tag 價值 ≈ 0.20**
+
+### BuildTracker（Playstyle 追蹤）
+
+追蹤玩家風格以優化 Joker 購買決策：
+- 追蹤 pairs / straight / flush 三種 build
+- 當某 build 超過 60% 且樣本 >= 5 時，識別為 dominant build
+- 購買匹配 build 的 Joker 獲得 +0.02~0.03 獎勵
 
 ### RewardCalculator 使用
 ```python
@@ -108,6 +238,77 @@ calculator.reset()  # 每個 episode 開始時
 # 每個 step
 reward = calculator.calculate(info_dict)
 ```
+
+---
+
+## 強化學習設計
+
+### 觀測空間（~1,651 維度）
+
+| 組件 | 維度 | 編碼 | 說明 |
+|------|------|------|------|
+| `scalars` | 32 | 正規化浮點 | 分數進度、ante、stage、plays/discards、money 等 |
+| `selection_mask` | 8 | Binary | 當前選中的手牌 |
+| `hand` | 168 (8×21) | One-hot | 8 張牌：13 rank + 4 suit + enhancement/seal/edition |
+| `hand_type` | 13 | One-hot | 當前最佳牌型 |
+| `deck` | 52 | Counts | 牌組剩餘卡牌 |
+| `jokers` | 765 (5×153) | One-hot | 5 槽位：150 ID one-hot + enabled/eternal/negative |
+| `shop` | 302 (2×151) | One-hot + cost | 商店 Joker |
+| `boss_blind` | 27 | One-hot | 當前 Boss Blind |
+| `deck_type` | 16 | One-hot | 起始牌組變體 |
+| `stake` | 8 | One-hot | 難度等級 |
+| `vouchers` | 36 | Binary | 已擁有 Voucher |
+| `consumables` | 104 (2×52) | One-hot | 消耗品槽位 |
+| `tags` | 25 | Counts | Tag 庫存 |
+
+**特徵提取器** (`JokerFeaturesExtractor`)：將 150 維 Joker ID one-hot 壓縮為 32 維 learned embeddings。
+
+### 動作空間（MultiDiscrete）
+
+```python
+ACTION_PARAM_SIZES = [
+    13,           # action_type
+    2, 2, 2, 2, 2, 2, 2, 2,  # card selection (8 binary)
+    3,            # blind selection
+    2,            # shop joker purchase slot
+    5,            # sell joker slot
+    1,            # reroll
+    1,            # skip blind
+    2,            # use consumable slot
+    1,            # buy voucher
+    2,            # buy pack slot
+]
+```
+
+### Action Mask（46 維度）
+
+| 偏移 | 大小 | 組件 | 閘門邏輯 |
+|------|------|------|----------|
+| 0-12 | 13 | Action types | Stage-aware |
+| 13-28 | 16 | Card selection | `in_blind` only |
+| 29-31 | 3 | Blind selection | `in_pre_blind` + 順序 |
+| 32-33 | 2 | Buy Joker | `in_shop AND money >= cost AND slots` |
+| 34-38 | 5 | Sell Joker | `in_shop AND joker exists AND NOT eternal` |
+| 39 | 1 | Reroll | `in_shop AND money >= cost` |
+| 40 | 1 | Skip Blind | `in_pre_blind AND NOT Boss` |
+| 41-42 | 2 | Use Consumable | 消耗品存在且非 Amber Boss |
+| 43 | 1 | Buy Voucher | `in_shop AND money >= cost` |
+| 44-45 | 2 | Buy Pack | `in_shop AND money >= cost` |
+
+**重要**：PLAY/DISCARD 需要 `selected_mask > 0`（必須先用 SELECT 選卡）。
+
+### 訓練配置（PPO）
+
+| 參數 | 值 | 說明 |
+|------|------|------|
+| `gamma` | 0.95 | ~200 step episodes 的適中 horizon |
+| `gae_lambda` | 0.92 | Advantage 估計的 bias-variance 平衡 |
+| `ent_coef` | 0.05 → 0.005 | 線性衰減（EntropyScheduleCallback）|
+| `learning_rate` | 3e-4 | 標準 PPO 學習率 |
+| `n_steps` | 256 | Rollout buffer 大小 |
+| `batch_size` | 64 | Mini-batch for SGD |
+| `target_kl` | 0.015 | Early stopping 閾值 |
+| `VecNormalize` | reward only | 獎勵標準化至 ~N(0,1) |
 
 ---
 
@@ -138,30 +339,6 @@ service JokerEnv {
 | 10 | USE_CONSUMABLE | 使用消耗品 |
 | 11 | BUY_VOUCHER | 購買 Voucher |
 | 12 | BUY_PACK | 購買卡包 |
-
----
-
-## 開發指南
-
-### 修改獎勵函數
-1. 編輯 `python-env/src/joker_env/reward.py`
-2. 無需重新編譯 Rust
-3. 立即生效
-
-### 添加新遊戲狀態
-1. 修改 `proto/joker_guide.proto` 的 EnvInfo
-2. 更新 `rust-engine/src/main.rs` 填充新字段
-3. 重新編譯 Rust 並重新生成 Python proto
-4. 在 `reward.py` 中使用新狀態
-
-### 測試
-```bash
-# Rust 測試
-cd rust-engine && cargo test
-
-# Python 測試
-cd python-env && pytest
-```
 
 ---
 
@@ -198,6 +375,8 @@ JokerDef = 元數據 + 效果定義 + 初始狀態 + 觸發器
 | `PerCard` | 每張牌加成 | Fibonacci (+8 Mult for A/2/3/5/8) |
 | `Stateful` | 狀態相關 | AbstractJoker (+3 Mult per Joker) |
 | `RuleModifier` | 規則修改 | FourFingers, Shortcut, Smeared |
+| `Retrigger` | 重複觸發 | Dusk, Hack, Sock and Buskin |
+| `PowerMultiply` | 乘法加成 | Cavendish, Card Sharp |
 
 ### GameEvent（事件觸發系統）
 
@@ -210,6 +389,8 @@ JokerDef = 元數據 + 效果定義 + 初始狀態 + 觸發器
 | `PlanetUsed` | 使用 Planet 卡 |
 | `RoundEnded` | 回合結束 |
 | `JokerSold` | 賣出 Joker |
+| `TarotUsed` | 使用 Tarot 卡 |
+| `BlindCleared` | 過關後 |
 
 ### 添加新 Joker
 
@@ -233,9 +414,45 @@ JokerDef {
 
 | 函數 | 用途 |
 |------|------|
-| `compute_joker_effect_v2()` | 計算 Joker 效果（評分時） |
-| `trigger_joker_slot_events()` | 處理事件觸發（非評分時） |
+| `compute_joker_effect_v2()` | 計算 Joker 效果（評分時）|
+| `trigger_joker_slot_events()` | 處理事件觸發（非評分時）|
 | `get_joker_def()` | 獲取 Joker 定義 |
+
+---
+
+## 開發指南
+
+### 修改獎勵函數
+1. 編輯 `python-env/src/joker_env/reward.py`
+2. 無需重新編譯 Rust
+3. 立即生效
+
+### 添加新遊戲狀態
+1. 修改 `proto/joker_guide.proto` 的 EnvInfo
+2. 更新 `rust-engine/src/main.rs` 填充新字段
+3. 重新編譯 Rust 並重新生成 Python proto
+4. 在 `reward.py` 中使用新狀態
+
+### 測試
+```bash
+# Rust 測試
+cd rust-engine && cargo test
+
+# Python 測試
+cd python-env && pytest
+```
+
+---
+
+## 常見問題排解
+
+| 錯誤 | 原因 | 解決方案 |
+|------|------|----------|
+| `protoc not found` | 缺少 protobuf 編譯器 | `apt install protobuf-compiler` |
+| `ModuleNotFoundError: grpc_tools` | Python 缺少 gRPC 工具 | `pip install grpcio-tools` |
+| `address already in use` | 舊 server 未關閉 | `pkill -f rust-engine` |
+| ActionMasker import 失敗 | sb3_contrib 版本 | 使用 `sb3_contrib.common.wrappers` |
+| `CUDA out of memory` | GPU 記憶體不足 | 減少 `n_envs` 或使用 CPU |
 
 ---
 
