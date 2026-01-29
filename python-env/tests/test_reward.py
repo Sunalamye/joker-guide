@@ -93,9 +93,9 @@ class TestBlindClearReward:
     """過關獎勵測試"""
 
     def test_small_blind(self):
-        """Small Blind 基礎獎勵"""
+        """Small Blind 基礎獎勵（v5.0 提升）"""
         reward = blind_clear_reward(0, BLIND_SMALL, 1)
-        assert 0.15 < reward < 0.3
+        assert 0.25 < reward < 0.4
 
     def test_boss_blind_higher(self):
         """Boss Blind 獎勵更高"""
@@ -116,9 +116,9 @@ class TestBlindClearReward:
         assert late >= early
 
     def test_range(self):
-        """獎勵範圍 0.2~0.6"""
+        """獎勵範圍 0.25~0.75（v5.0 調整）"""
         reward = blind_clear_reward(4, BLIND_BOSS, 8, boss_blind_id=1)
-        assert 0.2 <= reward <= 0.6
+        assert 0.25 <= reward <= 0.75
 
 
 class TestJokerBuyReward:
@@ -162,9 +162,9 @@ class TestSkipBlindReward:
     """跳過 Blind 獎勵測試"""
 
     def test_small_blind_skip(self):
-        """跳過 Small Blind 可以是正獎勵"""
+        """跳過 Small Blind（v5.0 調整後更保守）"""
         reward = skip_blind_reward(BLIND_SMALL, 1)
-        assert reward > -0.15
+        assert reward > -0.20
 
     def test_late_game_penalty(self):
         """後期跳過風險更高"""
@@ -179,9 +179,9 @@ class TestSkipBlindReward:
         assert negative_tag > speed_tag
 
     def test_range(self):
-        """獎勵範圍 -0.15~0.35"""
+        """獎勵範圍 -0.20~0.25（v5.0 調整）"""
         reward = skip_blind_reward(BLIND_SMALL, 1, tag_id=TAG_NEGATIVE)
-        assert -0.15 <= reward <= 0.35
+        assert -0.20 <= reward <= 0.25
 
 
 class TestRerollReward:
@@ -289,9 +289,10 @@ class TestAnteProgressReward:
         assert late > early
 
     def test_range(self):
-        """獎勵不超過 0.3"""
+        """獎勵範圍（v5.0 漸進式公式）"""
         reward = ante_progress_reward(1, 8)
-        assert reward <= 0.3
+        # v5.0: 1→8 累積約 3.94
+        assert reward <= 4.5
 
 
 class TestJokerValueEstimation:

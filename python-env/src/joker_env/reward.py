@@ -3,26 +3,27 @@
 
 從 Rust reward.rs 移植，為 RL 訓練提供形狀良好的獎勵信號，支持完整遊戲（Ante 1-8）
 
-獎勵範圍設計（v4.0 - 突破 Ante 1 陷阱）：
+獎勵範圍設計（v5.0 - 平衡 Ante 進度與 Skip 決策）：
 設計原則：
 - 終端獎勵主導：勝利=5.0，確保長期目標壓過短期收益
-- 指數級 Ante 進度：後期 Ante 獎勵指數增長，打破局部最優
-- 降低密集獎勵：減少出牌/過關獎勵權重，避免短視行為
+- 漸進式 Ante 進度：平衡的獎勵增長（0.15×a^1.5+0.1×a）
+- 提高 Clear 獎勵：確保 Clear Blind 比 Skip 更有吸引力
+- 調整 Skip 風險：早期 Skip 更保守，上限低於 Clear 獎勵
 
-| 模組                     | 範圍             | 說明                           |
-|--------------------------|------------------|--------------------------------|
-| 遊戲結束 (game_end)      | -2.0 ~ 5.0       | 勝利=5.0，失敗依進度懲罰       |
-| Ante 進度                | 0.1 ~ 2.55       | 指數級增長（2^ante × 0.05）    |
-| 過關 (blind_clear)       | 0.15 ~ 0.5       | Ante 調整，Boss 加成           |
-| 出牌 (play_reward)       | 0.0 ~ 0.15       | 降低以突出終端獎勵             |
-| 棄牌 (discard_reward)    | -0.05 ~ 0.05     | 空棄牌懲罰 + 精準棄牌獎勵     |
-| 購買 Joker               | -0.3 ~ 0.3       | 含階段權重、非線性經濟懲罰     |
-| Skip Blind/Tag           | -0.15 ~ 0.35     | Tag 價值 - 機會成本 × 風險調整 |
-| 消耗品使用               | 0.0 ~ 0.25       | Spectral 後期乘數更強          |
-| 金幣狀態 (money_reward)  | 0.0 ~ 0.2        | 利息閾值階梯獎勵               |
-| Reroll 決策              | -0.15 ~ 0.0      | 考慮利息損失（純經濟懲罰）     |
-| 出售 Joker               | -0.2 ~ 0.2       | 槽位壓力獎勵、相對損失懲罰     |
-| Voucher 購買             | -0.25 ~ 0.3      | 含階段權重、經濟懲罰           |
+| 模組                     | 範圍             | 說明                              |
+|--------------------------|------------------|-----------------------------------|
+| 遊戲結束 (game_end)      | -2.0 ~ 5.0       | 勝利=5.0，失敗依進度懲罰          |
+| Ante 進度                | 0.48 ~ 2.27      | 漸進式增長（0.15×a^1.5+0.1×a）   |
+| 過關 (blind_clear)       | 0.25 ~ 0.75      | 基礎值提升，Ante 調整加成         |
+| 出牌 (play_reward)       | 0.0 ~ 0.15       | 降低以突出終端獎勵                |
+| 棄牌 (discard_reward)    | -0.05 ~ 0.05     | 空棄牌懲罰 + 精準棄牌獎勵        |
+| 購買 Joker               | -0.3 ~ 0.3       | 含階段權重、非線性經濟懲罰        |
+| Skip Blind/Tag           | -0.20 ~ 0.25     | 提高機會成本，調整風險係數        |
+| 消耗品使用               | 0.0 ~ 0.25       | Spectral 後期乘數更強             |
+| 金幣狀態 (money_reward)  | 0.0 ~ 0.2        | 利息閾值階梯獎勵                  |
+| Reroll 決策              | -0.15 ~ 0.0      | 考慮利息損失（純經濟懲罰）        |
+| 出售 Joker               | -0.2 ~ 0.2       | 槽位壓力獎勵、相對損失懲罰        |
+| Voucher 購買             | -0.25 ~ 0.3      | 含階段權重、經濟懲罰              |
 """
 
 from dataclasses import dataclass
@@ -524,12 +525,12 @@ def blind_clear_reward(
     - Boss 過關獎勵最高（觸發 Ante 進度）
     - 適度獎勵以配合終端獎勵
     """
-    # 基礎獎勵
+    # 基礎獎勵（v5.0 提升以確保 Clear > Skip）
     base = {
-        BLIND_SMALL: 0.15,
-        BLIND_BIG: 0.20,
-        BLIND_BOSS: 0.30,
-    }.get(blind_type, 0.15)
+        BLIND_SMALL: 0.25,  # +0.10
+        BLIND_BIG: 0.35,    # +0.15
+        BLIND_BOSS: 0.50,   # +0.20
+    }.get(blind_type, 0.25)
 
     # Boss 難度加成
     boss_bonus = 0.0
@@ -543,25 +544,24 @@ def blind_clear_reward(
     # Ante 1: 1.0, Ante 8: 1.5
     ante_mult = 1.0 + (ante - 1) * 0.07
 
-    return clamp((base + boss_bonus + efficiency) * ante_mult, 0.15, 0.5)
+    return clamp((base + boss_bonus + efficiency) * ante_mult, 0.25, 0.75)
 
 
 def ante_progress_reward(old_ante: int, new_ante: int) -> float:
     """
-    Ante 進度獎勵：指數級增長（0~2.55）
+    Ante 進度獎勵：漸進式增長（0.48~2.27）
 
-    設計原則（v4.0 - 突破 Ante 1 陷阱）：
-    - 指數級增長：後期 Ante 進度獎勵顯著更高
-    - 這創造強烈的激勵去嘗試更高 Ante
-    - 公式：reward = 0.05 × (2^ante - 2^old_ante)
-    - 累積獎勵：Ante 1→2: 0.1, 1→3: 0.3, 1→8: 2.55
+    設計原則（v5.0 - 平衡 Ante 進度）：
+    - 漸進式增長：避免後期過度激進的獎勵
+    - 公式：reward = 0.15 × a^1.5 + 0.1 × a
+    - 累積獎勵：Ante 1→2: 0.48, 1→3: 0.97, 7→8: 2.27
     """
     def ante_value(a: int) -> float:
-        # 指數級增長：2^a × 0.05
-        # Ante 1: 0.1, Ante 2: 0.2, Ante 3: 0.4, ..., Ante 8: 12.8
+        # 漸進式增長：0.15 × a^1.5 + 0.1 × a
+        # Ante 1: 0.25, Ante 2: 0.62, Ante 3: 1.08, ..., Ante 8: 4.19
         if a < 1:
             return 0.0
-        return 0.05 * (2 ** a)
+        return 0.15 * (a ** 1.5) + 0.1 * a
 
     return ante_value(new_ante) - ante_value(old_ante)
 
@@ -704,28 +704,29 @@ def skip_blind_reward(
     - 機會成本考慮 Blind 獎金
     - 後期跳過風險更高（風險調整）
     """
-    # 機會成本（跳過 Blind 放棄的獎金 + 過關獎勵差距）
-    # 提高以配合 blind_clear_reward 的提升
+    # 機會成本（跳過 Blind 放棄的獎金 + 過關獎勵差距 + 商店訪問價值）
+    # v5.0: 提高成本以反映商店機會損失
     opportunity_cost = {
-        BLIND_SMALL: 0.08,  # 放棄 $3 + 過關獎勵差距
-        BLIND_BIG: 0.15,    # 放棄 $5 + 更高分數獎勵
-        BLIND_BOSS: 1.0,    # 不能跳過 Boss
-    }.get(blind_type, 0.08)
+        BLIND_SMALL: 0.18,  # 放棄 $3 + 過關獎勵 + 商店訪問價值
+        BLIND_BIG: 0.25,    # 放棄 $5 + 更高分數獎勵 + 商店訪問
+        BLIND_BOSS: 2.0,    # 實質禁止跳過 Boss
+    }.get(blind_type, 0.18)
 
-    # 風險調整（後期跳過風險更高）
+    # 風險調整（v5.0: 早期更保守以累積 Joker）
     risk_adjustments = {
-        1: 1.0, 2: 1.0,     # 早期：Tag 價值最大化
-        3: 0.9, 4: 0.9,     # 中期：稍微保守
-        5: 0.75, 6: 0.75,   # 中後期：更保守
-        7: 0.5, 8: 0.5,     # 後期：非常保守
+        1: 0.7, 2: 0.8,     # 早期：需要商店累積 Joker，更保守
+        3: 0.9, 4: 1.0,     # 中期：可以適度 skip
+        5: 0.85, 6: 0.7,    # 中後期：趨於保守
+        7: 0.5, 8: 0.3,     # 後期：幾乎不該 skip
     }
-    risk_adjustment = risk_adjustments.get(ante, 1.0)
+    risk_adjustment = risk_adjustments.get(ante, 0.7)
 
     # Tag 價值（使用具體值或平均值）
     tag_value = get_tag_value(tag_id)
 
     reward = (tag_value * risk_adjustment) - opportunity_cost
-    return clamp(reward, -0.15, 0.35)
+    # v5.0: 上限低於 Clear 最小獎勵 0.25，確保 Clear 優於 Skip
+    return clamp(reward, -0.20, 0.25)
 
 
 def reroll_reward(

@@ -194,3 +194,30 @@ class EvalMetricsCallback(BaseCallback):
             "std_ante": np.std(antes),
             "std_reward": np.std(rewards),
         }
+
+
+class EntropyScheduleCallback(BaseCallback):
+    """
+    Entropy coefficient 線性衰減 Callback（v5.0）
+
+    早期高探索 → 後期低探索
+    公式：ent = initial + (final - initial) × progress
+    """
+
+    def __init__(
+        self,
+        initial_ent: float = 0.05,
+        final_ent: float = 0.005,
+        total_steps: int = 500000,
+        verbose: int = 0,
+    ):
+        super().__init__(verbose)
+        self.initial = initial_ent
+        self.final = final_ent
+        self.total = total_steps
+
+    def _on_step(self) -> bool:
+        progress = min(1.0, self.num_timesteps / self.total)
+        new_ent = self.initial + (self.final - self.initial) * progress
+        self.model.ent_coef = new_ent
+        return True

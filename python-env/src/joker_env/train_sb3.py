@@ -11,11 +11,11 @@ import torch
 from gymnasium import spaces
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
-from stable_baselines3.common.vec_env import SubprocVecEnv
+from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
 from joker_env import JokerGymDictEnv
-from joker_env.callbacks import JokerMetricsCallback
+from joker_env.callbacks import JokerMetricsCallback, EntropyScheduleCallback
 from joker_env.env import (
     BOSS_BLIND_COUNT,
     CARD_FEATURES,
@@ -237,9 +237,9 @@ def train(
     verbose: int = 1,
     n_steps: int = 256,
     batch_size: int = 64,
-    ent_coef: float = 0.01,
+    ent_coef: float = 0.05,   # v5.0: 提高探索
     learning_rate: float = 3e-4,
-    gamma: float = 0.99,
+    gamma: float = 0.95,       # v5.0: 減少終端信號稀釋
     gae_lambda: float = 0.92,
     clip_range: float = 0.2,
     clip_range_vf: float | None = None,
@@ -269,6 +269,15 @@ def train(
             make_env(seed, i, port=base_port + (i % n_engines))
             for i in range(n_envs)
         ])
+        # v5.0: 添加 VecNormalize 進行獎勵正規化
+        env = VecNormalize(
+            env,
+            norm_obs=False,      # Dict obs 不正規化
+            norm_reward=True,    # 正規化獎勵到 ~N(0,1)
+            clip_reward=10.0,    # 防止異常值
+            gamma=gamma,         # 使用訓練的 gamma 值
+            training=True,
+        )
     else:
         env = JokerGymDictEnv()
         env = ActionMasker(env, lambda e: e.action_masks())
@@ -315,10 +324,18 @@ def train(
 
     remaining = total_timesteps
     chunk = save_interval if save_interval > 0 else total_timesteps
-    callback = JokerMetricsCallback(verbose=verbose, log_freq=log_freq, tb_log_freq=tb_log_freq)
+    # v5.0: 使用 callback 列表，包含 Entropy 衰減
+    callbacks = [
+        JokerMetricsCallback(verbose=verbose, log_freq=log_freq, tb_log_freq=tb_log_freq),
+        EntropyScheduleCallback(
+            initial_ent=ent_coef,
+            final_ent=0.005,
+            total_steps=total_timesteps,
+        ),
+    ]
     while remaining > 0:
         step = min(chunk, remaining)
-        model.learn(total_timesteps=step, reset_num_timesteps=False, callback=callback)
+        model.learn(total_timesteps=step, reset_num_timesteps=False, callback=callbacks)
         remaining -= step
         if checkpoint:
             _save_checkpoint(
@@ -343,9 +360,9 @@ def main() -> None:
     parser.add_argument("--verbose", type=int, default=1, help="SB3 verbosity level")
     parser.add_argument("--n-steps", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=64)
-    parser.add_argument("--ent-coef", type=float, default=0.01)
+    parser.add_argument("--ent-coef", type=float, default=0.05)
     parser.add_argument("--learning-rate", type=float, default=3e-4)
-    parser.add_argument("--gamma", type=float, default=0.99)
+    parser.add_argument("--gamma", type=float, default=0.95)
     parser.add_argument("--gae-lambda", type=float, default=0.92)
     parser.add_argument("--clip-range", type=float, default=0.2)
     parser.add_argument("--clip-range-vf", type=float, default=None)
