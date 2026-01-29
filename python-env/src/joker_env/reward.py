@@ -3,48 +3,44 @@
 
 從 Rust reward.rs 移植，為 RL 訓練提供形狀良好的獎勵信號，支持完整遊戲（Ante 1-8）
 
-獎勵範圍設計（v6.3 - 強化 Boss 獎勵）：
+獎勵範圍設計（v6.4 - 強化牌型選擇）：
 設計原則：
 - 終端獎勵主導：勝利=5.0，確保長期目標壓過短期收益
 - Joker 保護機制：低 Joker 數量時嚴禁賣出，持有 Joker 給予獎勵
-- 牌型品質獎勵：鼓勵打出更強牌型，不只是 Pair
-- 強化中後期進度：更陡峭的 Ante 進度曲線
+- 牌型品質獎勵：大幅強化牌型差距（3.5x），解決 95% High Card/Pair 問題
+- 棄牌改善獎勵：啟用 hand_setup_reward，鼓勵有目的的棄牌
+- 效率獎勵：早期過關給予額外獎勵
 
-v6.0 核心修復：
-1. sell_joker_reward: Joker <= 2 時賣出重罰 (-0.3 ~ -0.5)
-2. joker_holding_bonus: 持有 Joker 在 CASH_OUT 時獲得獎勵
-3. hand_type_bonus: 牌型強度獎勵，鼓勵打高階牌
-4. joker_buy_reward: 早期購買價值提升 2x
-
-v6.1 追加修復（針對 High Card 過多問題）：
-1. High Card 懲罰從 -0.01 提升到 -0.05
-2. Pair 從 0.0 提升到 +0.02（正向激勵）
-3. play_reward 新增低分懲罰：得分 < 預期 30% 時 -0.02
-4. 所有牌型獎勵整體上調
-
-v6.2 平衡調整（針對 60% 棄牌率問題）：
-1. High Card 懲罰從 -0.05 降到 -0.015（v6.1 太重導致過度棄牌）
-2. 超額獎勵移除上限，改用對數縮放（5x 得 +0.08，10x 得 +0.115）
+v6.4 核心修復（針對 95% High Card/Pair 問題）：
+1. HAND_TYPE_BONUSES 放大 3.5 倍（對抗 VecNormalize 壓縮）
+2. 啟用 hand_setup_reward()（原本存在但未被調用）
+3. 棄牌反循環保護：連續棄牌 > 2 次給予累進懲罰
+4. 效率獎勵：剩餘出牌次數越多過關，獎勵越高
+5. Pair 獎勵降為 0（基線），不再鼓勵安全策略
 
 v6.3 強化 Boss 獎勵（針對 Boss Clear 0% 瓶頸）：
 1. Boss 基礎獎勵從 0.50 提升到 0.80
 2. Boss 額外加成從 0.05 提升到 0.10
 3. 效率獎勵從 0.01/play 提升到 0.02/play
-4. Small/Big 略降以突出 Boss 重要性
-5. Boss 階段每個動作 +0.0001（鼓勵積極面對）
+4. Boss 階段每個動作 +0.0001（鼓勵積極面對）
+
+v6.0-6.2 歷史修復：
+- sell_joker_reward: Joker <= 2 時賣出重罰
+- joker_holding_bonus: 持有 Joker 給予獎勵
+- 超額獎勵使用對數縮放
 
 | 模組                     | 範圍             | 說明                              |
 |--------------------------|------------------|-----------------------------------|
 | 遊戲結束 (game_end)      | -2.0 ~ 5.0       | 勝利=5.0，失敗依進度懲罰          |
 | Ante 進度                | 0.56 ~ 1.76+里程碑| 更陡峭曲線 + 里程碑獎勵          |
-| 過關 (blind_clear)       | 0.25 ~ 1.05      | Ante 係數 0.15，後期更高          |
-| 出牌 (play_reward)       | 0.02 ~ 0.25      | 基礎 +0.02 + 牌型獎勵             |
-| 棄牌 (discard_reward)    | -0.05 ~ -0.02    | 空棄牌懲罰，抑制棄牌循環          |
+| 過關 (blind_clear)       | 0.25 ~ 1.50      | Ante 係數 0.15，後期更高          |
+| 出牌 (play_reward)       | -0.05 ~ 0.35     | 牌型獎勵 + 效率獎勵（v6.4）       |
+| 棄牌 (discard_reward)    | -0.07 ~ 0.06     | 改善獎勵 - 反循環懲罰（v6.4）     |
 | 購買 Joker               | -0.3 ~ 0.5       | 早期購買加倍獎勵                  |
 | Skip Blind/Tag           | -0.20 ~ 0.25     | 提高機會成本，調整風險係數        |
 | 消耗品使用               | 0.0 ~ 0.25       | Spectral 後期乘數更強             |
 | 金幣狀態 (money_reward)  | 0.0 ~ 0.2        | 利息閾值階梯獎勵                  |
-| Joker 持有獎勵           | -0.05 ~ 0.08     | 持有 Joker 給予獎勵（新增）       |
+| Joker 持有獎勵           | -0.05 ~ 0.08     | 持有 Joker 給予獎勵               |
 | Reroll 決策              | -0.15 ~ 0.0      | 考慮利息損失（純經濟懲罰）        |
 | 出售 Joker               | -0.5 ~ 0.1       | 低數量嚴罰，僅滿槽可正向          |
 | Voucher 購買             | -0.25 ~ 0.3      | 含階段權重、經濟懲罰              |
@@ -186,21 +182,22 @@ _HAND_STRENGTH_ORDER = {
     HAND_FLUSH_FIVE: 12,
 }
 
-# v6.2: 牌型品質獎勵 — 降低 High Card 懲罰，平衡出牌激勵
+# v6.4: 牌型品質獎勵 — 放大 3.5 倍以對抗 VecNormalize 壓縮
+# 解決 95% High Card/Pair 問題：讓強牌型獎勵明顯高於弱牌型
 HAND_TYPE_BONUSES = {
-    HAND_HIGH_CARD: -0.015,  # 輕微懲罰（v6.1 的 -0.05 太重導致過度棄牌）
-    HAND_PAIR: 0.02,          # 正向：Pair 是可接受的基礎
-    HAND_TWO_PAIR: 0.03,
-    HAND_THREE_KIND: 0.04,
-    HAND_STRAIGHT: 0.05,
-    HAND_FLUSH: 0.05,
-    HAND_FULL_HOUSE: 0.06,
-    HAND_FOUR_KIND: 0.08,
-    HAND_STRAIGHT_FLUSH: 0.10,
-    HAND_ROYAL_FLUSH: 0.12,
-    HAND_FIVE_KIND: 0.10,
-    HAND_FLUSH_HOUSE: 0.12,
-    HAND_FLUSH_FIVE: 0.15,
+    HAND_HIGH_CARD: -0.05,        # 懲罰弱牌（配合 hand_setup_reward 提供正向出路）
+    HAND_PAIR: 0.00,              # 基線：不獎勵也不懲罰（原 +0.02 導致安全策略）
+    HAND_TWO_PAIR: 0.04,          # 略微提升
+    HAND_THREE_KIND: 0.10,        # 關鍵牌型，2.5x 放大（原 0.04）
+    HAND_STRAIGHT: 0.14,          # 2.8x 放大（原 0.05）
+    HAND_FLUSH: 0.16,             # 3.2x 放大，略優於 Straight（原 0.05）
+    HAND_FULL_HOUSE: 0.20,        # 3.3x 放大（原 0.06）
+    HAND_FOUR_KIND: 0.28,         # 3.5x 放大（原 0.08）
+    HAND_STRAIGHT_FLUSH: 0.35,    # 3.5x 放大（原 0.10）
+    HAND_ROYAL_FLUSH: 0.42,       # 3.5x 放大（原 0.12）
+    HAND_FIVE_KIND: 0.35,         # 3.5x 放大（原 0.10）
+    HAND_FLUSH_HOUSE: 0.42,       # 3.5x 放大（原 0.12）
+    HAND_FLUSH_FIVE: 0.52,        # 3.5x 放大（原 0.15）
 }
 
 _BUILD_HANDS = {
@@ -522,13 +519,14 @@ def hand_type_bonus(hand_type: int, ante: int) -> float:
 
 def play_reward(score_gained: int, required: int, hand_type: int = -1, ante: int = 1, plays_left: int = 3) -> float:
     """
-    出牌獎勵：正規化到 -0.05~0.30（v6.1 - 加入低分懲罰）
+    出牌獎勵：正規化到 -0.05~0.35（v6.4 - 加入效率獎勵）
 
     設計原則：
     - 基礎獎勵 +0.02：鼓勵模型嘗試出牌
     - 進度獎勵：根據得分比例給予額外獎勵
-    - 牌型獎勵：打出更強牌型給予額外獎勵
-    - 低分懲罰：得分低於預期節奏時懲罰（v6.1 新增）
+    - 牌型獎勵：打出更強牌型給予額外獎勵（v6.4 放大 3.5x）
+    - 低分懲罰：得分低於預期節奏時懲罰
+    - 效率獎勵：剩餘出牌次數越多過關，獎勵越高（v6.4 新增）
     """
     # 基礎出牌獎勵
     base_play_bonus = 0.02
@@ -536,7 +534,7 @@ def play_reward(score_gained: int, required: int, hand_type: int = -1, ante: int
     if required <= 0:
         return base_play_bonus
 
-    # v6.1: 低分懲罰 — 如果得分遠低於應有節奏
+    # 低分懲罰 — 如果得分遠低於應有節奏
     # 預期每次出牌應達到 (required / 4) 的分數
     expected_per_play = required / 4.0
     if score_gained <= 0:
@@ -554,21 +552,27 @@ def play_reward(score_gained: int, required: int, hand_type: int = -1, ante: int
     ratio = score_gained / required
 
     if ratio >= 1.0:
-        # 超額獎勵（v6.2: 移除上限，鼓勵高倍超額）
+        # 超額獎勵（使用對數縮放）
         base = 0.12
-        # 使用對數縮放，超額越多獎勵越高但增長趨緩
-        # ratio=2: +0.035, ratio=3: +0.055, ratio=5: +0.08, ratio=10: +0.115
         overkill_bonus = 0.05 * math.log1p(ratio - 1.0)
         progress_reward = base + overkill_bonus
     else:
         # 未達標：線性獎勵進度
         progress_reward = ratio * 0.12
 
-    # 牌型品質獎勵
+    # 牌型品質獎勵（v6.4: 放大 3.5x）
     type_bonus = hand_type_bonus(hand_type, ante)
 
-    reward = base_play_bonus + progress_reward + type_bonus + low_score_penalty
-    return clamp(reward, -0.05, 0.30)
+    # v6.4: 效率獎勵 — 剩餘出牌次數越多過關，獎勵越高
+    # 鼓勵早期就打出高分，而非拖到最後一手
+    efficiency_bonus = 0.0
+    if ratio >= 1.0 and plays_left >= 2:
+        # 還剩 2+ 次出牌就過關 = 效率獎勵
+        # plays_left=2: +0.02, plays_left=3: +0.04, plays_left=4: +0.06
+        efficiency_bonus = 0.02 * (plays_left - 1)
+
+    reward = base_play_bonus + progress_reward + type_bonus + low_score_penalty + efficiency_bonus
+    return clamp(reward, -0.05, 0.35)  # v6.4: 上限提高到 0.35
 
 
 def discard_reward(cards_discarded: int, discards_left: int) -> float:
@@ -1059,11 +1063,17 @@ class RewardCalculator:
     def __init__(self):
         self._prev_info: Optional[StepInfo] = None
         self._build_tracker = BuildTracker()
+        # v6.4: 棄牌改善獎勵狀態追蹤
+        self._prev_hand_type: int = -1  # 上一次的最佳牌型
+        self._consecutive_discards: int = 0  # 連續棄牌計數器（反循環保護）
 
     def reset(self):
         """重置內部狀態"""
         self._prev_info = None
         self._build_tracker.reset()
+        # v6.4: 重置棄牌追蹤狀態
+        self._prev_hand_type = -1
+        self._consecutive_discards = 0
 
     def calculate(self, info_dict: dict) -> float:
         """
@@ -1092,16 +1102,20 @@ class RewardCalculator:
                 info.blind_type,
                 info.ante
             )
+            # v6.4: 過關後重置棄牌追蹤狀態
+            self._consecutive_discards = 0
+            self._prev_hand_type = -1
 
         # 根據動作類型計算獎勵
         elif action_type == ACTION_TYPE_PLAY:
             if info.score_delta > 0:
-                # v6.0: 傳入 hand_type 和 ante 以計算牌型獎勵
+                # v6.4: 傳入 hand_type, ante, plays_left 以計算牌型+效率獎勵
                 reward += play_reward(
                     info.score_delta,
                     info.blind_target,
                     hand_type=info.hand_type,
-                    ante=info.ante
+                    ante=info.ante,
+                    plays_left=info.plays_left
                 )
             if prev is not None:
                 total_plays = max(1, prev.plays_left + 1)
@@ -1115,9 +1129,31 @@ class RewardCalculator:
             if info.hand_type >= 0:
                 self._build_tracker.record_hand(info.hand_type)
 
+            # v6.4: 出牌後重置棄牌追蹤狀態
+            self._consecutive_discards = 0
+            self._prev_hand_type = -1
+
         elif action_type == ACTION_TYPE_DISCARD:
             # 使用實際棄牌數量（來自 Rust 端）
-            reward += discard_reward(info.cards_discarded, info.discards_left)
+            base_discard_penalty = discard_reward(info.cards_discarded, info.discards_left)
+            reward += base_discard_penalty
+
+            # v6.4: 棄牌改善獎勵（帶反循環保護）
+            self._consecutive_discards += 1
+            if self._consecutive_discards <= 2:
+                # 只獎勵前 2 次連續棄牌
+                setup_bonus = hand_setup_reward(
+                    self._prev_hand_type,
+                    info.hand_type,
+                    had_discard=(info.cards_discarded > 0)
+                )
+                reward += setup_bonus
+            else:
+                # 第 3 次及之後連續棄牌：額外懲罰（防止棄牌循環）
+                reward -= 0.02 * (self._consecutive_discards - 2)
+
+            # 更新手牌追蹤狀態
+            self._prev_hand_type = info.hand_type
 
         elif action_type == ACTION_TYPE_BUY_JOKER:
             # Fix: 檢查購買是否成功（joker_count 增加且 money 減少）

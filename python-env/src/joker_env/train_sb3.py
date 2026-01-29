@@ -237,7 +237,7 @@ def train(
     verbose: int = 1,
     n_steps: int = 256,
     batch_size: int = 64,
-    ent_coef: float = 0.05,   # v5.0: 提高探索
+    ent_coef: float = 0.08,   # v6.4: 提高初始探索（原 0.05）
     learning_rate: float = 3e-4,
     gamma: float = 0.95,       # v5.0: 減少終端信號稀釋
     gae_lambda: float = 0.92,
@@ -327,12 +327,13 @@ def train(
 
     remaining = total_timesteps
     chunk = save_interval if save_interval > 0 else total_timesteps
-    # v5.0: 使用 callback 列表，包含 Entropy 衰減
+    # v6.4: 使用 callback 列表，包含 Entropy 衰減
+    # final_ent 從 0.005 提升到 0.01，維持更多探索
     callbacks = [
         JokerMetricsCallback(verbose=verbose, log_freq=log_freq, tb_log_freq=tb_log_freq),
         EntropyScheduleCallback(
             initial_ent=ent_coef,
-            final_ent=0.005,
+            final_ent=0.01,  # v6.4: 從 0.005 提升（維持探索）
             total_steps=total_timesteps,
         ),
     ]
