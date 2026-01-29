@@ -24,6 +24,7 @@ v6.1 追加修復（針對 High Card 過多問題）：
 
 v6.2 平衡調整（針對 60% 棄牌率問題）：
 1. High Card 懲罰從 -0.05 降到 -0.015（v6.1 太重導致過度棄牌）
+2. 超額獎勵移除上限，改用對數縮放（5x 得 +0.08，10x 得 +0.115）
 
 | 模組                     | 範圍             | 說明                              |
 |--------------------------|------------------|-----------------------------------|
@@ -546,9 +547,11 @@ def play_reward(score_gained: int, required: int, hand_type: int = -1, ante: int
     ratio = score_gained / required
 
     if ratio >= 1.0:
-        # 超額獎勵
+        # 超額獎勵（v6.2: 移除上限，鼓勵高倍超額）
         base = 0.12
-        overkill_bonus = min((ratio - 1.0) * 0.03, 0.03)
+        # 使用對數縮放，超額越多獎勵越高但增長趨緩
+        # ratio=2: +0.035, ratio=3: +0.055, ratio=5: +0.08, ratio=10: +0.115
+        overkill_bonus = 0.05 * math.log1p(ratio - 1.0)
         progress_reward = base + overkill_bonus
     else:
         # 未達標：線性獎勵進度
