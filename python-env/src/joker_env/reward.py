@@ -506,7 +506,7 @@ def discard_reward(cards_discarded: int, discards_left: int) -> float:
         return -0.05  # 懲罰空棄牌（no-op exploit 防護）
 
     # 加重棄牌成本，打破棄牌循環
-    return -0.03
+    return -0.02
 
 
 def blind_clear_reward(
