@@ -87,22 +87,23 @@ MultiDiscrete 動作空間，**46 維動作遮罩**：
 使用 `train.sh` 進行自動化並發訓練：
 
 ```bash
-# 4 個並行環境，100 萬步
+# 4 個並行環境，100 萬步（TensorBoard 自動啟動）
 ./train.sh 4 --timesteps 1000000 --checkpoint python-env/models/v1
 
-# 8 個並行環境，啟用 TensorBoard 記錄
-./train.sh 8 --timesteps 1000000 --checkpoint python-env/models/v1 \
-  --tensorboard-log python-env/logs/v1
+# 8 個並行環境
+./train.sh 8 --timesteps 1000000 --checkpoint python-env/models/v1
 
-# 恢復中斷的訓練
-./train.sh 4 --resume python-env/models/v1_500000 --timesteps 1000000
+# 關閉 TensorBoard
+./train.sh 4 --timesteps 1000000 --no-tensorboard
 ```
 
 腳本自動處理：
-1. 編譯並啟動 Rust 引擎
+1. 啟動 Rust 引擎
 2. 等待 gRPC 服務就緒
-3. 啟動並行 Python 訓練
-4. Ctrl+C 時優雅關閉所有進程
+3. 建立時間戳 log 目錄（`python-env/logs/run_YYYYMMDD_HHMMSS`）
+4. 啟動 TensorBoard（http://localhost:6006）
+5. 啟動並行 Python 訓練
+6. Ctrl+C 時優雅關閉所有進程
 
 ## 手動訓練
 
@@ -210,10 +211,10 @@ cd python-env && pytest tests/
 
 ## 實驗追蹤
 
-- 檢查點儲存至 `python-env/experiments/checkpoints.jsonl`
-- 查看最新：`tail -n 5 python-env/experiments/checkpoints.jsonl`
-- 報告腳本：`python scripts/checkpoint_report.py --tail 10`
-- TensorBoard：`tensorboard --logdir python-env/logs/`
+- **TensorBoard**：`train.sh` 自動啟動，訪問 http://localhost:6006
+- **Log 目錄**：`python-env/logs/run_YYYYMMDD_HHMMSS/`（時間戳命名）
+- **檢查點**：儲存至 `python-env/experiments/checkpoints.jsonl`
+- **報告腳本**：`python scripts/checkpoint_report.py --tail 10`
 
 ## Proto 重新生成
 

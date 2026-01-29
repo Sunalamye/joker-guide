@@ -87,22 +87,23 @@ MultiDiscrete action space with **46-dimensional action mask**:
 Use `train.sh` for automated concurrent training:
 
 ```bash
-# 4 parallel environments, 1M timesteps
+# 4 parallel environments, 1M timesteps (TensorBoard auto-starts)
 ./train.sh 4 --timesteps 1000000 --checkpoint python-env/models/v1
 
-# 8 parallel environments with TensorBoard logging
-./train.sh 8 --timesteps 1000000 --checkpoint python-env/models/v1 \
-  --tensorboard-log python-env/logs/v1
+# 8 parallel environments
+./train.sh 8 --timesteps 1000000 --checkpoint python-env/models/v1
 
-# Resume interrupted training
-./train.sh 4 --resume python-env/models/v1_500000 --timesteps 1000000
+# Disable TensorBoard
+./train.sh 4 --timesteps 1000000 --no-tensorboard
 ```
 
 The script automatically:
-1. Builds and starts the Rust engine
+1. Starts the Rust engine
 2. Waits for gRPC server ready
-3. Launches parallel Python training
-4. Handles graceful shutdown on Ctrl+C
+3. Creates timestamped log directory (`python-env/logs/run_YYYYMMDD_HHMMSS`)
+4. Starts TensorBoard on http://localhost:6006
+5. Launches parallel Python training
+6. Handles graceful shutdown on Ctrl+C (stops all processes)
 
 ## Manual Training
 
@@ -210,10 +211,10 @@ cd python-env && pytest tests/
 
 ## Experiment Tracking
 
-- Checkpoints saved to `python-env/experiments/checkpoints.jsonl`
-- View latest: `tail -n 5 python-env/experiments/checkpoints.jsonl`
-- Report script: `python scripts/checkpoint_report.py --tail 10`
-- TensorBoard: `tensorboard --logdir python-env/logs/`
+- **TensorBoard**: Auto-starts with `train.sh` at http://localhost:6006
+- **Log directory**: `python-env/logs/run_YYYYMMDD_HHMMSS/` (timestamped)
+- **Checkpoints**: Saved to `python-env/experiments/checkpoints.jsonl`
+- **Report script**: `python scripts/checkpoint_report.py --tail 10`
 
 ## Proto Regeneration
 
