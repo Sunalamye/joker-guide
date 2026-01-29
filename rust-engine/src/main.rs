@@ -1121,6 +1121,9 @@ impl JokerEnv for EnvService {
                                         state.apply_hook_discard();
                                     }
                                 }
+
+                                // v6.6: 出牌後清除選擇，避免下次出牌時誤用舊選擇
+                                state.selected_mask = 0;
                             }
                         }
                     }
