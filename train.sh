@@ -6,7 +6,9 @@
 # 例如:
 #   ./train.sh 4 --timesteps 1000000     # 4 個並行環境
 #   ./train.sh 8 --timesteps 1000000     # 8 個並行環境
-#   ./train.sh 16 --timesteps 1000000    # 16 個並行環境
+#   ./train.sh 4 --no-tensorboard        # 關閉 TensorBoard
+#
+# TensorBoard 預設啟用，訪問 http://localhost:6006
 
 set -e
 
@@ -16,6 +18,22 @@ shift 1 2>/dev/null || true
 
 PORT=50051
 RUST_ENGINE="./rust-engine/target/release/joker_env"
+TB_PORT=6006
+
+# 生成時間戳記的 log 目錄
+TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
+LOG_DIR="python-env/logs/run_${TIMESTAMP}"
+
+# 解析是否禁用 TensorBoard
+ENABLE_TB=true
+EXTRA_ARGS=()
+for arg in "$@"; do
+    if [ "$arg" = "--no-tensorboard" ]; then
+        ENABLE_TB=false
+    else
+        EXTRA_ARGS+=("$arg")
+    fi
+done
 
 # 清理函數
 cleanup() {
@@ -23,6 +41,9 @@ cleanup() {
     echo "Stopping all processes..."
     if [ -n "$ENGINE_PID" ] && kill -0 "$ENGINE_PID" 2>/dev/null; then
         kill "$ENGINE_PID" 2>/dev/null || true
+    fi
+    if [ -n "$TB_PID" ] && kill -0 "$TB_PID" 2>/dev/null; then
+        kill "$TB_PID" 2>/dev/null || true
     fi
     wait 2>/dev/null || true
     echo "All processes stopped."
@@ -39,11 +60,18 @@ if [ ! -f "$RUST_ENGINE" ]; then
     exit 1
 fi
 
+# 創建 log 目錄
+mkdir -p "$LOG_DIR"
+
 echo "============================================"
 echo "  Joker Guide Training (Concurrent Mode)"
 echo "============================================"
 echo "  Rust engine:  1 (with multi-game support)"
 echo "  Python envs:  $N_ENVS"
+echo "  Log dir:      $LOG_DIR"
+if [ "$ENABLE_TB" = true ]; then
+echo "  TensorBoard:  http://localhost:$TB_PORT"
+fi
 echo "============================================"
 echo ""
 
@@ -69,6 +97,21 @@ else
 fi
 echo ""
 
+# 啟動 TensorBoard（如果啟用）
+if [ "$ENABLE_TB" = true ]; then
+    echo "Starting TensorBoard on port $TB_PORT..."
+    python3 -m tensorboard.main --logdir="$LOG_DIR" --port="$TB_PORT" --bind_all 2>/dev/null &
+    TB_PID=$!
+    sleep 1
+    if kill -0 "$TB_PID" 2>/dev/null; then
+        echo "TensorBoard started: http://localhost:$TB_PORT"
+    else
+        echo "Warning: TensorBoard failed to start (may already be running)"
+        TB_PID=""
+    fi
+    echo ""
+fi
+
 # 啟動 Python 訓練（所有環境連接同一個引擎）
 echo "Starting training with $N_ENVS parallel environments..."
 echo "Press Ctrl+C to stop"
@@ -78,4 +121,5 @@ JOKER_BASE_PORT=$PORT \
 JOKER_N_ENGINES=1 \
 PYTHONPATH=python-env/src python -m joker_env.train_sb3 \
     --n-envs "$N_ENVS" \
-    "$@"
+    --tensorboard-log "$LOG_DIR" \
+    "${EXTRA_ARGS[@]}"
