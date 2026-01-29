@@ -31,6 +31,7 @@ v6.3 強化 Boss 獎勵（針對 Boss Clear 0% 瓶頸）：
 2. Boss 額外加成從 0.05 提升到 0.10
 3. 效率獎勵從 0.01/play 提升到 0.02/play
 4. Small/Big 略降以突出 Boss 重要性
+5. Boss 階段每個動作 +0.0001（鼓勵積極面對）
 
 | 模組                     | 範圍             | 說明                              |
 |--------------------------|------------------|-----------------------------------|
@@ -1210,6 +1211,11 @@ class RewardCalculator:
         # 只在商店階段檢查（避免戰鬥中干擾）
         if info.stage == STAGE_SHOP:
             reward += joker_shortage_penalty(info.joker_count, info.ante)
+
+        # v6.3: Boss 階段動作獎勵 — 鼓勵積極面對 Boss
+        # 在 Boss Blind 中的每個動作都給微小獎勵
+        if info.stage == STAGE_BLIND and info.blind_type == BLIND_BOSS:
+            reward += 0.0001
 
         # 保存當前狀態作為下一步的參考
         self._prev_info = info
