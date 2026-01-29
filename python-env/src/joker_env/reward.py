@@ -3,7 +3,7 @@
 
 從 Rust reward.rs 移植，為 RL 訓練提供形狀良好的獎勵信號，支持完整遊戲（Ante 1-8）
 
-獎勵範圍設計（v6.2 - 平衡 High Card 懲罰）：
+獎勵範圍設計（v6.3 - 強化 Boss 獎勵）：
 設計原則：
 - 終端獎勵主導：勝利=5.0，確保長期目標壓過短期收益
 - Joker 保護機制：低 Joker 數量時嚴禁賣出，持有 Joker 給予獎勵
@@ -25,6 +25,12 @@ v6.1 追加修復（針對 High Card 過多問題）：
 v6.2 平衡調整（針對 60% 棄牌率問題）：
 1. High Card 懲罰從 -0.05 降到 -0.015（v6.1 太重導致過度棄牌）
 2. 超額獎勵移除上限，改用對數縮放（5x 得 +0.08，10x 得 +0.115）
+
+v6.3 強化 Boss 獎勵（針對 Boss Clear 0% 瓶頸）：
+1. Boss 基礎獎勵從 0.50 提升到 0.80
+2. Boss 額外加成從 0.05 提升到 0.10
+3. 效率獎勵從 0.01/play 提升到 0.02/play
+4. Small/Big 略降以突出 Boss 重要性
 
 | 模組                     | 範圍             | 說明                              |
 |--------------------------|------------------|-----------------------------------|
@@ -590,33 +596,35 @@ def blind_clear_reward(
     boss_blind_id: Optional[int] = None
 ) -> float:
     """
-    過關獎勵：強化中後期（v5.2）
+    過關獎勵：強化 Boss 獎勵（v6.3）
 
     設計原則：
+    - Boss 過關獎勵大幅提升（是 Small 的 4 倍）
     - 過關獎勵隨 Ante 顯著增加
-    - Boss 過關獎勵最高（觸發 Ante 進度）
     - Ante 3+ 的過關獎勵明顯高於早期
+
+    v6.3 修改：Boss 基礎獎勵從 0.50 提升到 0.80
     """
-    # 基礎獎勵
+    # 基礎獎勵（v6.3: Boss 大幅提升）
     base = {
-        BLIND_SMALL: 0.25,
-        BLIND_BIG: 0.35,
-        BLIND_BOSS: 0.50,
-    }.get(blind_type, 0.25)
+        BLIND_SMALL: 0.20,   # 略降
+        BLIND_BIG: 0.30,     # 略降
+        BLIND_BOSS: 0.80,    # 大幅提升（原 0.50）
+    }.get(blind_type, 0.20)
 
     # Boss 難度加成
     boss_bonus = 0.0
-    if blind_type == BLIND_BOSS and boss_blind_id is not None:
-        boss_bonus = 0.05
+    if blind_type == BLIND_BOSS:
+        boss_bonus = 0.10  # 提高（原 0.05）
 
     # 效率獎勵（剩餘出牌次數）
-    efficiency = plays_left * 0.01
+    efficiency = plays_left * 0.02  # 提高（原 0.01）
 
     # Ante 階段權重（v5.2: 更陡峭的增長）
     # Ante 1: 1.0, Ante 3: 1.3, Ante 5: 1.6, Ante 8: 2.05
     ante_mult = 1.0 + (ante - 1) * 0.15
 
-    return clamp((base + boss_bonus + efficiency) * ante_mult, 0.25, 1.05)
+    return clamp((base + boss_bonus + efficiency) * ante_mult, 0.20, 1.50)
 
 
 def ante_progress_reward(old_ante: int, new_ante: int) -> float:
