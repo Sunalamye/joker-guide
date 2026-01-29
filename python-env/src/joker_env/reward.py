@@ -262,7 +262,11 @@ def blind_progress_signal(
 
 def hand_setup_reward(prev_hand: int, new_hand: int, had_discard: bool) -> float:
     """
-    棄牌後牌型改善獎勵（小型 shaping）
+    棄牌後牌型改善/變差獎勵（v6.4 修改：加入變差懲罰）
+
+    - 改善：+0.02 ~ +0.08（根據提升幅度）
+    - 不變：0
+    - 變差：-0.01（輕微懲罰，避免過度保守）
     """
     if not had_discard:
         return 0.0
@@ -271,9 +275,18 @@ def hand_setup_reward(prev_hand: int, new_hand: int, had_discard: bool) -> float
 
     prev_strength = _HAND_STRENGTH_ORDER.get(prev_hand, -1)
     new_strength = _HAND_STRENGTH_ORDER.get(new_hand, -1)
-    if prev_strength < 0 or new_strength < 0 or new_strength <= prev_strength:
+    if prev_strength < 0 or new_strength < 0:
         return 0.0
 
+    # v6.4: 變差懲罰
+    if new_strength < prev_strength:
+        return -0.01  # 輕微懲罰，避免阻礙策略性棄牌
+
+    # 不變
+    if new_strength == prev_strength:
+        return 0.0
+
+    # 改善獎勵
     diff = new_strength - prev_strength
     if diff <= 2:
         reward = 0.02
@@ -283,6 +296,31 @@ def hand_setup_reward(prev_hand: int, new_hand: int, had_discard: bool) -> float
         reward = 0.06 + min(0.02, (diff - 5) * 0.01)
 
     return min(reward, 0.08)
+
+
+def potential_change_reward(
+    old_flush: float, old_straight: float, old_pairs: float,
+    new_flush: float, new_straight: float, new_pairs: float
+) -> float:
+    """
+    v6.4: 手牌潛力變化獎勵（Potential-Based Shaping）
+
+    計算手牌潛力的綜合變化，獎勵提升潛力的棄牌決策。
+
+    潛力權重（根據 Balatro 分數）：
+    - Flush: 0.40（Flush 分數高且相對容易達成）
+    - Straight: 0.35（Straight 分數高但較難達成）
+    - Pairs: 0.25（Pairs 是保底選項）
+
+    返回範圍：約 -0.05 ~ +0.05
+    """
+    # 加權計算綜合潛力
+    old_potential = 0.40 * old_flush + 0.35 * old_straight + 0.25 * old_pairs
+    new_potential = 0.40 * new_flush + 0.35 * new_straight + 0.25 * new_pairs
+
+    # 潛力差分，縮放係數 0.1（避免過度主導）
+    delta = new_potential - old_potential
+    return delta * 0.1  # 範圍約 -0.05 ~ +0.05
 
 
 class BuildTracker:
@@ -435,6 +473,11 @@ class StepInfo:
     joker_sold_id: int = -1  # 賣出的 Joker ID (-1 = 無)
     best_shop_joker_cost: int = 0  # 商店中最強 Joker 的成本
 
+    # v6.4: 手牌潛力指標（從 Rust 計算）
+    flush_potential: float = 0.0    # 同花潛力 [0, 1]
+    straight_potential: float = 0.0  # 順子潛力 [0, 1]
+    pairs_potential: float = 0.0     # 對子潛力 [0, 1]
+
 
 def parse_env_info(info: dict) -> StepInfo:
     """從 gRPC EnvInfo 解析狀態"""
@@ -463,6 +506,10 @@ def parse_env_info(info: dict) -> StepInfo:
         consumable_id=info.get("consumable_id", -1),
         joker_sold_id=info.get("joker_sold_id", -1),
         best_shop_joker_cost=info.get("best_shop_joker_cost", 0),
+        # v6.4: 手牌潛力指標
+        flush_potential=info.get("flush_potential", 0.0),
+        straight_potential=info.get("straight_potential", 0.0),
+        pairs_potential=info.get("pairs_potential", 0.0),
     )
 
 
@@ -1066,6 +1113,10 @@ class RewardCalculator:
         # v6.4: 棄牌改善獎勵狀態追蹤
         self._prev_hand_type: int = -1  # 上一次的最佳牌型
         self._consecutive_discards: int = 0  # 連續棄牌計數器（反循環保護）
+        # v6.4: 手牌潛力追蹤
+        self._prev_flush_potential: float = 0.0
+        self._prev_straight_potential: float = 0.0
+        self._prev_pairs_potential: float = 0.0
 
     def reset(self):
         """重置內部狀態"""
@@ -1074,6 +1125,9 @@ class RewardCalculator:
         # v6.4: 重置棄牌追蹤狀態
         self._prev_hand_type = -1
         self._consecutive_discards = 0
+        self._prev_flush_potential = 0.0
+        self._prev_straight_potential = 0.0
+        self._prev_pairs_potential = 0.0
 
     def calculate(self, info_dict: dict) -> float:
         """
@@ -1105,6 +1159,9 @@ class RewardCalculator:
             # v6.4: 過關後重置棄牌追蹤狀態
             self._consecutive_discards = 0
             self._prev_hand_type = -1
+            self._prev_flush_potential = 0.0
+            self._prev_straight_potential = 0.0
+            self._prev_pairs_potential = 0.0
 
         # 根據動作類型計算獎勵
         elif action_type == ACTION_TYPE_PLAY:
@@ -1132,6 +1189,9 @@ class RewardCalculator:
             # v6.4: 出牌後重置棄牌追蹤狀態
             self._consecutive_discards = 0
             self._prev_hand_type = -1
+            self._prev_flush_potential = 0.0
+            self._prev_straight_potential = 0.0
+            self._prev_pairs_potential = 0.0
 
         elif action_type == ACTION_TYPE_DISCARD:
             # 使用實際棄牌數量（來自 Rust 端）
@@ -1140,20 +1200,43 @@ class RewardCalculator:
 
             # v6.4: 棄牌改善獎勵（帶反循環保護）
             self._consecutive_discards += 1
+
+            # 初始化追蹤狀態（首次棄牌時從前一步獲取）
+            if self._prev_hand_type < 0 and prev is not None:
+                self._prev_hand_type = prev.hand_type
+                self._prev_flush_potential = prev.flush_potential
+                self._prev_straight_potential = prev.straight_potential
+                self._prev_pairs_potential = prev.pairs_potential
+
             if self._consecutive_discards <= 2:
                 # 只獎勵前 2 次連續棄牌
+                # 1. 牌型改善/變差獎勵
                 setup_bonus = hand_setup_reward(
                     self._prev_hand_type,
                     info.hand_type,
                     had_discard=(info.cards_discarded > 0)
                 )
                 reward += setup_bonus
+
+                # 2. v6.4: 潛力變化獎勵（Potential-Based Shaping）
+                potential_bonus = potential_change_reward(
+                    self._prev_flush_potential,
+                    self._prev_straight_potential,
+                    self._prev_pairs_potential,
+                    info.flush_potential,
+                    info.straight_potential,
+                    info.pairs_potential
+                )
+                reward += potential_bonus
             else:
                 # 第 3 次及之後連續棄牌：額外懲罰（防止棄牌循環）
                 reward -= 0.02 * (self._consecutive_discards - 2)
 
             # 更新手牌追蹤狀態
             self._prev_hand_type = info.hand_type
+            self._prev_flush_potential = info.flush_potential
+            self._prev_straight_potential = info.straight_potential
+            self._prev_pairs_potential = info.pairs_potential
 
         elif action_type == ACTION_TYPE_BUY_JOKER:
             # Fix: 檢查購買是否成功（joker_count 增加且 money 減少）

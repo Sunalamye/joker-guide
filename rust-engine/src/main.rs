@@ -38,6 +38,65 @@ use service::{
 };
 
 // ============================================================================
+// v6.4: 手牌潛力計算
+// ============================================================================
+
+/// 計算手牌的潛力指標（用於棄牌獎勵）
+/// 返回 (flush_potential, straight_potential, pairs_potential)
+fn calculate_hand_potential(hand: &[Card]) -> (f32, f32, f32) {
+    if hand.is_empty() {
+        return (0.0, 0.0, 0.0);
+    }
+
+    // Flush 潛力：最大同花數量 / 5
+    let mut suit_counts = [0u8; 4];
+    for card in hand {
+        if (card.suit as usize) < 4 {
+            suit_counts[card.suit as usize] += 1;
+        }
+    }
+    let max_suit = *suit_counts.iter().max().unwrap_or(&0) as f32;
+    let flush_potential = (max_suit / 5.0).min(1.0);
+
+    // Straight 潛力：最長連續 rank / 5
+    let mut ranks: Vec<u8> = hand.iter().map(|c| c.rank).collect();
+    ranks.sort_unstable();
+    ranks.dedup();
+
+    let mut max_consecutive = 1u8;
+    let mut current = 1u8;
+    for i in 1..ranks.len() {
+        if ranks[i] == ranks[i - 1] + 1 {
+            current += 1;
+            max_consecutive = max_consecutive.max(current);
+        } else if ranks[i] > ranks[i - 1] + 1 {
+            current = 1;
+        }
+    }
+    // 特殊處理 A-2-3-4-5 順子（Ace 可以當 1）
+    if ranks.contains(&1) && ranks.contains(&2) {
+        // Ace 已經在 ranks 中作為 1，檢查是否有 wheel
+        let has_wheel = [1, 2, 3, 4, 5].iter().all(|&r| ranks.contains(&r));
+        if has_wheel {
+            max_consecutive = max_consecutive.max(5);
+        }
+    }
+    let straight_potential = (max_consecutive as f32 / 5.0).min(1.0);
+
+    // Pairs 潛力：最大同 rank 數量 / 4
+    let mut rank_counts = [0u8; 14]; // ranks 1-13
+    for card in hand {
+        if (card.rank as usize) < 14 {
+            rank_counts[card.rank as usize] += 1;
+        }
+    }
+    let max_rank = *rank_counts.iter().max().unwrap_or(&0) as f32;
+    let pairs_potential = (max_rank / 4.0).min(1.0);
+
+    (flush_potential, straight_potential, pairs_potential)
+}
+
+// ============================================================================
 // gRPC 服務（支援多遊戲並發）
 // ============================================================================
 
@@ -93,7 +152,7 @@ impl JokerEnv for EnvService {
             action_mask: Some(action_mask_from_state(state, false)),
         };
 
-        let info = EnvInfo {
+        let mut info = EnvInfo {
             // 基本狀態
             episode_step: state.episode_step,
             chips: state.score,
@@ -136,7 +195,16 @@ impl JokerEnv for EnvService {
             // Joker 交易相關
             joker_sold_id: -1,
             best_shop_joker_cost: state.shop.items.iter().map(|item| item.cost as i32).max().unwrap_or(0),
+
+            // v6.4: 手牌潛力指標
+            ..Default::default()
         };
+
+        // v6.4: 計算手牌潛力
+        let (flush_pot, straight_pot, pairs_pot) = calculate_hand_potential(&state.hand);
+        info.flush_potential = flush_pot;
+        info.straight_potential = straight_pot;
+        info.pairs_potential = pairs_pot;
 
         Ok(Response::new(ResetResponse {
             observation: Some(observation),
@@ -2224,7 +2292,7 @@ impl JokerEnv for EnvService {
             action_mask: Some(action_mask_from_state(&state, done)),
         };
 
-        let info = EnvInfo {
+        let mut info = EnvInfo {
             // 基本狀態
             episode_step: state.episode_step,
             chips: state.score,
@@ -2273,7 +2341,16 @@ impl JokerEnv for EnvService {
             // Joker 交易相關
             joker_sold_id: state.last_sold_joker_id,
             best_shop_joker_cost: state.shop.items.iter().map(|item| item.cost as i32).max().unwrap_or(0),
+
+            // v6.4: 手牌潛力指標
+            ..Default::default()
         };
+
+        // v6.4: 計算手牌潛力
+        let (flush_pot, straight_pot, pairs_pot) = calculate_hand_potential(&state.hand);
+        info.flush_potential = flush_pot;
+        info.straight_potential = straight_pot;
+        info.pairs_potential = pairs_pot;
 
         Ok(Response::new(StepResponse {
             observation: Some(observation),
