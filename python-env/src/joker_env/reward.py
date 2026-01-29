@@ -488,27 +488,19 @@ def play_reward(score_gained: int, required: int) -> float:
 
 def discard_reward(cards_discarded: int, discards_left: int) -> float:
     """
-    棄牌獎勵：策略性棄牌可獲得小獎勵（-0.05~0.05）
+    棄牌獎勵：棄牌本身不應有正向獎勵
 
     - 空棄牌（cards_discarded==0）懲罰 -0.05（阻斷 no-op 漏洞）
-    - 棄牌越少（更精準），獎勵越高
-    - 最後棄牌機會有小獎勵
+    - 有棄牌：輕微懲罰 -0.01（消耗有限資源）
+
+    Joker 連動效果（Yorick、Castle、Faceless 等）會通過後續的
+    score_delta/money_delta 自動體現，AI 會學習「棄牌是手段而非目標」
     """
     if cards_discarded == 0:
         return -0.05  # 懲罰空棄牌（no-op exploit 防護）
 
-    # 精準棄牌獎勵
-    if cards_discarded <= 2:
-        efficiency = 0.04
-    elif cards_discarded <= 4:
-        efficiency = 0.025
-    else:
-        efficiency = 0.01
-
-    # 最後棄牌機會獎勵
-    urgency_bonus = 0.01 if discards_left == 0 else 0.0
-
-    return min(efficiency + urgency_bonus, 0.05)
+    # 棄牌本身不應有正向獎勵，輕微懲罰消耗有限資源
+    return -0.01
 
 
 def blind_clear_reward(
