@@ -9,16 +9,13 @@ use crate::game::{
 };
 
 /// 從手牌中構建選中的牌
+/// 注意：當 mask=0 時返回空 Vec，調用者需處理此情況
 pub fn build_selected_hand(hand: &[Card], mask: u32) -> Vec<Card> {
     let mut selected = Vec::new();
     for (idx, card) in hand.iter().enumerate() {
         if ((mask >> idx) & 1) == 1 {
             selected.push(*card);
         }
-    }
-    // 確保至少有一張牌
-    if selected.is_empty() && !hand.is_empty() {
-        selected.push(hand[0]);
     }
     selected
 }
@@ -221,11 +218,20 @@ mod tests {
     }
 
     #[test]
-    fn test_build_selected_hand_fallback() {
+    fn test_build_selected_hand_empty_mask() {
         let hand = make_cards(&[(2, 0), (3, 1)]);
         let selected = build_selected_hand(&hand, 0);
-        assert_eq!(selected.len(), 1);
+        // mask=0 時應返回空 Vec，不再自動選第一張
+        assert_eq!(selected.len(), 0);
+    }
+
+    #[test]
+    fn test_build_selected_hand_partial_mask() {
+        let hand = make_cards(&[(2, 0), (3, 1), (4, 2)]);
+        let selected = build_selected_hand(&hand, 0b101); // 選第 1 和第 3 張
+        assert_eq!(selected.len(), 2);
         assert_eq!(selected[0].rank, 2);
+        assert_eq!(selected[1].rank, 4);
     }
 
     #[test]

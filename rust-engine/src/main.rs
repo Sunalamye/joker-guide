@@ -682,7 +682,8 @@ impl JokerEnv for EnvService {
                     }
 
                     ACTION_TYPE_PLAY => {
-                        if state.plays_left > 0 {
+                        // 防禦檢查：必須有選中的牌才能出牌
+                        if state.plays_left > 0 && state.selected_mask > 0 {
                             let mut selected =
                                 build_selected_hand(&state.hand, state.selected_mask);
                             let selected_count = selected.len();
