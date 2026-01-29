@@ -18,46 +18,47 @@ A Balatro reinforcement learning training project using **Rust + Python separate
 ```
 
 - **Rust Engine** (`rust-engine/`): Pure game environment - state management, action validation, action mask generation
-- **Python Environment** (`python-env/`): Reward calculation, Gymnasium wrapper, PPO/REINFORCE training
+- **Python Environment** (`python-env/`): Reward calculation, Gymnasium wrapper, MaskablePPO training
 
-## Key Concepts
+## Quick Start
 
-- **Observation vector (length 170)**: `[scalars(8), selection_mask(5), hand(5×17), hand_type(10), deck_counts(52), joker_slots(5×2)]`
-- **Action tuple**: MultiDiscrete `[action_type, card_0, …, card_4]`, supports 13 action types
-- **Joker system**: 164 Jokers with declarative effect definition system
-- **Reward separation**: Rust provides delta info, Python calculates reward functions
+```bash
+# 1. Build Rust engine
+cd rust-engine && cargo build --release && cd ..
 
-## Rust Engine Structure
+# 2. Install Python dependencies
+cd python-env && pip install . && cd ..
 
-```
-rust-engine/src/
-├── main.rs              # gRPC service entry point
-├── lib.rs               # Proto imports
-├── game/                # Core game logic
-│   ├── joker_def.rs     # Declarative Joker effect system (164 Jokers)
-│   ├── joker.rs         # Joker implementation with Tiered Architecture
-│   ├── scoring.rs       # Scoring engine
-│   ├── consumables.rs   # Consumables (Tarot/Planet/Spectral)
-│   ├── vouchers.rs      # Voucher permanent upgrades
-│   ├── packs.rs         # Card pack system
-│   ├── blinds.rs        # Blind/Boss Blind/Ante
-│   ├── stakes.rs        # Stake difficulty system
-│   ├── tags.rs          # Tag system
-│   ├── decks.rs         # Starting decks
-│   ├── cards.rs         # Card/Enhancement/Seal/Edition
-│   ├── hand_types.rs    # Hand type definitions
-│   └── constants.rs     # Game constants
-└── service/             # gRPC service layer
-    ├── state.rs         # EnvState management
-    ├── observation.rs   # Observation vector building
-    ├── action_mask.rs   # Legal action mask generation
-    └── scoring.rs       # Hand scoring analysis
+# 3. Start training (recommended)
+./train.sh 4 --timesteps 100000 --checkpoint python-env/models/my_model
 ```
 
-### Action Types
+## Architecture Overview
 
-| ID | Name | ID | Name |
-|----|------|----|------|
+### Observation Vector (1,613 dimensions)
+
+| Component | Dims | Description |
+|-----------|------|-------------|
+| Scalars | 32 | Game state (score, ante, stage, money, etc.) |
+| Selection | 8 | Hand card selection mask |
+| Hand | 168 | 8 cards × 21 features (rank, suit, enhancement, seal, edition) |
+| Hand Type | 13 | Poker hand type one-hot |
+| Deck | 52 | Remaining card counts |
+| Jokers | 765 | 5 slots × 153 features (150 ID one-hot + 3 flags) |
+| Shop | 302 | 2 shop jokers × 151 features |
+| Boss Blind | 27 | Boss blind type one-hot |
+| Deck Type | 16 | Starting deck type |
+| Stake | 8 | Difficulty level |
+| Vouchers | 36 | Owned voucher flags |
+| Consumables | 104 | 2 slots × 52 types |
+| Tags | 25 | Tag counts |
+
+### Action Space
+
+MultiDiscrete action space with **46-dimensional action mask**:
+
+| ID | Action | ID | Action |
+|----|--------|----|--------|
 | 0 | SELECT | 7 | REROLL |
 | 1 | PLAY | 8 | SELL_JOKER |
 | 2 | DISCARD | 9 | SKIP_BLIND |
@@ -66,118 +67,155 @@ rust-engine/src/
 | 5 | BUY_JOKER | 12 | BUY_PACK |
 | 6 | NEXT_ROUND | | |
 
-## Running the Rust Server
+### Key Design Principles
+
+- **164 Jokers** with declarative effect definition system (`joker_def.rs`)
+- **Reward separation**: Rust provides delta info, Python calculates rewards (no recompilation needed)
+- **Multi-session support**: Single Rust engine serves multiple Python environments via gRPC session IDs
+
+## Concurrent Training (Recommended)
+
+Use `train.sh` for automated concurrent training:
 
 ```bash
-cd rust-engine
-cargo run --release
+# 4 parallel environments, 1M timesteps
+./train.sh 4 --timesteps 1000000 --checkpoint python-env/models/v1
+
+# 8 parallel environments with TensorBoard logging
+./train.sh 8 --timesteps 1000000 --checkpoint python-env/models/v1 \
+  --tensorboard-log python-env/logs/v1
+
+# Resume interrupted training
+./train.sh 4 --resume python-env/models/v1_500000 --timesteps 1000000
 ```
 
-gRPC service listens on `127.0.0.1:50051`. Regenerate Python stubs after modifying `proto/joker_guide.proto`:
+The script automatically:
+1. Builds and starts the Rust engine
+2. Waits for gRPC server ready
+3. Launches parallel Python training
+4. Handles graceful shutdown on Ctrl+C
+
+## Manual Training
+
+### Start Rust Server
 
 ```bash
-PYTHON_BIN=python3 ./scripts/gen_proto.sh
+cd rust-engine && cargo run --release
 ```
 
-## Python Environment
+gRPC service listens on `127.0.0.1:50051`.
 
-Install the Python stack inside `python-env`:
+### Training with MaskablePPO (Recommended)
 
 ```bash
-cd python-env
-python3 -m pip install .
-python3 -m pip install grpcio-tools stable-baselines3 sb3-contrib
+PYTHONPATH=python-env/src python -m joker_env.train_sb3 \
+  --timesteps 100000 \
+  --checkpoint python-env/models/ppo \
+  --tensorboard-log python-env/logs/ppo
 ```
 
-### Training Scripts
+Key parameters:
 
-#### `python -m joker_env.train`
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `--timesteps` | 50000 | Total training steps |
+| `--checkpoint` | - | Model save path |
+| `--save-interval` | 25000 | Checkpoint interval |
+| `--n-envs` | 1 | Parallel environments |
+| `--learning-rate` | 3e-4 | Learning rate |
+| `--ent-coef` | 0.05 | Entropy coefficient |
+| `--gamma` | 0.95 | Discount factor |
+| `--batch-size` | 64 | Minibatch size |
+| `--net-arch` | 128 128 | MLP hidden layers |
 
-- `--episodes`: number of REINFORCE episodes to run (default 50)
-- `--checkpoint`: optional path (e.g. `python-env/models/simple.pt`) to persist policy parameters
+Full parameter list: `python -m joker_env.train_sb3 --help`
 
-Example:
-```bash
-PYTHONPATH=python-env/src python3 -m joker_env.train --episodes 20 --checkpoint python-env/models/simple.pt
+## Reward System (v5.0)
+
+Rewards are calculated in Python (`python-env/src/joker_env/reward.py`):
+
+| Event | Range | Description |
+|-------|-------|-------------|
+| Game Win | +5.0 | Terminal goal, highest reward |
+| Game Lose | -2.0 ~ -0.5 | Penalty scaled by progress |
+| Ante Progress | +0.48 ~ +2.27 | Progressive scaling (0.15×a^1.5) |
+| Blind Clear | +0.25 ~ +0.75 | Ante-adjusted bonus |
+| Play Hand | 0 ~ +0.15 | Normalized score reward |
+| Discard | -0.05 ~ +0.05 | Empty discard penalty |
+| Buy Joker | -0.3 ~ +0.3 | Phase-weighted with economy penalty |
+| Skip Blind | -0.2 ~ +0.25 | Tag value assessment |
+
+Key features:
+- **Terminal reward dominance**: Win reward (5.0) outweighs all intermediate rewards
+- **Reward hacking protection**: Empty discard (-0.05), failed purchase (-0.05), no-op (-0.03)
+- **Interest threshold bonuses**: $5/$10/$15/$20/$25 milestone rewards
+- **Tag value mapping**: 25 tag types with individual value assessment
+
+## Project Structure
+
+```
+joker-guide/
+├── rust-engine/src/
+│   ├── main.rs              # gRPC service entry
+│   ├── game/                # Core game logic
+│   │   ├── joker_def.rs     # Declarative Joker effects (164 Jokers)
+│   │   ├── joker.rs         # Joker implementation
+│   │   ├── scoring.rs       # Scoring engine
+│   │   ├── blinds.rs        # Blind/Boss/Ante
+│   │   ├── cards.rs         # Card/Enhancement/Seal/Edition
+│   │   └── ...              # Other game systems
+│   └── service/             # gRPC service layer
+│       ├── state.rs         # Game state management
+│       ├── observation.rs   # Observation vector building
+│       └── action_mask.rs   # Legal action generation
+├── python-env/src/joker_env/
+│   ├── env.py               # Gymnasium environment wrapper
+│   ├── reward.py            # Reward calculation (v5.0)
+│   ├── callbacks.py         # Training callbacks
+│   ├── train_sb3.py         # MaskablePPO training
+│   └── train.py             # Basic REINFORCE training
+├── proto/
+│   └── joker_guide.proto    # gRPC protocol definition
+├── data/                    # Game data (JSON reference files)
+└── train.sh                 # Concurrent training script
 ```
 
-#### `python -m joker_env.train_sb3`
-
-- `--timesteps`: total MaskablePPO timesteps (default 50000)
-- `--checkpoint`: path to save the SB3 model (e.g. `python-env/models/ppo`)
-- `--save-interval`: chunk size (default 25000); triggers intermediate snapshots like `python-env/models/ppo_25000`
-- `--tensorboard-log`: optional path to write TensorBoard summaries
-- `--log-freq`: per-episode console summary frequency from the custom callback (default 10)
-- `--tb-log-freq`: per-episode TensorBoard logging frequency for custom metrics (default 1)
-- `--verbose`: SB3 verbosity level (default 1)
-- `--mps`: use Apple MPS acceleration when available
-- `--n-steps`: rollout steps per update (default 256)
-- `--batch-size`: minibatch size (default 64)
-- `--ent-coef`: entropy coefficient (default 0.1)
-- `--learning-rate`: learning rate (default 0.0003)
-- `--gamma`: discount factor (default 0.99)
-- `--gae-lambda`: GAE lambda (default 0.95)
-- `--clip-range`: PPO clip range (default 0.2)
-- `--clip-range-vf`: value function clip range (default None)
-- `--normalize-advantage` / `--no-normalize-advantage`: toggle advantage normalization (default on)
-- `--n-epochs`: optimization epochs per update (default 10)
-- `--vf-coef`: value function coefficient (default 0.5)
-- `--max-grad-norm`: gradient clipping (default 0.5)
-- `--target-kl`: target KL for early stopping (default None)
-- `--use-sde`: enable generalized state-dependent exploration (default off)
-- `--sde-sample-freq`: SDE sampling frequency (default -1)
-- `--stats-window-size`: rolling stats window for logs (default 100)
-- `--seed`: random seed (default None)
-- `--net-arch`: policy/value MLP hidden sizes (default `128 128`)
-
-Example:
-```bash
-PYTHONPATH=python-env/src python3 -m joker_env.train_sb3 --timesteps 100000 --checkpoint python-env/models/ppo --save-interval 25000 --tensorboard-log python-env/logs/ppo
-```
-
-The SB3 script wraps the env with `ActionMasker`, uses a custom features extractor that concatenates selection, hand, deck, and Joker embeddings, chunks the learn loop so very long runs can resume cleanly, and drops per-chunk checkpoints next to `--checkpoint`.
-
-## Experiment Tracking
-
-- Each checkpoint chunk writes a record to `python-env/experiments/checkpoints.jsonl` (created automatically). Every line is JSON with `timestamp`, `checkpoint`, `steps`, `total_timesteps`, and `save_interval`.
-- Use `tail -n 5 python-env/experiments/checkpoints.jsonl` to see the latest snapshots.
-- Run `scripts/checkpoint_report.py` to print the latest log entries.
-- Pipe `scripts/checkpoint_report.py --tail 10` into your dashboard or automation.
-
-## Testing & Verification
+## Testing
 
 ```bash
+# Rust tests (195 tests)
 cd rust-engine && cargo test
+
+# Python reward tests
+cd python-env && pytest tests/
 ```
 
 ### Test Coverage
 
-| Module | Test Content |
-|--------|--------------|
-| `game/cards.rs` | Card chips/mults calculation, suit rules, deck/index integrity |
-| `game/hand_types.rs` | Hand type mapping, score sanity checks |
-| `game/blinds.rs` | Blind/Boss Blind/Ante rule logic |
+| Module | Content |
+|--------|---------|
+| `game/joker.rs` | Joker effect calculations, state accumulation |
+| `game/scoring.rs` | Scoring engine, hand type recognition |
 | `service/action_mask.rs` | State-gating, legal action generation |
-| `service/scoring.rs` | Straight baseline, Flint halving, Plasma scoring, Observatory bonus, Selection fallback |
+| `reward.py` | 70 reward function unit tests |
 
-### Additional Tests
+## Experiment Tracking
 
-- **Scoring regression**: Validates against `references/RLatro/` for FullHouse scoring + Joker bonuses
-- **Proptest suite**: Random hand/Joker combinations - chips/mults positivity, Joker multipliers ≥1
-- **Edition coverage**: Steel-enhanced FullHouse, Holo+Poly edition, rare Joker combos (`Xm`, `++`, `+$`)
+- Checkpoints saved to `python-env/experiments/checkpoints.jsonl`
+- View latest: `tail -n 5 python-env/experiments/checkpoints.jsonl`
+- Report script: `python scripts/checkpoint_report.py --tail 10`
+- TensorBoard: `tensorboard --logdir python-env/logs/`
 
-Re-run `cargo test` after modifying scoring, Joker, or proto files.
+## Proto Regeneration
 
-## Running End-to-End
+After modifying `proto/joker_guide.proto`:
 
-1. Start the Rust server: `cargo run --release`
-2. In another shell, run one of the training commands above
-3. When finished, stop the Rust server (`Ctrl+C`)
+```bash
+./scripts/gen_proto.sh
+```
 
-## Next Steps
+## Requirements
 
-- **Integration tests**: Add full blinds/shops flow tests with Joker + Voucher combinations
-- **Golden-score fixtures**: Establish fixed expected score test cases to prevent accidental scoring changes during refactoring
-- **Reward function tuning**: Experiment with different reward designs in `python-env/src/joker_env/reward.py`
-- **Long training runs**: Use `--tensorboard-log` to track training progress with `python-env/experiments/`
-- **Reference implementation**: Validate rules against [references/RLatro](references/RLatro/)
+- Rust 1.70+
+- Python 3.10+
+- Dependencies: `gymnasium`, `torch`, `stable-baselines3`, `sb3-contrib`, `grpcio`

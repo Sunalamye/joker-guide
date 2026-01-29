@@ -18,166 +18,204 @@ Balatro 強化學習訓練專案，採用 **Rust + Python 分離架構**。
 ```
 
 - **Rust Engine** (`rust-engine/`): 純遊戲環境，負責狀態管理、動作驗證、Action Mask 生成
-- **Python Environment** (`python-env/`): 獎勵計算、Gymnasium 包裝、PPO/REINFORCE 訓練
+- **Python Environment** (`python-env/`): 獎勵計算、Gymnasium 包裝、MaskablePPO 訓練
 
-## 核心概念
+## 快速開始
 
-- **觀測向量 (長度 170)**: `[scalars(8), selection_mask(5), hand(5×17), hand_type(10), deck_counts(52), joker_slots(5×2)]`
-- **動作元組**: MultiDiscrete `[action_type, card_0, …, card_4]`，支援 13 種動作類型
-- **Joker 系統**: 164 個 Joker，採用聲明式效果定義系統
-- **獎勵分離**: Rust 提供 delta 資訊，Python 計算獎勵函數
+```bash
+# 1. 編譯 Rust 引擎
+cd rust-engine && cargo build --release && cd ..
 
-## Rust Engine 結構
+# 2. 安裝 Python 依賴
+cd python-env && pip install . && cd ..
 
-```
-rust-engine/src/
-├── main.rs              # gRPC 服務主程式
-├── lib.rs               # Proto 導入
-├── game/                # 遊戲核心邏輯
-│   ├── joker_def.rs     # 聲明式 Joker 效果系統 (164 Jokers)
-│   ├── joker.rs         # Joker 實現與 Tiered Architecture
-│   ├── scoring.rs       # 計分引擎
-│   ├── consumables.rs   # 消耗品 (Tarot/Planet/Spectral)
-│   ├── vouchers.rs      # Voucher 永久升級
-│   ├── packs.rs         # 卡包系統
-│   ├── blinds.rs        # Blind/Boss Blind/Ante
-│   ├── stakes.rs        # Stake 難度系統
-│   ├── tags.rs          # Tag 系統
-│   ├── decks.rs         # 起始牌組
-│   ├── cards.rs         # Card/Enhancement/Seal/Edition
-│   ├── hand_types.rs    # 牌型定義
-│   └── constants.rs     # 遊戲常量
-└── service/             # gRPC 服務層
-    ├── state.rs         # EnvState 狀態管理
-    ├── observation.rs   # 觀測向量構建
-    ├── action_mask.rs   # 合法動作遮罩
-    └── scoring.rs       # 手牌計分分析
+# 3. 開始訓練（推薦方式）
+./train.sh 4 --timesteps 100000 --checkpoint python-env/models/my_model
 ```
 
-### 動作類型
+## 架構概覽
 
-| ID | 名稱 | ID | 名稱 |
+### 觀測向量（1,613 維）
+
+| 區塊 | 維度 | 說明 |
+|------|------|------|
+| Scalars | 32 | 遊戲狀態（分數、Ante、階段、金幣等） |
+| Selection | 8 | 手牌選擇遮罩 |
+| Hand | 168 | 8 張牌 × 21 特徵（點數、花色、增強、封印、版本） |
+| Hand Type | 13 | 牌型 one-hot 編碼 |
+| Deck | 52 | 剩餘牌組計數 |
+| Jokers | 765 | 5 槽位 × 153 特徵（150 ID one-hot + 3 旗標） |
+| Shop | 302 | 2 商店 Joker × 151 特徵 |
+| Boss Blind | 27 | Boss Blind 類型 one-hot |
+| Deck Type | 16 | 起始牌組類型 |
+| Stake | 8 | 難度等級 |
+| Vouchers | 36 | 已擁有 Voucher 旗標 |
+| Consumables | 104 | 2 槽位 × 52 類型 |
+| Tags | 25 | Tag 計數 |
+
+### 動作空間
+
+MultiDiscrete 動作空間，**46 維動作遮罩**：
+
+| ID | 動作 | ID | 動作 |
 |----|------|----|------|
-| 0 | SELECT (選擇) | 7 | REROLL (重整商店) |
-| 1 | PLAY (出牌) | 8 | SELL_JOKER (賣出 Joker) |
-| 2 | DISCARD (棄牌) | 9 | SKIP_BLIND (跳過 Blind) |
-| 3 | SELECT_BLIND (選擇 Blind) | 10 | USE_CONSUMABLE (使用消耗品) |
-| 4 | CASH_OUT (結算) | 11 | BUY_VOUCHER (購買 Voucher) |
-| 5 | BUY_JOKER (購買 Joker) | 12 | BUY_PACK (購買卡包) |
-| 6 | NEXT_ROUND (下一回合) | | |
+| 0 | SELECT（選擇） | 7 | REROLL（重整商店） |
+| 1 | PLAY（出牌） | 8 | SELL_JOKER（賣出 Joker） |
+| 2 | DISCARD（棄牌） | 9 | SKIP_BLIND（跳過 Blind） |
+| 3 | SELECT_BLIND（選擇 Blind） | 10 | USE_CONSUMABLE（使用消耗品） |
+| 4 | CASH_OUT（結算） | 11 | BUY_VOUCHER（購買 Voucher） |
+| 5 | BUY_JOKER（購買 Joker） | 12 | BUY_PACK（購買卡包） |
+| 6 | NEXT_ROUND（下一回合） | | |
 
-## 執行 Rust 伺服器
+### 核心設計原則
 
-```bash
-cd rust-engine
-cargo run --release
-```
+- **164 個 Joker**，採用聲明式效果定義系統（`joker_def.rs`）
+- **獎勵分離**：Rust 提供 delta 資訊，Python 計算獎勵（無需重新編譯）
+- **多 Session 支援**：單一 Rust 引擎透過 gRPC session ID 服務多個 Python 環境
 
-gRPC 服務監聽 `127.0.0.1:50051`。修改 `proto/joker_guide.proto` 後需重新生成 Python stubs：
+## 並發訓練（推薦）
 
-```bash
-PYTHON_BIN=python3 ./scripts/gen_proto.sh
-```
-
-## Python 環境
-
-在 `python-env` 目錄安裝 Python 套件：
+使用 `train.sh` 進行自動化並發訓練：
 
 ```bash
-cd python-env
-python3 -m pip install .
-python3 -m pip install grpcio-tools stable-baselines3 sb3-contrib
+# 4 個並行環境，100 萬步
+./train.sh 4 --timesteps 1000000 --checkpoint python-env/models/v1
+
+# 8 個並行環境，啟用 TensorBoard 記錄
+./train.sh 8 --timesteps 1000000 --checkpoint python-env/models/v1 \
+  --tensorboard-log python-env/logs/v1
+
+# 恢復中斷的訓練
+./train.sh 4 --resume python-env/models/v1_500000 --timesteps 1000000
 ```
 
-### 訓練腳本
+腳本自動處理：
+1. 編譯並啟動 Rust 引擎
+2. 等待 gRPC 服務就緒
+3. 啟動並行 Python 訓練
+4. Ctrl+C 時優雅關閉所有進程
 
-#### `python -m joker_env.train`
+## 手動訓練
 
-- `--episodes`: REINFORCE 訓練回合數 (預設 50)
-- `--checkpoint`: 策略參數儲存路徑 (例如 `python-env/models/simple.pt`)
+### 啟動 Rust 伺服器
 
-範例：
 ```bash
-PYTHONPATH=python-env/src python3 -m joker_env.train --episodes 20 --checkpoint python-env/models/simple.pt
+cd rust-engine && cargo run --release
 ```
 
-#### `python -m joker_env.train_sb3`
+gRPC 服務監聽 `127.0.0.1:50051`。
 
-- `--timesteps`: MaskablePPO 總時間步數 (預設 50000)
-- `--checkpoint`: SB3 模型儲存路徑 (例如 `python-env/models/ppo`)
-- `--save-interval`: 分段儲存間隔 (預設 25000)，觸發中間快照如 `python-env/models/ppo_25000`
-- `--tensorboard-log`: TensorBoard 摘要寫入路徑
-- `--log-freq`: 自訂 callback 的 console summary 頻率 (預設 10)
-- `--tb-log-freq`: 自訂 metrics 寫入 TensorBoard 的頻率 (預設 1)
-- `--verbose`: SB3 輸出詳細度 (預設 1)
-- `--mps`: 可用時啟用 Apple MPS 加速
-- `--n-steps`: 每次更新的 rollout 步數 (預設 256)
-- `--batch-size`: minibatch 大小 (預設 64)
-- `--ent-coef`: entropy 係數 (預設 0.1)
-- `--learning-rate`: 學習率 (預設 0.0003)
-- `--gamma`: 折扣因子 (預設 0.99)
-- `--gae-lambda`: GAE lambda (預設 0.95)
-- `--clip-range`: PPO clip 範圍 (預設 0.2)
-- `--clip-range-vf`: value function clip 範圍 (預設 None)
-- `--normalize-advantage` / `--no-normalize-advantage`: 是否正規化 advantage (預設開啟)
-- `--n-epochs`: 每次更新的訓練 epoch 數 (預設 10)
-- `--vf-coef`: value function 係數 (預設 0.5)
-- `--max-grad-norm`: 梯度裁切 (預設 0.5)
-- `--target-kl`: 目標 KL，超過可提前停止 (預設 None)
-- `--use-sde`: 啟用 generalized state-dependent exploration (預設關閉)
-- `--sde-sample-freq`: SDE 取樣頻率 (預設 -1)
-- `--stats-window-size`: log 的 rolling 統計視窗 (預設 100)
-- `--seed`: 隨機種子 (預設 None)
-- `--net-arch`: policy/value MLP 隱藏層大小 (預設 `128 128`)
+### 使用 MaskablePPO 訓練（推薦）
 
-範例：
 ```bash
-PYTHONPATH=python-env/src python3 -m joker_env.train_sb3 --timesteps 100000 --checkpoint python-env/models/ppo --save-interval 25000 --tensorboard-log python-env/logs/ppo
+PYTHONPATH=python-env/src python -m joker_env.train_sb3 \
+  --timesteps 100000 \
+  --checkpoint python-env/models/ppo \
+  --tensorboard-log python-env/logs/ppo
 ```
 
-SB3 腳本使用 `ActionMasker` 包裝環境，採用自訂特徵提取器串接 selection、hand、deck 和 Joker embeddings，將學習迴圈分段以便長時間訓練可順利恢復，並在 `--checkpoint` 路徑旁存放分段檢查點。
+常用參數：
+
+| 參數 | 預設值 | 說明 |
+|------|--------|------|
+| `--timesteps` | 50000 | 總訓練步數 |
+| `--checkpoint` | - | 模型儲存路徑 |
+| `--save-interval` | 25000 | 檢查點間隔 |
+| `--n-envs` | 1 | 並行環境數 |
+| `--learning-rate` | 3e-4 | 學習率 |
+| `--ent-coef` | 0.05 | Entropy 係數 |
+| `--gamma` | 0.95 | 折扣因子 |
+| `--batch-size` | 64 | Minibatch 大小 |
+| `--net-arch` | 128 128 | MLP 隱藏層 |
+
+完整參數列表：`python -m joker_env.train_sb3 --help`
+
+## 獎勵系統（v5.0）
+
+獎勵計算在 Python 端（`python-env/src/joker_env/reward.py`）：
+
+| 事件 | 範圍 | 說明 |
+|------|------|------|
+| 遊戲勝利 | +5.0 | 終端目標，最高獎勵 |
+| 遊戲失敗 | -2.0 ~ -0.5 | 依進度調整懲罰 |
+| Ante 進度 | +0.48 ~ +2.27 | 漸進式增長（0.15×a^1.5） |
+| 過關 | +0.25 ~ +0.75 | Ante 調整加成 |
+| 出牌 | 0 ~ +0.15 | 正規化分數獎勵 |
+| 棄牌 | -0.05 ~ +0.05 | 空棄牌懲罰 |
+| 購買 Joker | -0.3 ~ +0.3 | 階段權重 + 經濟懲罰 |
+| 跳過 Blind | -0.2 ~ +0.25 | Tag 價值評估 |
+
+核心特性：
+- **終端獎勵主導**：勝利獎勵（5.0）壓過所有中間獎勵累積
+- **Reward Hacking 防護**：空棄牌（-0.05）、購買失敗（-0.05）、no-op（-0.03）
+- **利息閾值獎勵**：$5/$10/$15/$20/$25 階梯獎勵
+- **Tag 價值映射**：25 種 Tag 各有獨立價值評估
+
+## 專案結構
+
+```
+joker-guide/
+├── rust-engine/src/
+│   ├── main.rs              # gRPC 服務入口
+│   ├── game/                # 遊戲核心邏輯
+│   │   ├── joker_def.rs     # 聲明式 Joker 效果（164 個）
+│   │   ├── joker.rs         # Joker 實現
+│   │   ├── scoring.rs       # 計分引擎
+│   │   ├── blinds.rs        # Blind/Boss/Ante
+│   │   ├── cards.rs         # Card/Enhancement/Seal/Edition
+│   │   └── ...              # 其他遊戲系統
+│   └── service/             # gRPC 服務層
+│       ├── state.rs         # 遊戲狀態管理
+│       ├── observation.rs   # 觀測向量構建
+│       └── action_mask.rs   # 合法動作生成
+├── python-env/src/joker_env/
+│   ├── env.py               # Gymnasium 環境包裝
+│   ├── reward.py            # 獎勵計算（v5.0）
+│   ├── callbacks.py         # 訓練 Callbacks
+│   ├── train_sb3.py         # MaskablePPO 訓練
+│   └── train.py             # 基礎 REINFORCE 訓練
+├── proto/
+│   └── joker_guide.proto    # gRPC 協議定義
+├── data/                    # 遊戲資料（JSON 參考檔）
+└── train.sh                 # 並發訓練腳本
+```
+
+## 測試
+
+```bash
+# Rust 測試（195 個）
+cd rust-engine && cargo test
+
+# Python 獎勵測試
+cd python-env && pytest tests/
+```
+
+### 測試覆蓋
+
+| 模組 | 內容 |
+|------|------|
+| `game/joker.rs` | Joker 效果計算、狀態累積 |
+| `game/scoring.rs` | 計分引擎、牌型識別 |
+| `service/action_mask.rs` | 狀態門控、合法動作生成 |
+| `reward.py` | 70 個獎勵函數單元測試 |
 
 ## 實驗追蹤
 
-- 每個檢查點分段會寫入記錄到 `python-env/experiments/checkpoints.jsonl`（自動建立）。每行是 JSON 格式，包含 `timestamp`、`checkpoint`、`steps`、`total_timesteps` 和 `save_interval`。
-- 使用 `tail -n 5 python-env/experiments/checkpoints.jsonl` 查看最新快照。
-- 執行 `scripts/checkpoint_report.py` 列印最新日誌條目。
-- 將 `scripts/checkpoint_report.py --tail 10` 導入你的儀表板或自動化流程。
+- 檢查點儲存至 `python-env/experiments/checkpoints.jsonl`
+- 查看最新：`tail -n 5 python-env/experiments/checkpoints.jsonl`
+- 報告腳本：`python scripts/checkpoint_report.py --tail 10`
+- TensorBoard：`tensorboard --logdir python-env/logs/`
 
-## 測試與驗證
+## Proto 重新生成
+
+修改 `proto/joker_guide.proto` 後：
 
 ```bash
-cd rust-engine && cargo test
+./scripts/gen_proto.sh
 ```
 
-### 測試覆蓋範圍
+## 系統需求
 
-| 模組 | 測試內容 |
-|------|----------|
-| `game/cards.rs` | 卡牌 chips/mults 計算、花色規則、deck/index 完整性 |
-| `game/hand_types.rs` | 牌型映射、分數合理性檢查 |
-| `game/blinds.rs` | Blind/Boss Blind/Ante 規則邏輯 |
-| `service/action_mask.rs` | 狀態門控 (state-gating)、合法動作生成 |
-| `service/scoring.rs` | Straight baseline、Flint halving、Plasma scoring、Observatory bonus、Selection fallback |
-
-### 其他測試
-
-- **Scoring regression**: 對照 `references/RLatro/` 的 FullHouse scoring + Joker bonuses
-- **Proptest suite**: 隨機手牌/Joker 組合的 chips/mults 正值檢驗、Joker multipliers ≥1
-- **Edition coverage**: Steel-enhanced FullHouse、Holo+Poly edition、rare Joker combos (`Xm`, `++`, `+$`)
-
-修改 scoring、Joker、或 proto 後請重新執行 `cargo test`。
-
-## 端對端執行
-
-1. 啟動 Rust 伺服器：`cargo run --release`
-2. 在另一個終端執行上述訓練指令
-3. 完成後停止 Rust 伺服器 (`Ctrl+C`)
-
-## 後續步驟
-
-- **整合測試**: 添加完整 blinds/shops 流程測試，包含 Joker + Voucher 組合效果
-- **Golden-score fixtures**: 建立固定預期分數的測試案例，防止重構時意外改變計分行為
-- **獎勵函數調優**: 在 `python-env/src/joker_env/reward.py` 中實驗不同獎勵設計
-- **長時間訓練**: 使用 `--tensorboard-log` 追蹤訓練進度，配合 `python-env/experiments/` 做實驗管理
-- **參考實現**: 對照 [references/RLatro](references/RLatro/) 驗證規則正確性
+- Rust 1.70+
+- Python 3.10+
+- 依賴套件：`gymnasium`、`torch`、`stable-baselines3`、`sb3-contrib`、`grpcio`
