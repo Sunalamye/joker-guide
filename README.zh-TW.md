@@ -22,6 +22,13 @@ Balatro 強化學習訓練專案，採用 **Rust + Python 分離架構**。
 
 ## 快速開始
 
+**一鍵安裝**（推薦）：
+```bash
+chmod +x scripts/setup.sh
+./scripts/setup.sh
+```
+
+或手動安裝：
 ```bash
 # 1. 編譯 Rust 引擎
 cd rust-engine && cargo build --release && cd ..
@@ -29,9 +36,11 @@ cd rust-engine && cargo build --release && cd ..
 # 2. 安裝 Python 依賴
 cd python-env && pip install . && cd ..
 
-# 3. 開始訓練（推薦方式）
+# 3. 開始訓練
 ./train.sh 4 --timesteps 100000 --checkpoint python-env/models/my_model
 ```
+
+詳細安裝說明、GPU 設置和疑難排解請參閱 [INSTALL.md](INSTALL.md)。
 
 ## 架構概覽
 

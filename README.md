@@ -22,6 +22,13 @@ A Balatro reinforcement learning training project using **Rust + Python separate
 
 ## Quick Start
 
+**One-click setup** (recommended):
+```bash
+chmod +x scripts/setup.sh
+./scripts/setup.sh
+```
+
+Or manually:
 ```bash
 # 1. Build Rust engine
 cd rust-engine && cargo build --release && cd ..
@@ -29,9 +36,11 @@ cd rust-engine && cargo build --release && cd ..
 # 2. Install Python dependencies
 cd python-env && pip install . && cd ..
 
-# 3. Start training (recommended)
+# 3. Start training
 ./train.sh 4 --timesteps 100000 --checkpoint python-env/models/my_model
 ```
+
+See [INSTALL.md](INSTALL.md) for detailed installation instructions, GPU setup, and troubleshooting.
 
 ## Architecture Overview
 
