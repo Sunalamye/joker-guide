@@ -122,4 +122,5 @@ JOKER_N_ENGINES=1 \
 PYTHONPATH=python-env/src python -m joker_env.train_sb3 \
     --n-envs "$N_ENVS" \
     --tensorboard-log "$LOG_DIR" \
+    --net-arch 512 512 256 \
     "${EXTRA_ARGS[@]}"
