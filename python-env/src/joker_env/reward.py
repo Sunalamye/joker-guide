@@ -814,19 +814,20 @@ def joker_buy_reward(
     elif ante <= 4 and joker_count_after <= 4:
         joker_value *= 1.5  # 第 4 個 Joker：穩定提升
 
-    # 平滑經濟懲罰（使用對數函數）— 但早期懲罰降低
-    cost_ratio = min(cost / money_before, 1.0) if money_before > 0 else 1.0
-    economic_penalty = smooth_economic_penalty(cost_ratio)
-    if ante <= 2:
-        economic_penalty *= 0.5  # 早期經濟懲罰減半
-
-    # 利息損失（早期忽略）
-    money_after = money_before - cost
-    interest_before = min(money_before // 5, 5)
-    interest_after = min(money_after // 5, 5)
-    if ante <= 2:
-        interest_loss = 0.0  # 早期不考慮利息
+    # v6.8 MVF: 早期（Ante <= 3）完全移除經濟懲罰
+    # 這是關鍵修復：打破「買 1 個 Joker → 金幣耗盡 → 無法過 Boss」的惡性循環
+    # 專家分析顯示：19-20M 步的突破（18% Ante 2+）發生在 v6.3 時代，
+    # 當時經濟懲罰較輕；v6.4 加重懲罰後導致 policy collapse
+    if ante <= 3:
+        economic_penalty = 0.0
+        interest_loss = 0.0
     else:
+        cost_ratio = min(cost / money_before, 1.0) if money_before > 0 else 1.0
+        economic_penalty = smooth_economic_penalty(cost_ratio)
+        # 利息損失
+        money_after = money_before - cost
+        interest_before = min(money_before // 5, 5)
+        interest_after = min(money_after // 5, 5)
         interest_loss = 0.02 * (interest_before - interest_after) if interest_after < interest_before else 0.0
 
     # 階段權重（早期購買 Joker 更有價值）

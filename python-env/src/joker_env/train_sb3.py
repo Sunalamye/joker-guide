@@ -239,8 +239,8 @@ def train(
     batch_size: int = 64,
     ent_coef: float = 0.08,   # v6.4: 提高初始探索（原 0.05）
     learning_rate: float = 3e-4,
-    gamma: float = 0.95,       # v5.0: 減少終端信號稀釋
-    gae_lambda: float = 0.92,
+    gamma: float = 0.99,       # v6.8: 提高 gamma 改善長期信用分配（原 0.95）
+    gae_lambda: float = 0.95,  # v6.8: 提高 gae_lambda 減少 bias（原 0.92）
     clip_range: float = 0.2,
     clip_range_vf: float | None = None,
     normalize_advantage: bool = True,
@@ -255,6 +255,7 @@ def train(
     net_arch: list[int] | None = None,
     n_envs: int = 1,
     resume: Path | None = None,
+    reset_vec_normalize: bool = False,  # v6.8: 重置 VecNormalize 統計量
 ) -> None:
     # 創建並行環境
     if n_envs > 1:
@@ -322,6 +323,14 @@ def train(
         # SB3 會使用 checkpoint 中保存的 policy_kwargs
         resume_kwargs = {k: v for k, v in filtered_kwargs.items() if k != "policy_kwargs"}
         model = MaskablePPO.load(resume, env=env, **resume_kwargs)
+
+        # v6.8: 可選重置 VecNormalize 統計量
+        # 當獎勵函數有重大變化時，舊統計量會污染新訓練
+        if reset_vec_normalize and isinstance(env, VecNormalize):
+            print("Resetting VecNormalize statistics (reward function changed)")
+            env.ret_rms.mean = 0.0
+            env.ret_rms.var = 1.0
+            env.ret_rms.count = 1e-4
     else:
         model = MaskablePPO("MultiInputPolicy", env, **filtered_kwargs)
 
@@ -366,8 +375,8 @@ def main() -> None:
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--ent-coef", type=float, default=0.05)
     parser.add_argument("--learning-rate", type=float, default=3e-4)
-    parser.add_argument("--gamma", type=float, default=0.95)
-    parser.add_argument("--gae-lambda", type=float, default=0.92)
+    parser.add_argument("--gamma", type=float, default=0.99, help="v6.8: 0.99 for better long-term credit assignment")
+    parser.add_argument("--gae-lambda", type=float, default=0.95, help="v6.8: 0.95 for reduced bias")
     parser.add_argument("--clip-range", type=float, default=0.2)
     parser.add_argument("--clip-range-vf", type=float, default=None)
     parser.add_argument("--normalize-advantage", action="store_true", default=True)
@@ -392,6 +401,12 @@ def main() -> None:
         type=int,
         default=1,
         help="Number of parallel environments (default: 1, recommended: 4-8)",
+    )
+    parser.add_argument(
+        "--reset-vec-normalize",
+        action="store_true",
+        default=False,
+        help="v6.8: Reset VecNormalize statistics when resuming (use when reward function changed)",
     )
     args = parser.parse_args()
 
@@ -424,6 +439,7 @@ def main() -> None:
         net_arch=args.net_arch,
         n_envs=args.n_envs,
         resume=args.resume,
+        reset_vec_normalize=args.reset_vec_normalize,
     )
 
 
