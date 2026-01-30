@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from joker_env.proto import joker_guide_pb2 as joker__guide__pb2
+from . import joker_guide_pb2 as joker__guide__pb2
 
 GRPC_GENERATED_VERSION = '1.76.0'
 GRPC_VERSION = grpc.__version__

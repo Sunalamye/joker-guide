@@ -146,6 +146,20 @@ message EnvInfo {
   // Joker 交易相關
   int32 joker_sold_id = 24;     // 賣出的 Joker ID (-1 = 無)
   int32 best_shop_joker_cost = 25;  // 商店中最強 Joker 的成本 (0 = 無)
+
+  // v6.4: 手牌潛力指標
+  float flush_potential = 26;      // 同花潛力 [0, 1]
+  float straight_potential = 27;   // 順子潛力 [0, 1]
+  float pairs_potential = 28;      // 對子潛力 [0, 1]
+
+  // v6.9: Joker 貢獻追蹤
+  float joker_chip_contrib = 29;   // Joker chips 貢獻比例 [0, 1]
+  float joker_mult_contrib = 30;   // Joker mult 貢獻比例 [0, 1]
+  float joker_xmult_contrib = 31;  // Joker x_mult 正規化值 [0, 1]
+  float score_efficiency = 32;     // 分數效率
+
+  // v7.0: Boss Blind 識別
+  int32 boss_blind_id = 33;        // Boss Blind ID (0-26), -1 = 無 Boss
 }
 ```
 
@@ -177,7 +191,7 @@ python-env/
 └── models/                 # 模型檢查點
 ```
 
-### 獎勵函數 (`reward.py` v6.0)
+### 獎勵函數 (`reward.py` v7.0)
 
 | 函數 | 用途 | 觸發條件 | 獎勵範圍 |
 |------|------|----------|----------|
@@ -185,17 +199,20 @@ python-env/
 | `hand_type_bonus()` | 牌型品質獎勵 | 出牌時 | -0.01 ~ +0.12 |
 | `discard_reward()` | 棄牌懲罰 | action_type == DISCARD | -0.05 ~ -0.02 |
 | `blind_clear_reward()` | 過關獎勵 | blind_cleared == true | +0.25 ~ +1.05 |
+| `boss_clear_difficulty_bonus()` | Boss 難度獎勵 (v7.0) | Boss 過關 | 0.0 ~ +0.15 |
 | `ante_progress_reward()` | Ante 進度獎勵 | Ante 提升時 | +0.56 ~ +2.56 |
 | `game_end_reward()` | 遊戲結束獎勵 | game_end != 0 | -2.0 ~ +5.0 |
 | `money_reward()` | 利息閾值獎勵 | CASH_OUT | 0.0 ~ +0.2 |
 | `joker_holding_bonus()` | Joker 持有獎勵 | CASH_OUT | -0.08 ~ +0.08 |
+| `joker_synergy_reward()` | Joker 協同獎勵 (v7.0) | CASH_OUT | 0.0 ~ +0.12 |
 | `joker_shortage_penalty()` | Joker 不足懲罰 | 商店階段 | -0.03 ~ 0.0 |
 | `joker_buy_reward()` | 購買 Joker | BUY_JOKER 成功 | -0.3 ~ +0.5 |
 | `sell_joker_reward()` | 賣出 Joker | action_type == SELL_JOKER | **-0.5 ~ +0.1** |
-| `skip_blind_reward()` | 跳過 Blind | action_type == SKIP_BLIND | -0.2 ~ +0.25 |
-| `reroll_reward()` | Reroll 懲罰 | action_type == REROLL | -0.15 ~ 0.0 |
+| `skip_blind_reward_v2()` | 狀態感知 Skip (v10.0) | action_type == SKIP_BLIND | -0.25 ~ +0.30 |
+| `reroll_reward_v2()` | 商店品質感知 Reroll (v10.0) | action_type == REROLL | -0.15 ~ +0.05 |
 | `consumable_use_reward()` | 使用消耗品 | action_type == USE_CONSUMABLE | 0.0 ~ +0.25 |
 | `voucher_buy_reward()` | 購買 Voucher | BUY_VOUCHER 成功 | -0.25 ~ +0.3 |
+| `hand_type_targeting_reward()` | 牌型針對性 (v7.0) | PLAY（含匹配 Joker）| 0.0 ~ +0.10 |
 
 ### 獎勵設計原則
 1. **終端獎勵主導** — Win=+5.0, Lose=-2.0~-0.5（依 Ante 進度縮放）
@@ -205,6 +222,10 @@ python-env/
 5. **非線性經濟懲罰** — 使用 `log1p` 平滑懲罰
 6. **利息閾值獎勵** — $5/$10/$15/$20/$25 階梯獎勵
 7. **反作弊機制** — No-op 偵測 (-0.03)、空棄牌懲罰 (-0.05)
+8. **Boss 難度獎勵** — 困難 Boss (Wall, Needle, Violet) 過關額外 +0.10~0.15 (v7.0)
+9. **Joker 協同獎勵** — 持有協同群組 Joker 獲得額外獎勵 (v7.0)
+10. **商店品質感知 Reroll** — 早期低品質商店鼓勵 Reroll，高品質商店懲罰 (v10.0)
+11. **狀態感知 Skip** — 動態機會成本考慮商店品質和 Joker 數量 (v10.0)
 
 ### Tag 價值系統
 
@@ -227,6 +248,34 @@ Skip Blind 決策的關鍵，25 種 Tag 的價值映射：
 - 追蹤 pairs / straight / flush 三種 build
 - 當某 build 超過 60% 且樣本 >= 5 時，識別為 dominant build
 - 購買匹配 build 的 Joker 獲得 +0.02~0.03 獎勵
+
+### v7.0 Boss 難度系統
+
+Boss Blind 難度係數（用於 `boss_clear_difficulty_bonus()`）：
+
+| Boss 類型 | 難度 | 說明 |
+|-----------|------|------|
+| BOSS_HOOK (0) | 0.8 | Easy - 可預測的棄牌 |
+| BOSS_WALL (1) | 1.4 | Very Hard - 需要 4x 分數 |
+| BOSS_NEEDLE (20) | 1.4 | Very Hard - 只有 1 次出牌機會 |
+| BOSS_VIOLET (22) | 1.5 | Showdown - 需要 6x 分數 |
+| BOSS_FLINT (4) | 1.3 | Hard - 基礎分數減半 |
+
+難度 > 0.8 的 Boss 過關會獲得額外獎勵：`(difficulty - 0.8) × 0.2 × efficiency_mult`
+
+### v7.0 Joker 協同群組
+
+定義有協同效果的 Joker 組合：
+
+| 群組名稱 | Joker IDs | 說明 |
+|----------|-----------|------|
+| pair_power | 5, 10, 111, 6, 11, 112, 113 | 強化 Pair/Set 的 Joker |
+| straight_masters | 8, 13, 114, 29, 131 | 強化 Straight 的 Joker |
+| flush_kings | 9, 14, 115, 30 | 強化 Flush 的 Joker |
+| scaling_xmult | 97, 120, 129, 23, 64 | 累積乘法 Joker |
+| boss_killer | 68, 118 | 對抗 Boss 的 Joker (Chicot, Matador) |
+
+持有同群組 >= 2 個 Joker 時，每個額外匹配 +0.02 獎勵（在 CASH_OUT 時評估）。
 
 ### RewardCalculator 使用
 ```python

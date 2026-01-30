@@ -917,6 +917,24 @@ def _info_to_dict(info) -> Dict[str, Any]:
         # Joker 交易相關
         "joker_sold_id": info.joker_sold_id,
         "best_shop_joker_cost": info.best_shop_joker_cost,
+
+        # v6.4: 手牌潛力指標
+        "flush_potential": info.flush_potential,
+        "straight_potential": info.straight_potential,
+        "pairs_potential": info.pairs_potential,
+
+        # v6.9: Joker 貢獻追蹤（用於高分獎勵計算）
+        "joker_chip_contrib": info.joker_chip_contrib,
+        "joker_mult_contrib": info.joker_mult_contrib,
+        "joker_xmult_contrib": info.joker_xmult_contrib,
+        "score_efficiency": info.score_efficiency,
+
+        # v7.0: Boss Blind 識別
+        "boss_blind_id": info.boss_blind_id,
+
+        # v10.0: 商店品質評估
+        "shop_quality_score": info.shop_quality_score,
+        "reroll_count_this_shop": info.reroll_count_this_shop,
     }
 
 

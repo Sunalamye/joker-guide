@@ -51,7 +51,7 @@ pub use joker_def::{
     TriggerEffect, TriggerDef, TriggerResult, get_triggers, trigger_joker_events,
     SPADE, DIAMOND, HEART, CLUB,
 };
-pub use shop::{Shop, ShopItem};
+pub use shop::{Shop, ShopItem, calculate_shop_quality};
 pub use tags::{Tag, TagId};
 pub use decks::{DeckType, DeckConfig};
 pub use stakes::{Stake, StakeConfig};

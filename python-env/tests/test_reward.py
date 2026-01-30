@@ -28,6 +28,15 @@ from joker_env.reward import (
     BLIND_SMALL, BLIND_BIG, BLIND_BOSS,
     GAME_END_WIN, GAME_END_LOSE, GAME_END_NONE,
     TAG_NEGATIVE, TAG_SPEED, TAG_ECONOMY,
+    # v7.0 新增
+    boss_clear_difficulty_bonus,
+    joker_synergy_reward,
+    hand_type_targeting_reward,
+    BOSS_HOOK, BOSS_WALL, BOSS_NEEDLE, BOSS_VIOLET, BOSS_FLINT,
+    BOSS_DIFFICULTY,
+    JOKER_SYNERGY_GROUPS,
+    BUILD_PAIRS, BUILD_STRAIGHT, BUILD_FLUSH,
+    HAND_PAIR, HAND_FLUSH, HAND_STRAIGHT, HAND_STRAIGHT_FLUSH,
 )
 
 
@@ -531,6 +540,169 @@ class TestRewardCalculator:
         calc.calculate({"episode_step": 2, "ante": 1, "money": 15})
         assert calc._prev_info is not None
         assert calc._prev_info.money == 15
+
+
+# ============================================================================
+# v7.0: Boss 難度、Joker 協同、牌型針對性獎勵測試
+# ============================================================================
+
+class TestBossClearDifficultyBonus:
+    """Boss 過關難度獎勵測試（v7.0）"""
+
+    def test_no_boss_no_bonus(self):
+        """無 Boss 時不給獎勵"""
+        assert boss_clear_difficulty_bonus(-1, 3) == 0.0
+
+    def test_easy_boss_no_bonus(self):
+        """簡單 Boss（難度 <= 0.8）不給額外獎勵"""
+        # BOSS_HOOK 難度 0.8
+        assert boss_clear_difficulty_bonus(BOSS_HOOK, 0) == 0.0
+
+    def test_hard_boss_gives_bonus(self):
+        """困難 Boss 給予獎勵"""
+        # BOSS_WALL 難度 1.4
+        reward = boss_clear_difficulty_bonus(BOSS_WALL, 0)
+        assert reward > 0.0
+
+    def test_needle_boss_high_bonus(self):
+        """Needle Boss（難度 1.4）給予較高獎勵"""
+        reward = boss_clear_difficulty_bonus(BOSS_NEEDLE, 0)
+        assert reward > 0.1
+
+    def test_violet_boss_highest_bonus(self):
+        """Violet Boss（難度 1.5）給予最高獎勵"""
+        reward = boss_clear_difficulty_bonus(BOSS_VIOLET, 0)
+        assert reward >= boss_clear_difficulty_bonus(BOSS_WALL, 0)
+
+    def test_efficiency_bonus(self):
+        """剩餘出牌次數提高獎勵"""
+        no_plays_left = boss_clear_difficulty_bonus(BOSS_WALL, 0)
+        with_plays_left = boss_clear_difficulty_bonus(BOSS_WALL, 3)
+        assert with_plays_left > no_plays_left
+
+    def test_range(self):
+        """獎勵範圍 0.0 ~ 0.15"""
+        # 最高難度 + 最多剩餘出牌
+        max_reward = boss_clear_difficulty_bonus(BOSS_VIOLET, 4)
+        assert 0.0 <= max_reward <= 0.15
+
+
+class TestJokerSynergyReward:
+    """Joker 協同獎勵測試（v7.0）"""
+
+    def test_empty_jokers_no_reward(self):
+        """無 Joker 不給獎勵"""
+        assert joker_synergy_reward([], None) == 0.0
+
+    def test_single_joker_no_synergy(self):
+        """單個 Joker 無協同獎勵"""
+        reward = joker_synergy_reward([5], None)  # JollyJoker
+        assert reward == 0.0
+
+    def test_pair_synergy_group(self):
+        """Pair 協同群組有獎勵"""
+        # pair_power 群組：5, 10, 111, 6, 11, 112, 113
+        reward = joker_synergy_reward([5, 10, 111], None)
+        assert reward > 0.0
+
+    def test_build_alignment_bonus(self):
+        """Build 對齊有額外獎勵"""
+        # 有主導 build 時，匹配的 Joker 獲得額外獎勵
+        reward_with_build = joker_synergy_reward([5, 10], BUILD_PAIRS)
+        reward_without_build = joker_synergy_reward([5, 10], None)
+        assert reward_with_build >= reward_without_build
+
+    def test_boss_killer_bonus(self):
+        """Boss Killer Joker 面對 Boss 有獎勵"""
+        # Chicot=68, Matador=118
+        reward_with_boss = joker_synergy_reward([68], None, boss_blind_id=BOSS_WALL)
+        reward_without_boss = joker_synergy_reward([68], None, boss_blind_id=-1)
+        assert reward_with_boss > reward_without_boss
+
+    def test_range(self):
+        """獎勵範圍 0.0 ~ 0.12"""
+        # 最大可能協同
+        max_reward = joker_synergy_reward([5, 10, 111, 6, 11], BUILD_PAIRS, BOSS_WALL)
+        assert 0.0 <= max_reward <= 0.12
+
+
+class TestHandTypeTargetingReward:
+    """牌型針對性獎勵測試（v7.0）"""
+
+    def test_no_hand_type_no_reward(self):
+        """無牌型不給獎勵"""
+        assert hand_type_targeting_reward(-1, -1, [5, 10]) == 0.0
+
+    def test_no_jokers_no_reward(self):
+        """無 Joker 不給獎勵"""
+        assert hand_type_targeting_reward(HAND_PAIR, -1, []) == 0.0
+
+    def test_matching_joker_gives_reward(self):
+        """匹配的 Joker 給予獎勵"""
+        # JollyJoker(5) 支持 PAIRS，打出 PAIR 應該有獎勵
+        reward = hand_type_targeting_reward(HAND_PAIR, -1, [5])
+        assert reward > 0.0
+
+    def test_multiple_matching_jokers(self):
+        """多個匹配 Joker 獎勵更高"""
+        single = hand_type_targeting_reward(HAND_PAIR, -1, [5])
+        multiple = hand_type_targeting_reward(HAND_PAIR, -1, [5, 10])  # 兩個 pair Joker
+        assert multiple > single
+
+    def test_straight_flush_special_bonus(self):
+        """Straight Flush 配合相關 Joker 有特殊獎勵"""
+        # 同時有 straight 和 flush Joker
+        reward = hand_type_targeting_reward(
+            HAND_STRAIGHT_FLUSH, -1, [8, 9]  # CrazyJoker(straight) + DrollJoker(flush)
+        )
+        assert reward > 0.0
+
+    def test_range(self):
+        """獎勵範圍 0.0 ~ 0.10"""
+        # 最大可能匹配
+        max_reward = hand_type_targeting_reward(HAND_STRAIGHT_FLUSH, -1, [8, 13, 9, 14])
+        assert 0.0 <= max_reward <= 0.10
+
+
+class TestBossDifficultyConstants:
+    """Boss 難度常量測試（v7.0）"""
+
+    def test_all_bosses_have_difficulty(self):
+        """所有 Boss 都有難度係數"""
+        for boss_id in range(27):
+            assert boss_id in BOSS_DIFFICULTY
+
+    def test_difficulty_range(self):
+        """難度係數在合理範圍"""
+        for boss_id, diff in BOSS_DIFFICULTY.items():
+            assert 0.5 <= diff <= 2.0, f"Boss {boss_id} difficulty {diff} out of range"
+
+    def test_showdown_bosses_harder(self):
+        """Showdown Boss 難度較高"""
+        showdown_ids = [22, 23, 24, 25, 26]  # BOSS_VIOLET to BOSS_VERDANT
+        for boss_id in showdown_ids:
+            assert BOSS_DIFFICULTY[boss_id] >= 1.1
+
+
+class TestJokerSynergyGroups:
+    """Joker 協同群組常量測試（v7.0）"""
+
+    def test_all_groups_have_members(self):
+        """所有群組都有成員"""
+        for group_name, members in JOKER_SYNERGY_GROUPS.items():
+            assert len(members) >= 2, f"Group {group_name} has less than 2 members"
+
+    def test_pair_power_group(self):
+        """Pair Power 群組包含正確的 Joker"""
+        pair_group = JOKER_SYNERGY_GROUPS.get("pair_power", set())
+        assert 5 in pair_group   # JollyJoker
+        assert 111 in pair_group  # The_Duo
+
+    def test_boss_killer_group(self):
+        """Boss Killer 群組包含正確的 Joker"""
+        boss_killer = JOKER_SYNERGY_GROUPS.get("boss_killer", set())
+        assert 68 in boss_killer  # Chicot
+        assert 118 in boss_killer  # Matador
 
 
 if __name__ == "__main__":

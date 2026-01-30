@@ -1,7 +1,42 @@
 """
-獎勵計算系統 - Python 端
+獎勵計算系統 - Python 端 (v10.0)
 
 從 Rust reward.rs 移植，為 RL 訓練提供形狀良好的獎勵信號，支持完整遊戲（Ante 1-8）
+
+獎勵範圍設計（v10.0 - 商店品質感知的 Reroll/Skip 策略）：
+
+v10.0 新增功能（基於 super-analyst-pro 分析報告）：
+1. reroll_reward_v2：商店品質感知的 Reroll 獎勵
+   - 早期（Ante ≤ 3）+ 低 Joker 數（≤ 2）= 探索模式，Reroll 可獲正向獎勵
+   - 商店品質低時鼓勵 Reroll，品質高時懲罰 Reroll
+   - Reroll 預算追蹤：前 2 次正常，第 3 次開始遞減獎勵
+   - 預期效果：Reroll 率從 0% → 2-4%，Ante 提升 20-30%
+
+2. skip_blind_reward_v2：狀態感知的 Skip Blind 獎勵
+   - 動態機會成本：商店品質高 + 有錢 = 機會成本高
+   - 風險溢價基於 Joker 數量，而非僅 Ante
+   - Context Multiplier：Joker 快滿 + 沒錢 = 商店價值低 = Skip 更有吸引力
+   - 預期效果：Skip 率從 2.42% → 8-10%，Ante 提升 5-8%
+
+3. shop_quality_score（Rust 端計算）：
+   - 稀有度權重 (40%)：Common=0.2, Uncommon=0.5, Rare=0.8, Legendary=1.0
+   - 協同效果 (30%)：與已擁有 Joker 的協同關係
+   - 成本效益 (20%)：價格合理性
+   - 特殊加成 (10%)：xMult/Boss Killer/經濟 Joker
+
+4. reroll_count_this_shop：Reroll 預算追蹤，防止過度 Reroll
+
+獎勵範圍設計（v7.0 - Boss/Joker 協同獎勵）：
+
+v7.0 新增功能（輔助性正向獎勵，不主導現有結構）：
+1. Boss 難度獎勵：困難 Boss 過關給予額外 0.0~0.15 獎勵
+   - 難度係數根據 Boss 類型（Wall=1.4, Needle=1.4, Violet=1.5）
+   - 效率加成：剩餘出牌次數越多獎勵越高
+2. Joker 協同獎勵：持有協同組合在 CASH_OUT 時給予 0.0~0.12 獎勵
+   - 協同群組（diamond_synergy, pair_power, scaling_xmult 等）
+   - Build 對齊獎勵（Joker 能力匹配主導風格）
+3. 牌型針對性獎勵：打出匹配 Joker 能力的牌型給予 0.0~0.10 獎勵
+   - 根據持有 Joker 對應的 build 計算匹配度
 
 獎勵範圍設計（v6.9 - Joker 貢獻與高效出牌獎勵）：
 
@@ -98,6 +133,76 @@ BLIND_BOSS = 2
 GAME_END_NONE = 0
 GAME_END_WIN = 1
 GAME_END_LOSE = 2
+
+# ============================================================================
+# v7.0: Boss Blind 常量（對應 Rust blinds.rs BossBlind::to_int）
+# ============================================================================
+
+BOSS_HOOK = 0       # 每手開始隨機棄 2 張
+BOSS_WALL = 1       # 需要 4x 分數
+BOSS_WHEEL = 2      # 1/7 牌面朝下
+BOSS_ARM = 3        # 降低牌型等級
+BOSS_FLINT = 4      # 基礎 chips/mult 減半
+BOSS_CLUB = 5       # 梅花不計分
+BOSS_DIAMOND = 6    # 方塊不計分
+BOSS_HEART = 7      # 紅心不計分
+BOSS_SPADE = 8      # 黑桃不計分
+BOSS_PSYCHIC = 9    # 必須出 5 張
+BOSS_MOUTH = 10     # 只能出一種牌型
+BOSS_EYE = 11       # 不能重複牌型
+BOSS_PLANT = 12     # Face Card 不計分
+BOSS_SERPENT = 13   # 每次出牌後抽 3 棄 3
+BOSS_OX = 14        # 出特定牌型失去 $1
+BOSS_HOUSE = 15     # 第一手面朝下
+BOSS_MARK = 16      # Face Card 面朝下
+BOSS_FISH = 17      # 面朝下牌打亂
+BOSS_MANACLE = 18   # 手牌上限 -1
+BOSS_PILLAR = 19    # 打過的牌不再計分
+BOSS_NEEDLE = 20    # 只有 1 次出牌機會
+BOSS_HEAD = 21      # 紅心只能第一手出
+BOSS_VIOLET = 22    # 需要 6x 分數
+BOSS_CRIMSON = 23   # hand 數 -1
+BOSS_CERULEAN = 24  # 強制使用消耗品
+BOSS_AMBER = 25     # 無法使用消耗品
+BOSS_VERDANT = 26   # 所有牌回合開始面朝下
+
+# Boss 分類
+BOSS_SUIT_DISABLE = {BOSS_CLUB, BOSS_DIAMOND, BOSS_HEART, BOSS_SPADE}
+BOSS_HAND_RESTRICT = {BOSS_PSYCHIC, BOSS_MOUTH, BOSS_EYE}
+BOSS_SCORE_MULT = {BOSS_WALL, BOSS_FLINT, BOSS_VIOLET}
+BOSS_SHOWDOWN = {BOSS_VIOLET, BOSS_CRIMSON, BOSS_CERULEAN, BOSS_AMBER, BOSS_VERDANT}
+
+# Boss 難度係數（用於 boss_clear_difficulty_bonus）
+# 基準 1.0 = 標準難度，>1.0 = 更困難
+BOSS_DIFFICULTY = {
+    BOSS_HOOK: 0.8,       # Easy: 可預測
+    BOSS_WALL: 1.4,       # Very Hard: 4x 分數
+    BOSS_WHEEL: 0.9,      # Easy-Medium: 隨機但可管理
+    BOSS_ARM: 1.0,        # Medium: 降級影響長期
+    BOSS_FLINT: 1.3,      # Hard: 減半需要更強組合
+    BOSS_CLUB: 1.1,       # Medium: 花色禁用
+    BOSS_DIAMOND: 1.1,
+    BOSS_HEART: 1.1,
+    BOSS_SPADE: 1.1,
+    BOSS_PSYCHIC: 1.2,    # Hard: 限制組合靈活性
+    BOSS_MOUTH: 1.2,      # Hard: 限制策略
+    BOSS_EYE: 1.1,        # Medium-Hard: 需要多種牌型
+    BOSS_PLANT: 1.2,      # Hard: 限制高分牌
+    BOSS_SERPENT: 0.9,    # Easy-Medium: 有時幫助
+    BOSS_OX: 0.85,        # Easy: 經濟懲罰較輕
+    BOSS_HOUSE: 0.95,     # Easy-Medium: 首手隨機
+    BOSS_MARK: 1.0,       # Medium
+    BOSS_FISH: 0.95,      # Easy-Medium
+    BOSS_MANACLE: 1.1,    # Medium-Hard: 手牌限制
+    BOSS_PILLAR: 1.3,     # Hard: 無法重複高分牌
+    BOSS_NEEDLE: 1.4,     # Very Hard: 只有 1 次機會
+    BOSS_HEAD: 1.0,       # Medium
+    BOSS_VIOLET: 1.5,     # Showdown: 6x 分數
+    BOSS_CRIMSON: 1.3,    # Showdown: 出牌機會減少
+    BOSS_CERULEAN: 1.1,   # Showdown: 消耗品限制
+    BOSS_AMBER: 1.2,      # Showdown: 無消耗品
+    BOSS_VERDANT: 1.2,    # Showdown: 視野限制
+}
 
 # Tag ID constants (對應 Rust tags.rs)
 TAG_UNCOMMON = 0
@@ -232,11 +337,77 @@ _BUILD_HANDS = {
     BUILD_FLUSH: {HAND_FLUSH, HAND_STRAIGHT_FLUSH, HAND_ROYAL_FLUSH, HAND_FLUSH_HOUSE, HAND_FLUSH_FIVE},
 }
 
-# Joker build support (minimal mapping for reward shaping)
+# ============================================================================
+# v7.0: 擴展 Joker Build Support（對應 Rust joker.rs JokerId）
+# ============================================================================
+
+# Joker build support mapping - 每個 Joker 支援的 build 風格
 JOKER_BUILD_SUPPORT = {
-    5: BUILD_PAIRS,  # JollyJoker (pair-oriented)
-    9: BUILD_FLUSH,  # DrollJoker (flush-oriented)
+    # Pair 類（Joker 獎勵 pairs/sets）
+    5: BUILD_PAIRS,     # JollyJoker: +8 Mult if contains Pair
+    6: BUILD_PAIRS,     # ZanyJoker: +12 Mult if contains Three of a Kind
+    10: BUILD_PAIRS,    # SlyJoker: +50 Chips if contains Pair
+    11: BUILD_PAIRS,    # WilyJoker: +100 Chips if contains Three of a Kind
+    111: BUILD_PAIRS,   # The_Duo: X2 Mult if contains Pair
+    112: BUILD_PAIRS,   # The_Trio: X3 Mult if contains Three of a Kind
+    113: BUILD_PAIRS,   # The_Family: X4 Mult if contains Four of a Kind
+
+    # Straight 類（Joker 獎勵 straight）
+    8: BUILD_STRAIGHT,   # CrazyJoker: +12 Mult if contains Straight
+    13: BUILD_STRAIGHT,  # DeviousJoker: +100 Chips if contains Straight
+    114: BUILD_STRAIGHT, # The_Order: X3 Mult if contains Straight
+    29: BUILD_STRAIGHT,  # FourFingers: 允許 4 卡 Straight
+    131: BUILD_STRAIGHT, # Shortcut: 允許跳躍 Straight
+
+    # Flush 類（Joker 獎勵 flush 或特定花色）
+    9: BUILD_FLUSH,      # DrollJoker: +10 Mult if contains Flush
+    14: BUILD_FLUSH,     # CraftyJoker: +80 Chips if contains Flush
+    115: BUILD_FLUSH,    # The_Tribe: X2 Mult if contains Flush
+    1: BUILD_FLUSH,      # GreedyJoker: +3 per Diamond
+    2: BUILD_FLUSH,      # LustyJoker: +3 Mult per Heart
+    3: BUILD_FLUSH,      # WrathJoker: +3 Mult per Spade (if < 4)
+    4: BUILD_FLUSH,      # GluttonJoker: +3 Mult per Club (if < 4)
+    30: BUILD_FLUSH,     # Smeared: Hearts/Diamonds 視為同花色, Clubs/Spades 視為同花色
 }
+
+# v7.0: Joker 協同群組 - 有協同效果的 Joker 組合
+# 擁有同群組的多個 Joker 會獲得協同獎勵
+JOKER_SYNERGY_GROUPS = {
+    # Diamond 協同：獎勵方塊花色
+    "diamond_synergy": {1, 57, 85},  # GreedyJoker, Opal, RoughGem
+
+    # Pair Power：強化對子/組合
+    "pair_power": {5, 10, 111, 6, 11, 112, 113},
+
+    # Straight Masters：強化順子
+    "straight_masters": {8, 13, 114, 29, 131},
+
+    # Flush Kings：強化同花
+    "flush_kings": {9, 14, 115, 30},
+
+    # Scaling X-Mult：累積乘法加成
+    "scaling_xmult": {97, 120, 129, 23, 64},  # Vampire, Hologram, Constellation, Cavendish, Campfire
+
+    # Economy：經濟型 Joker
+    "economy": {45, 46, 47, 48, 88},  # GoldenJoker, ToTheMoon, Satellite, BullMoney, GoldBar
+
+    # Face Card：獎勵 Face Card
+    "face_card": {58, 59, 79, 138},  # SockAndBuskin, Mime, Photograph, TribouletFool
+
+    # Retrigger：重複觸發
+    "retrigger": {61, 62, 63, 53},  # Dusk, Hack, SockAndBuskin (different index), Blueprint
+
+    # Boss Killer：對抗 Boss 的特效
+    "boss_killer": {68, 118},  # Chicot (禁用 Boss), Matador (+$8 if Boss)
+}
+
+# 將 Joker ID 映射到其所屬的協同群組
+_JOKER_TO_SYNERGY: dict[int, list[str]] = {}
+for group_name, joker_ids in JOKER_SYNERGY_GROUPS.items():
+    for jid in joker_ids:
+        if jid not in _JOKER_TO_SYNERGY:
+            _JOKER_TO_SYNERGY[jid] = []
+        _JOKER_TO_SYNERGY[jid].append(group_name)
 
 
 def blind_progress_signal(
@@ -502,6 +673,9 @@ class StepInfo:
     joker_xmult_contrib: float = 0.0   # Joker x_mult 正規化值 [0, 1]
     score_efficiency: float = 0.0      # 分數效率：score_delta / (blind_target / 4)
 
+    # v7.0: Boss Blind 識別
+    boss_blind_id: int = -1  # Boss Blind ID (0-26), -1 = 無 Boss
+
 
 def parse_env_info(info: dict) -> StepInfo:
     """從 gRPC EnvInfo 解析狀態"""
@@ -539,6 +713,8 @@ def parse_env_info(info: dict) -> StepInfo:
         joker_mult_contrib=info.get("joker_mult_contrib", 0.0),
         joker_xmult_contrib=info.get("joker_xmult_contrib", 0.0),
         score_efficiency=info.get("score_efficiency", 0.0),
+        # v7.0: Boss Blind 識別
+        boss_blind_id=info.get("boss_blind_id", -1),
     )
 
 
@@ -918,6 +1094,91 @@ def skip_blind_reward(
     return clamp(reward, -0.20, 0.25)
 
 
+def skip_blind_reward_v2(
+    blind_type: int,
+    ante: int,
+    tag_id: Optional[int],
+    shop_quality: float,
+    joker_count: int,
+    money: int,
+) -> float:
+    """
+    狀態感知的 Skip Blind 獎勵（v10.0）
+
+    設計原則：
+    - 動態機會成本：商店品質高 + 有錢購買 = 機會成本高
+    - 風險溢價基於 Joker 數量，而非僅 Ante
+    - Context Multiplier 調整 Tag 價值
+
+    公式：
+    Skip_EV = E[Tag] × Context_Mult - Dynamic_Opportunity_Cost - Risk_Premium
+
+    Args:
+        blind_type: Blind 類型 (0=Small, 1=Big, 2=Boss)
+        ante: 當前 Ante
+        tag_id: 獲得的 Tag ID（可選）
+        shop_quality: 商店品質分數 [0, 1]
+        joker_count: 當前 Joker 數量
+        money: 當前金錢
+
+    Returns:
+        獎勵值 (-0.25 ~ +0.30)
+    """
+    # 1. 基礎機會成本
+    base_cost = {
+        BLIND_SMALL: 0.18,
+        BLIND_BIG: 0.25,
+        BLIND_BOSS: 2.0,  # 禁止跳過 Boss
+    }.get(blind_type, 0.18)
+
+    # 2. Context Multiplier（商店邊際效用）
+    # Joker 快滿 + 沒錢 = 商店價值低 = Skip 更有吸引力
+    # Joker 少 + 有錢 = 商店價值高 = Skip 代價大
+    if joker_count >= 4 and money < 4:
+        context_mult = 1.3  # 商店對你沒什麼用
+    elif joker_count <= 1:
+        context_mult = 0.5  # 急需商店買 Joker
+    elif joker_count <= 2 and money >= 5:
+        context_mult = 0.7  # 還需要商店
+    else:
+        context_mult = 1.0  # 正常
+
+    # 3. Dynamic Opportunity Cost
+    # 商店品質高 + 能買得起 = 機會成本高
+    can_afford = 1.0 if money >= 5 else 0.3
+    shop_factor = shop_quality * (1 - joker_count / 5) * can_afford
+    dynamic_cost = base_cost + shop_factor * 0.15
+
+    # 4. Risk Premium（基於 Joker 數量而非 Ante）
+    # Joker 少 = 高風險，不該跳過
+    if joker_count <= 1:
+        risk_premium = 0.25
+    elif joker_count <= 2:
+        risk_premium = 0.15
+    elif joker_count <= 3:
+        risk_premium = 0.08
+    elif joker_count >= 5:
+        risk_premium = 0.0  # 滿了，可以 Skip
+    else:
+        risk_premium = 0.05
+
+    # 5. 階段風險調整（後期更保守）
+    ante_factor = {
+        1: 0.9, 2: 0.95,
+        3: 1.0, 4: 1.0,
+        5: 0.9, 6: 0.8,
+        7: 0.6, 8: 0.4,
+    }.get(ante, 0.8)
+
+    # 6. Tag 價值
+    tag_value = get_tag_value(tag_id)
+
+    # 最終計算
+    reward = (tag_value * context_mult * ante_factor) - dynamic_cost - risk_premium
+
+    return clamp(reward, -0.25, 0.30)
+
+
 def reroll_reward(
     reroll_cost: int,
     money_before: int,
@@ -948,6 +1209,90 @@ def reroll_reward(
     base_penalty = -0.02 - cost_ratio * 0.03
 
     return clamp(base_penalty * stage_mult - interest_loss_penalty, -0.15, 0.0)
+
+
+def reroll_reward_v2(
+    reroll_cost: int,
+    money_before: int,
+    ante: int,
+    shop_quality: float,
+    joker_count: int,
+    joker_slot_limit: int,
+    reroll_count_this_shop: int,
+) -> float:
+    """
+    商店品質感知的 Reroll 獎勵（v10.0）
+
+    設計原則：
+    - 早期（Ante ≤ 3）且 Joker 數量不足時，Reroll 是正向投資
+    - 商店品質低時鼓勵 Reroll，品質高時懲罰 Reroll
+    - Reroll 預算追蹤：前 2 次正常，第 3 次開始遞減
+
+    ROI 分析（見 super-analyst-pro 報告）：
+    - 早期 Reroll 找 xMult Joker 的 ROI: +0.21 ~ +0.41
+    - 當前系統純懲罰導致 0% Reroll 使用率
+
+    Args:
+        reroll_cost: Reroll 費用
+        money_before: Reroll 前金錢
+        ante: 當前 Ante
+        shop_quality: 商店品質分數 [0, 1]
+        joker_count: 當前 Joker 數量
+        joker_slot_limit: Joker 槽位上限
+        reroll_count_this_shop: 本次商店訪問的 Reroll 次數
+
+    Returns:
+        獎勵值 (-0.15 ~ +0.05)
+    """
+    if money_before <= 0:
+        return -0.1  # 沒錢還 Reroll 是錯誤決策
+
+    # === 基礎計算 ===
+    cost_ratio = min(reroll_cost / money_before, 1.0)
+
+    # 利息損失懲罰
+    money_after = money_before - reroll_cost
+    interest_before = min(money_before // 5, 5)
+    interest_after = min(money_after // 5, 5)
+    interest_loss_penalty = 0.03 * (interest_before - interest_after) if interest_after < interest_before else 0.0
+
+    # === v10.0: 商店品質感知 ===
+
+    # 1. 早期 + 低 Joker 數 = 探索模式
+    is_exploration_phase = ante <= 3 and joker_count <= 2
+
+    if is_exploration_phase:
+        # 低品質商店 = 強烈鼓勵 Reroll
+        # 高品質商店 = 輕微懲罰（已經夠好了）
+        quality_factor = (0.5 - shop_quality) * 0.08  # [-0.04, +0.04]
+        base_reward = 0.01 + quality_factor  # [-0.03, +0.05]
+    else:
+        # 後期：回歸原始邏輯，但考慮商店品質
+        # 低品質商店 = 懲罰減少
+        # 高品質商店 = 懲罰增加（不應該 Reroll 好商店）
+        quality_penalty = (shop_quality - 0.5) * 0.04  # [-0.02, +0.02]
+        base_reward = -0.02 - cost_ratio * 0.03 + quality_penalty
+
+    # 2. Joker 飽和度調整
+    saturation = joker_count / max(joker_slot_limit, 1)
+    if saturation >= 0.8:
+        # 快滿了，Reroll 價值降低
+        base_reward -= 0.02
+
+    # 3. Reroll 預算追蹤（防止 Reroll 成癮）
+    if reroll_count_this_shop >= 3:
+        # 第 3 次及以後，遞減獎勵
+        over_budget_penalty = 0.03 * (reroll_count_this_shop - 2)
+        base_reward -= over_budget_penalty
+    if reroll_count_this_shop >= 5:
+        # 嚴重懲罰：過度 Reroll
+        base_reward -= 0.05
+
+    # 4. 階段權重
+    stage_mult = stage_weight_early(ante)
+    final_reward = base_reward * stage_mult - interest_loss_penalty
+
+    return clamp(final_reward, -0.15, 0.05)
 
 
 def sell_joker_reward(
@@ -1196,6 +1541,189 @@ def score_efficiency_reward(info: StepInfo) -> float:
     return base_reward  # 永遠 >= 0
 
 
+# ============================================================================
+# v7.0 新增：Boss 難度獎勵、Joker 協同獎勵、牌型針對性獎勵
+# ============================================================================
+
+def boss_clear_difficulty_bonus(boss_blind_id: int, plays_left: int) -> float:
+    """
+    Boss 過關難度獎勵（v7.0 新增）
+
+    根據 Boss 難度給予額外獎勵，鼓勵 agent 學會應對困難 Boss。
+
+    設計原則：
+    - 只有過關時才給獎勵（blind_cleared == True）
+    - 難度係數 > 1.0 的 Boss 才有額外獎勵
+    - 效率加成：剩餘出牌次數越多，獎勵越高
+
+    Args:
+        boss_blind_id: Boss Blind ID (0-26), -1 = 無 Boss
+        plays_left: 剩餘出牌次數
+
+    Returns:
+        獎勵值 (0.0 ~ 0.15)
+    """
+    if boss_blind_id < 0:
+        return 0.0
+
+    difficulty = BOSS_DIFFICULTY.get(boss_blind_id, 1.0)
+
+    # 只有難度 > 0.8 才有基礎獎勵
+    if difficulty <= 0.8:
+        return 0.0
+
+    # 基礎獎勵：(難度 - 0.8) * 0.2
+    # Wall(1.4): 0.12, Needle(1.4): 0.12, Violet(1.5): 0.14
+    base_bonus = (difficulty - 0.8) * 0.2
+
+    # 效率加成：剩餘出牌次數 * 0.02
+    # 鼓勵用更少的出牌機會過關
+    efficiency_mult = 1.0 + plays_left * 0.05
+
+    return clamp(base_bonus * efficiency_mult, 0.0, 0.15)
+
+
+def _count_synergy_matches(joker_ids: set[int]) -> int:
+    """
+    計算 Joker 集合中的協同配對數量
+
+    遍歷所有協同群組，計算有多少群組有 >= 2 個 Joker。
+    """
+    synergy_count = 0
+    for group_name, group_jokers in JOKER_SYNERGY_GROUPS.items():
+        matches = joker_ids & group_jokers
+        if len(matches) >= 2:
+            synergy_count += len(matches) - 1  # 每多一個匹配 +1
+    return synergy_count
+
+
+def _count_build_matching_jokers(hand_type: int, joker_ids: list[int]) -> int:
+    """
+    計算有多少 Joker 支援當前打出的牌型 build
+    """
+    if hand_type < 0:
+        return 0
+
+    # 確定牌型對應的 build
+    hand_build = None
+    for build, hands in _BUILD_HANDS.items():
+        if hand_type in hands:
+            hand_build = build
+            break
+
+    if hand_build is None:
+        return 0
+
+    # 計算支援該 build 的 Joker 數量
+    matching_count = 0
+    for jid in joker_ids:
+        if JOKER_BUILD_SUPPORT.get(jid) == hand_build:
+            matching_count += 1
+
+    return matching_count
+
+
+def joker_synergy_reward(
+    joker_ids: list[int],
+    dominant_build: Optional[int] = None,
+    boss_blind_id: int = -1
+) -> float:
+    """
+    Joker 協同獎勵（v7.0 新增）
+
+    獎勵持有有協同效果的 Joker 組合，在 CASH_OUT 時評估。
+
+    設計原則：
+    - 協同群組配對：每個有 2+ 匹配的群組給予 +0.02
+    - Build 對齊：Joker 能力匹配主導風格給予額外獎勵
+    - Boss 克制：持有 Boss Killer 群組面對 Boss 給予獎勵
+
+    Args:
+        joker_ids: 當前持有的 Joker ID 列表
+        dominant_build: 主導 build 風格（None = 未確定）
+        boss_blind_id: 當前 Boss Blind ID（-1 = 無 Boss）
+
+    Returns:
+        獎勵值 (0.0 ~ 0.12)
+    """
+    if not joker_ids:
+        return 0.0
+
+    joker_set = set(joker_ids)
+    reward = 0.0
+
+    # 1. 協同群組獎勵
+    synergy_count = _count_synergy_matches(joker_set)
+    reward += synergy_count * 0.02
+
+    # 2. Build 對齊獎勵
+    if dominant_build is not None:
+        aligned_count = sum(
+            1 for jid in joker_ids
+            if JOKER_BUILD_SUPPORT.get(jid) == dominant_build
+        )
+        if aligned_count >= 2:
+            reward += 0.02 * (aligned_count - 1)
+
+    # 3. Boss 克制獎勵
+    # 持有 Chicot(68) 或 Matador(118) 面對 Boss 時給予獎勵
+    if boss_blind_id >= 0:
+        boss_killers = joker_set & JOKER_SYNERGY_GROUPS.get("boss_killer", set())
+        if boss_killers:
+            reward += 0.02 * len(boss_killers)
+
+    return clamp(reward, 0.0, 0.12)
+
+
+def hand_type_targeting_reward(
+    hand_type: int,
+    boss_blind_id: int,
+    joker_ids: list[int]
+) -> float:
+    """
+    牌型針對性獎勵（v7.0 新增）
+
+    獎勵打出匹配 Joker 能力的牌型，鼓勵 agent 學會組合利用。
+
+    設計原則：
+    - 每個匹配 Joker 給予 +0.02
+    - 特殊組合（如 SuperPosition + Straight Flush）給予額外獎勵
+    - 不懲罰不匹配的情況
+
+    Args:
+        hand_type: 打出的牌型 ID
+        boss_blind_id: 當前 Boss Blind ID（用於未來特殊獎勵）
+        joker_ids: 當前持有的 Joker ID 列表
+
+    Returns:
+        獎勵值 (0.0 ~ 0.10)
+    """
+    if hand_type < 0 or not joker_ids:
+        return 0.0
+
+    # 計算匹配 Joker 數量
+    matching_jokers = _count_build_matching_jokers(hand_type, joker_ids)
+
+    # 基礎獎勵：每個匹配 Joker +0.02
+    reward = matching_jokers * 0.02
+
+    # 特殊組合獎勵：Straight Flush 或更高牌型配合相關 Joker
+    if hand_type >= HAND_STRAIGHT_FLUSH:
+        # 同時有 Straight 和 Flush 相關 Joker = 額外獎勵
+        has_straight_joker = any(
+            JOKER_BUILD_SUPPORT.get(jid) == BUILD_STRAIGHT
+            for jid in joker_ids
+        )
+        has_flush_joker = any(
+            JOKER_BUILD_SUPPORT.get(jid) == BUILD_FLUSH
+            for jid in joker_ids
+        )
+        if has_straight_joker and has_flush_joker:
+            reward += 0.04  # 特殊組合獎勵
+
+    return clamp(reward, 0.0, 0.10)
+
+
 def consumable_use_reward(ante: int, consumable_id: int = -1) -> float:
     """
     消耗品使用獎勵（0~0.25）
@@ -1306,6 +1834,12 @@ class RewardCalculator:
                 info.blind_type,
                 info.ante
             )
+            # v7.0: Boss 難度獎勵
+            if info.blind_type == BLIND_BOSS:
+                reward += boss_clear_difficulty_bonus(
+                    info.boss_blind_id,
+                    info.plays_left
+                )
             # v6.7: Big Blind 過關後的 Boss 準備獎勵
             # 鼓勵在進入 Boss 前累積足夠金幣
             if info.blind_type == BLIND_BIG:
@@ -1347,6 +1881,18 @@ class RewardCalculator:
             # v6.9: Joker 貢獻獎勵和分數效率獎勵（純正向）
             reward += joker_contribution_reward(info)
             reward += score_efficiency_reward(info)
+
+            # v7.0: 牌型針對性獎勵（基於 build 追蹤）
+            # 使用 BuildTracker 的主導 build 來評估牌型匹配度
+            dominant_build = self._build_tracker.get_dominant_build()
+            if dominant_build is not None and info.hand_type >= 0:
+                # 檢查牌型是否匹配主導 build
+                if info.hand_type in _BUILD_HANDS.get(dominant_build, set()):
+                    # 匹配主導 build = 獎勵
+                    reward += 0.03
+                    # 更強牌型 + 匹配 = 額外獎勵
+                    if info.hand_type >= HAND_STRAIGHT_FLUSH:
+                        reward += 0.02
 
             # v6.4: 出牌後重置棄牌追蹤狀態
             self._consecutive_discards = 0
@@ -1429,16 +1975,28 @@ class RewardCalculator:
                 )
 
         elif action_type == ACTION_TYPE_REROLL:
-            reward += reroll_reward(
+            # v10.0: 使用商店品質感知的 Reroll 獎勵
+            reward += reroll_reward_v2(
                 info.last_action_cost,
                 prev.money if prev else info.money,
-                info.ante
+                info.ante,
+                getattr(info, 'shop_quality_score', 0.5),
+                info.joker_count,
+                info.joker_slot_limit,
+                getattr(info, 'reroll_count_this_shop', 0)
             )
 
         elif action_type == ACTION_TYPE_SKIP_BLIND:
-            # 使用 tag_id 精確計算 Tag 價值（-1 表示無 Tag，使用平均值）
+            # v10.0: 使用狀態感知的 Skip 獎勵
             tag_id_or_none = info.tag_id if info.tag_id >= 0 else None
-            reward += skip_blind_reward(info.blind_type, info.ante, tag_id_or_none)
+            reward += skip_blind_reward_v2(
+                info.blind_type,
+                info.ante,
+                tag_id_or_none,
+                getattr(info, 'shop_quality_score', 0.5),
+                info.joker_count,
+                info.money
+            )
 
         elif action_type == ACTION_TYPE_USE_CONSUMABLE:
             # 使用 consumable_id 精確計算獎勵（-1 表示未知，使用平均值）
@@ -1471,6 +2029,16 @@ class RewardCalculator:
             reward += money_reward(info.money, info.ante)
             # v6.0: Joker 持有獎勵 — 鼓勵保留 Joker
             reward += joker_holding_bonus(info.joker_count, info.ante)
+            # v7.0: Joker 協同獎勵（簡化版 - 基於數量和 build 對齊）
+            # 當持有 3+ Joker 且有主導 build 時給予協同獎勵
+            dominant_build = self._build_tracker.get_dominant_build()
+            if info.joker_count >= 3 and dominant_build is not None:
+                # 假設協同程度與 Joker 數量和主導 build 強度相關
+                build_weights = self._build_tracker.get_build_weights()
+                max_weight = max(build_weights.values())
+                # 協同獎勵：Joker 數量 × build 權重
+                synergy_bonus = 0.02 * min(info.joker_count - 2, 3) * max_weight
+                reward += clamp(synergy_bonus, 0.0, 0.08)
 
         elif action_type == ACTION_TYPE_NEXT_ROUND:
             # 檢查是否進入新 Ante

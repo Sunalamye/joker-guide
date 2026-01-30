@@ -29,6 +29,7 @@ use game::{
     ACTION_TYPE_SELL_JOKER, ACTION_TYPE_SKIP_BLIND, ACTION_TYPE_USE_CONSUMABLE, DISCARDS_PER_BLIND,
     HAND_SIZE, MAX_SELECTED, MAX_STEPS, OBS_SIZE, PLAYS_PER_BLIND,
     trigger_joker_slot_events, GameEvent, TriggerContext,
+    calculate_shop_quality,
 };
 
 // 從 service 模組導入
@@ -205,6 +206,9 @@ impl JokerEnv for EnvService {
         info.flush_potential = flush_pot;
         info.straight_potential = straight_pot;
         info.pairs_potential = pairs_pot;
+
+        // v7.0: Boss Blind ID（Reset 時無 Boss）
+        info.boss_blind_id = -1;
 
         Ok(Response::new(ResetResponse {
             observation: Some(observation),
@@ -2376,6 +2380,13 @@ impl JokerEnv for EnvService {
         } else {
             0.0
         };
+
+        // v7.0: Boss Blind ID
+        info.boss_blind_id = state.boss_blind.map(|b| b.to_int()).unwrap_or(-1);
+
+        // v10.0: 商店品質評估
+        info.shop_quality_score = calculate_shop_quality(&state.shop, &state.jokers);
+        info.reroll_count_this_shop = state.shop.reroll_count;
 
         Ok(Response::new(StepResponse {
             observation: Some(observation),

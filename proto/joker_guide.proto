@@ -130,4 +130,11 @@ message EnvInfo {
   float joker_mult_contrib = 30;   // Joker mult 貢獻比例 [0, 1]
   float joker_xmult_contrib = 31;  // Joker x_mult 正規化值 [0, 1]：min(log(x_mult)/log(4), 1)
   float score_efficiency = 32;     // 分數效率：score_delta / (blind_target / 4)
+
+  // v7.0: Boss Blind 識別
+  int32 boss_blind_id = 33;        // Boss Blind ID (0-26), -1 = 無 Boss
+
+  // v10.0: 商店品質評估（用於 Reroll/Skip 決策）
+  float shop_quality_score = 34;   // 商店品質分數 [0, 1]：0=差, 1=優
+  int32 reroll_count_this_shop = 35;  // 本次商店訪問的 Reroll 次數
 }
