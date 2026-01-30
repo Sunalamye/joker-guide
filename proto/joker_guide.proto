@@ -124,4 +124,10 @@ message EnvInfo {
   float flush_potential = 26;      // 同花潛力 [0, 1]：max(suit_count) / 5
   float straight_potential = 27;   // 順子潛力 [0, 1]：max_consecutive / 5
   float pairs_potential = 28;      // 對子潛力 [0, 1]：max(rank_count) / 4
+
+  // v6.9: Joker 貢獻追蹤（用於高分獎勵計算）
+  float joker_chip_contrib = 29;   // Joker chips 貢獻比例 [0, 1]
+  float joker_mult_contrib = 30;   // Joker mult 貢獻比例 [0, 1]
+  float joker_xmult_contrib = 31;  // Joker x_mult 正規化值 [0, 1]：min(log(x_mult)/log(4), 1)
+  float score_efficiency = 32;     // 分數效率：score_delta / (blind_target / 4)
 }

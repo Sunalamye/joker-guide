@@ -241,6 +241,10 @@ impl JokerEnv for EnvService {
         let mut cards_played = 0i32;
         let mut cards_discarded = 0i32;
         let mut hand_type_id = -1i32;
+        // v6.9: Joker 貢獻追蹤
+        let mut joker_chip_contrib: f32 = 0.0;
+        let mut joker_mult_contrib: f32 = 0.0;
+        let mut joker_xmult_contrib: f32 = 0.0;
 
         match state.stage {
             Stage::PreBlind => {
@@ -754,6 +758,10 @@ impl JokerEnv for EnvService {
                                 let hand_id = score_result.hand_id;
                                 let hand_type_idx = hand_id.to_index();
                                 hand_type_id = hand_type_idx as i32;
+                                // v6.9: 儲存 Joker 貢獻
+                                joker_chip_contrib = score_result.joker_chip_contrib;
+                                joker_mult_contrib = score_result.joker_mult_contrib;
+                                joker_xmult_contrib = score_result.joker_xmult_contrib;
 
                                 let eye_ok = !state
                                     .boss_blind
@@ -2355,6 +2363,19 @@ impl JokerEnv for EnvService {
         info.flush_potential = flush_pot;
         info.straight_potential = straight_pot;
         info.pairs_potential = pairs_pot;
+
+        // v6.9: Joker 貢獻追蹤
+        info.joker_chip_contrib = joker_chip_contrib;
+        info.joker_mult_contrib = joker_mult_contrib;
+        info.joker_xmult_contrib = joker_xmult_contrib;
+        // score_efficiency: score_delta / (blind_target / 4)
+        let blind_target = state.required_score();
+        let expected_per_play = blind_target as f32 / 4.0;
+        info.score_efficiency = if expected_per_play > 0.0 && score_delta > 0 {
+            score_delta as f32 / expected_per_play
+        } else {
+            0.0
+        };
 
         Ok(Response::new(StepResponse {
             observation: Some(observation),

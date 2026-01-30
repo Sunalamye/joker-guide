@@ -28,6 +28,11 @@ pub struct CardScoreResult {
     pub glass_to_break: Vec<usize>, // 需要破碎的 Glass 牌索引
     pub selzer_charges_used: i32,   // Selzer 使用的重觸發次數
     pub lucky_triggers: i32,        // Lucky 牌觸發次數 (for Lucky_Cat)
+
+    // v6.9: Joker 貢獻追蹤（用於獎勵計算）
+    pub joker_chip_contrib: f32,    // Joker chips 貢獻比例 [0, 1]
+    pub joker_mult_contrib: f32,    // Joker mult 貢獻比例 [0, 1]
+    pub joker_xmult_contrib: f32,   // Joker x_mult 正規化值 [0, 1]
 }
 
 /// 計算出牌分數（考慮 Boss Blind debuff、卡片增強和牌型等級）
@@ -194,6 +199,26 @@ pub fn calculate_play_score(
         total_chips * final_mult
     };
 
+    // v6.9: 計算 Joker 貢獻比例（用於獎勵計算）
+    let joker_chip_contrib = if total_chips > 0 {
+        (bonus.chip_bonus as f32) / (total_chips as f32)
+    } else {
+        0.0
+    };
+
+    let joker_mult_contrib = if total_mult > 0 {
+        (bonus.add_mult as f32) / (total_mult as f32)
+    } else {
+        0.0
+    };
+
+    // x_mult 正規化：log 縮放，x4.0 = 1.0
+    let joker_xmult_contrib = if x_mult > 1.0 {
+        (x_mult.ln() / 4.0_f32.ln()).min(1.0)
+    } else {
+        0.0
+    };
+
     CardScoreResult {
         score,
         hand_id: hand_score.id,
@@ -201,6 +226,9 @@ pub fn calculate_play_score(
         glass_to_break,
         selzer_charges_used,
         lucky_triggers,
+        joker_chip_contrib,
+        joker_mult_contrib,
+        joker_xmult_contrib,
     }
 }
 

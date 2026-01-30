@@ -3,6 +3,16 @@
 
 從 Rust reward.rs 移植，為 RL 訓練提供形狀良好的獎勵信號，支持完整遊戲（Ante 1-8）
 
+獎勵範圍設計（v6.9 - Joker 貢獻與高效出牌獎勵）：
+
+v6.9 新增功能（純正向獎勵，不增加懲罰）：
+1. Joker 貢獻獎勵：當 Joker 對分數有顯著貢獻時給予 0.0~0.08 獎勵
+   - x_mult 權重最高（0.5），因為乘法加成是後期關鍵
+   - chips 權重最低（0.2），因為影響較小
+2. 分數效率獎勵：當單次出牌超過預期分數時給予 0.0~0.06 獎勵
+   - 預期分數 = blind_target / 4（假設 4 次出牌過關）
+   - 只獎勵超額部分，不懲罰低於預期
+
 獎勵範圍設計（v6.7 - 修復 Joker 經濟循環）：
 設計原則：
 - 終端獎勵主導：勝利=5.0，確保長期目標壓過短期收益
@@ -486,6 +496,12 @@ class StepInfo:
     straight_potential: float = 0.0  # 順子潛力 [0, 1]
     pairs_potential: float = 0.0     # 對子潛力 [0, 1]
 
+    # v6.9: Joker 貢獻追蹤（用於高分獎勵計算）
+    joker_chip_contrib: float = 0.0    # Joker chips 貢獻比例 [0, 1]
+    joker_mult_contrib: float = 0.0    # Joker mult 貢獻比例 [0, 1]
+    joker_xmult_contrib: float = 0.0   # Joker x_mult 正規化值 [0, 1]
+    score_efficiency: float = 0.0      # 分數效率：score_delta / (blind_target / 4)
+
 
 def parse_env_info(info: dict) -> StepInfo:
     """從 gRPC EnvInfo 解析狀態"""
@@ -518,6 +534,11 @@ def parse_env_info(info: dict) -> StepInfo:
         flush_potential=info.get("flush_potential", 0.0),
         straight_potential=info.get("straight_potential", 0.0),
         pairs_potential=info.get("pairs_potential", 0.0),
+        # v6.9: Joker 貢獻追蹤
+        joker_chip_contrib=info.get("joker_chip_contrib", 0.0),
+        joker_mult_contrib=info.get("joker_mult_contrib", 0.0),
+        joker_xmult_contrib=info.get("joker_xmult_contrib", 0.0),
+        score_efficiency=info.get("score_efficiency", 0.0),
     )
 
 
@@ -1098,6 +1119,83 @@ def joker_shortage_penalty(joker_count: int, ante: int) -> float:
     return -0.03 * shortage
 
 
+# ============================================================================
+# v6.9 新增：Joker 貢獻與分數效率獎勵（純正向）
+# ============================================================================
+
+def joker_contribution_reward(info: StepInfo) -> float:
+    """
+    Joker 貢獻獎勵（v6.9 新增，純正向）
+
+    當 Joker 對分數有顯著貢獻時給予獎勵，鼓勵學會利用 Joker 組合。
+
+    設計原則：
+    - 只有在成功出牌且得分時才給予獎勵
+    - x_mult 權重最高（0.5），因為乘法加成是後期關鍵
+    - 獎勵範圍 0.0 ~ 0.08（純正向，不懲罰低貢獻）
+
+    Args:
+        info: 當前步驟的狀態信息
+
+    Returns:
+        獎勵值 (0.0 ~ 0.08)
+    """
+    # 只有得分時才給獎勵
+    if info.score_delta <= 0:
+        return 0.0
+
+    # 加權計算綜合貢獻分數
+    # x_mult 權重最高，因為是後期勝率關鍵
+    contribution_score = (
+        0.2 * info.joker_chip_contrib +
+        0.3 * info.joker_mult_contrib +
+        0.5 * info.joker_xmult_contrib
+    )
+
+    # 基礎獎勵：貢獻分數 × 0.08
+    base_reward = contribution_score * 0.08
+
+    return base_reward  # 永遠 >= 0
+
+
+def score_efficiency_reward(info: StepInfo) -> float:
+    """
+    分數效率獎勵（v6.9 新增，純正向）
+
+    當單次出牌分數超過預期時給予獎勵。
+    預期分數 = blind_target / 4（假設 4 次出牌過關）
+
+    設計原則：
+    - 只有超過預期（效率 > 1.0）才給獎勵
+    - 不懲罰低於預期的出牌（已有 play_reward 處理）
+    - 獎勵上限 0.06（避免過度主導）
+
+    Args:
+        info: 當前步驟的狀態信息
+
+    Returns:
+        獎勵值 (0.0 ~ 0.06)
+    """
+    # 無效情況不給獎勵
+    if info.score_delta <= 0 or info.blind_target <= 0:
+        return 0.0
+
+    # score_efficiency 已由 Rust 計算：score_delta / (blind_target / 4)
+    efficiency = info.score_efficiency
+
+    # 只獎勵超過預期的情況（效率 > 1.0）
+    if efficiency <= 1.0:
+        return 0.0  # 不懲罰低於預期
+
+    # 超額部分（最多 1.0）
+    overkill = min(efficiency - 1.0, 1.0)
+
+    # 基礎獎勵：超額比例 × 0.06
+    base_reward = overkill * 0.06
+
+    return base_reward  # 永遠 >= 0
+
+
 def consumable_use_reward(ante: int, consumable_id: int = -1) -> float:
     """
     消耗品使用獎勵（0~0.25）
@@ -1245,6 +1343,10 @@ class RewardCalculator:
                 )
             if info.hand_type >= 0:
                 self._build_tracker.record_hand(info.hand_type)
+
+            # v6.9: Joker 貢獻獎勵和分數效率獎勵（純正向）
+            reward += joker_contribution_reward(info)
+            reward += score_efficiency_reward(info)
 
             # v6.4: 出牌後重置棄牌追蹤狀態
             self._consecutive_discards = 0
