@@ -10,7 +10,7 @@ import os
 import time
 from gymnasium import spaces
 
-from joker_env.client import JokerEnvClient
+from joker_env.client import JokerEnvClient, StreamingJokerClient
 from joker_env.reward import RewardCalculator
 
 
@@ -518,12 +518,15 @@ class AggregatedMetrics:
 
 
 class JokerGymEnv(gym.Env):
-    """簡化的 Gym 環境，使用扁平化 observation，支援詳細 metrics 追蹤"""
+    """簡化的 Gym 環境，使用扁平化 observation，支援詳細 metrics 追蹤
+
+    預設使用 StreamingJokerClient 以獲得低延遲（~0.1-0.4 ms/step）。
+    """
 
     metadata = {"render_modes": []}
 
     def __init__(self, address: str = "127.0.0.1:50051", track_metrics: bool = True) -> None:
-        self._client = JokerEnvClient(address)
+        self._client = StreamingJokerClient(address)
         spec = self._client.get_spec()
 
         obs_shape = tuple(spec.observation.shape)
@@ -646,14 +649,22 @@ class JokerGymEnv(gym.Env):
             return self._episode_metrics.to_dict()
         return None
 
+    def close(self) -> None:
+        """關閉 gRPC streaming 連接。"""
+        if hasattr(self._client, 'close'):
+            self._client.close()
+
 
 class JokerGymDictEnv(gym.Env):
-    """使用 Dict observation 的 Gym 環境，適合訓練，支援詳細 metrics 追蹤"""
+    """使用 Dict observation 的 Gym 環境，適合訓練，支援詳細 metrics 追蹤
+
+    預設使用 StreamingJokerClient 以獲得低延遲（~0.1-0.4 ms/step）。
+    """
 
     metadata = {"render_modes": []}
 
     def __init__(self, address: str = "127.0.0.1:50051", track_metrics: bool = True) -> None:
-        self._client = JokerEnvClient(address)
+        self._client = StreamingJokerClient(address)
         spec = self._client.get_spec()
 
         obs_shape = tuple(spec.observation.shape)
@@ -821,6 +832,11 @@ class JokerGymDictEnv(gym.Env):
         if self._episode_metrics is not None:
             return self._episode_metrics.to_dict()
         return None
+
+    def close(self) -> None:
+        """關閉 gRPC streaming 連接。"""
+        if hasattr(self._client, 'close'):
+            self._client.close()
 
 
 # ============================================================================

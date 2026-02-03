@@ -134,13 +134,24 @@ class StreamingJokerClient:
             flush=True,
         )
 
+    def get_spec(self):
+        """獲取環境規格（使用 unary RPC，只在初始化時調用一次）。"""
+        if self._channel is None:
+            self._channel = grpc.insecure_channel(self._address)
+        if self._stub is None:
+            self._stub = joker_guide_pb2_grpc.JokerEnvStub(self._channel)
+        request = joker_guide_pb2.GetSpecRequest()
+        return self._stub.GetSpec(request)
+
     def start_stream(self) -> None:
         """啟動 bidirectional stream。"""
         if self._stream_active:
             return
 
-        self._channel = grpc.insecure_channel(self._address)
-        self._stub = joker_guide_pb2_grpc.JokerEnvStub(self._channel)
+        if self._channel is None:
+            self._channel = grpc.insecure_channel(self._address)
+        if self._stub is None:
+            self._stub = joker_guide_pb2_grpc.JokerEnvStub(self._channel)
         self._request_queue = queue.Queue()
 
         def request_iterator() -> Iterator[joker_guide_pb2.StreamRequest]:
