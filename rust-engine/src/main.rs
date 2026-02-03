@@ -3,6 +3,7 @@
 
 use std::env;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::time::Instant;
 use dashmap::DashMap;
 
 use rand::Rng;
@@ -105,13 +106,24 @@ struct EnvService {
     games: DashMap<u64, EnvState>,
     /// 下一個 session_id
     next_session_id: AtomicU64,
+    /// 每 N 步輸出一次 profiling，0 表示關閉
+    profile_every: u64,
+    /// profiling step counter
+    profile_counter: AtomicU64,
 }
 
 impl Default for EnvService {
     fn default() -> Self {
+        let profile_every = env::var("JOKER_PROFILE_EVERY")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(0);
+
         Self {
             games: DashMap::new(),
             next_session_id: AtomicU64::new(1),
+            profile_every,
+            profile_counter: AtomicU64::new(0),
         }
     }
 }
@@ -228,6 +240,10 @@ impl JokerEnv for EnvService {
         let mut state = self.games.get_mut(&session_id).ok_or_else(|| {
             Status::not_found(format!("session {} not found, call Reset first", session_id))
         })?;
+
+        let do_profile = self.profile_every > 0
+            && (self.profile_counter.fetch_add(1, Ordering::Relaxed) + 1) % self.profile_every == 0;
+        let t0 = if do_profile { Some(Instant::now()) } else { None };
 
         let action_type = action.action_type;
         let action_id = action.action_id as u32;
@@ -2290,6 +2306,8 @@ impl JokerEnv for EnvService {
             done = true;
         }
 
+        let t1 = if do_profile { Some(Instant::now()) } else { None };
+
         // 計算 delta
         let score_delta = state.score - score_before;
         let money_delta = state.money - money_before;
@@ -2301,9 +2319,14 @@ impl JokerEnv for EnvService {
             _ => 0,
         };
 
+        let features = observation_from_state(&state);
+        let t2 = if do_profile { Some(Instant::now()) } else { None };
+        let action_mask = action_mask_from_state(&state, done);
+        let t3 = if do_profile { Some(Instant::now()) } else { None };
+
         let observation = Observation {
-            features: Some(observation_from_state(&state)),
-            action_mask: Some(action_mask_from_state(&state, done)),
+            features: Some(features),
+            action_mask: Some(action_mask),
         };
 
         let mut info = EnvInfo {
@@ -2385,6 +2408,17 @@ impl JokerEnv for EnvService {
         // v10.0: 商店品質評估
         info.shop_quality_score = calculate_shop_quality(&state.shop, &state.jokers);
         info.reroll_count_this_shop = state.shop.reroll_count;
+
+        if do_profile {
+            let logic = t1.unwrap().duration_since(t0.unwrap());
+            let obs = t2.unwrap().duration_since(t1.unwrap());
+            let mask = t3.unwrap().duration_since(t2.unwrap());
+            let total = t3.unwrap().duration_since(t0.unwrap());
+            println!(
+                "PROFILE step={} session={} logic={:?} obs={:?} mask={:?} total={:?}",
+                state.episode_step, session_id, logic, obs, mask, total
+            );
+        }
 
         Ok(Response::new(StepResponse {
             observation: Some(observation),

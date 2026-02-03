@@ -24,15 +24,24 @@ TB_PORT=6006
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_DIR="python-env/logs/run_${TIMESTAMP}"
 
-# 解析是否禁用 TensorBoard
+# 解析是否禁用 TensorBoard / profiling 設定
 ENABLE_TB=true
+PROFILE_EVERY=0
 EXTRA_ARGS=()
-for arg in "$@"; do
-    if [ "$arg" = "--no-tensorboard" ]; then
-        ENABLE_TB=false
-    else
-        EXTRA_ARGS+=("$arg")
-    fi
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --no-tensorboard)
+            ENABLE_TB=false
+            ;;
+        --profile-every)
+            PROFILE_EVERY="${2:-0}"
+            shift
+            ;;
+        *)
+            EXTRA_ARGS+=("$1")
+            ;;
+    esac
+    shift
 done
 
 # 清理函數
@@ -41,6 +50,9 @@ cleanup() {
     echo "Stopping all processes..."
     if [ -n "$ENGINE_PID" ] && kill -0 "$ENGINE_PID" 2>/dev/null; then
         kill "$ENGINE_PID" 2>/dev/null || true
+    fi
+    if [ -n "$TAIL_PID" ] && kill -0 "$TAIL_PID" 2>/dev/null; then
+        kill "$TAIL_PID" 2>/dev/null || true
     fi
     if [ -n "$TB_PID" ] && kill -0 "$TB_PID" 2>/dev/null; then
         kill "$TB_PID" 2>/dev/null || true
@@ -77,7 +89,17 @@ echo ""
 
 # 啟動單一 Rust 引擎（支援多遊戲）
 echo "Starting Rust engine on port $PORT..."
-"$RUST_ENGINE" --port "$PORT" &
+ENGINE_LOG="$LOG_DIR/engine.log"
+ENGINE_CMD=("$RUST_ENGINE" --port "$PORT")
+if command -v stdbuf >/dev/null 2>&1; then
+    ENGINE_CMD=(stdbuf -oL -eL "${ENGINE_CMD[@]}")
+fi
+if [ "$PROFILE_EVERY" != "0" ]; then
+    echo "Profiling enabled: every $PROFILE_EVERY steps"
+    JOKER_PROFILE_EVERY="$PROFILE_EVERY" "${ENGINE_CMD[@]}" >"$ENGINE_LOG" 2>&1 &
+else
+    "${ENGINE_CMD[@]}" >"$ENGINE_LOG" 2>&1 &
+fi
 ENGINE_PID=$!
 
 # 等待引擎啟動
@@ -96,6 +118,13 @@ else
     sleep 1
 fi
 echo ""
+
+if [ "$PROFILE_EVERY" != "0" ]; then
+    echo "Tailing engine log: $ENGINE_LOG"
+    tail -f "$ENGINE_LOG" &
+    TAIL_PID=$!
+    echo ""
+fi
 
 # 啟動 TensorBoard（如果啟用）
 if [ "$ENABLE_TB" = true ]; then
