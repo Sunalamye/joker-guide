@@ -12,7 +12,7 @@ use tonic::{Request, Response, Status};
 use joker_env::proto::joker_env_server::{JokerEnv, JokerEnvServer};
 use joker_env::proto::{
     Action, EnvInfo, GetSpecRequest, GetSpecResponse, Observation, ResetRequest, ResetResponse,
-    StepRequest, StepResponse, TensorSpec,
+    StepBatchRequest, StepBatchResponse, StepRequest, StepResponse, TensorSpec,
 };
 
 // 遊戲核心模組
@@ -2426,6 +2426,19 @@ impl JokerEnv for EnvService {
             done,
             info: Some(info),
         }))
+    }
+
+    async fn step_batch(
+        &self,
+        request: Request<StepBatchRequest>,
+    ) -> Result<Response<StepBatchResponse>, Status> {
+        let req = request.into_inner();
+        let mut responses = Vec::with_capacity(req.requests.len());
+        for step_req in req.requests {
+            let resp = self.step(Request::new(step_req)).await?;
+            responses.push(resp.into_inner());
+        }
+        Ok(Response::new(StepBatchResponse { responses }))
     }
 
     async fn get_spec(

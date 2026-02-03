@@ -12,6 +12,7 @@ from gymnasium import spaces
 from sb3_contrib import MaskablePPO
 from sb3_contrib.common.wrappers import ActionMasker
 from stable_baselines3.common.vec_env import SubprocVecEnv, VecNormalize
+from joker_env.batch_vec_env import JokerBatchVecEnv
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
 from joker_env import JokerGymDictEnv
@@ -256,20 +257,28 @@ def train(
     n_envs: int = 1,
     resume: Path | None = None,
     reset_vec_normalize: bool = False,  # v6.8: 重置 VecNormalize 統計量
+    batch_env: bool = False,
 ) -> None:
     # 創建並行環境
     if n_envs > 1:
         base_port = int(os.environ.get("JOKER_BASE_PORT", "50051"))
         n_engines = int(os.environ.get("JOKER_N_ENGINES", str(n_envs)))
 
-        print(f"Using {n_envs} parallel environments (SubprocVecEnv)")
-        print(f"Connecting to {n_engines} Rust engines (ports {base_port}-{base_port + n_engines - 1})")
+        if batch_env:
+            if n_engines != 1:
+                raise ValueError("Batch env currently supports only 1 Rust engine")
+            print(f"Using {n_envs} parallel environments (Batch VecEnv)")
+            print(f"Connecting to 1 Rust engine (port {base_port})")
+            env = JokerBatchVecEnv(address=f"127.0.0.1:{base_port}", n_envs=n_envs)
+        else:
+            print(f"Using {n_envs} parallel environments (SubprocVecEnv)")
+            print(f"Connecting to {n_engines} Rust engines (ports {base_port}-{base_port + n_engines - 1})")
 
-        # Round-robin 分配環境到引擎
-        env = SubprocVecEnv([
-            make_env(seed, i, port=base_port + (i % n_engines))
-            for i in range(n_envs)
-        ])
+            # Round-robin 分配環境到引擎
+            env = SubprocVecEnv([
+                make_env(seed, i, port=base_port + (i % n_engines))
+                for i in range(n_envs)
+            ])
         # v5.0: 添加 VecNormalize 進行獎勵正規化
         env = VecNormalize(
             env,
@@ -373,6 +382,7 @@ def main() -> None:
     parser.add_argument("--verbose", type=int, default=1, help="SB3 verbosity level")
     parser.add_argument("--n-steps", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=64)
+    parser.add_argument("--batch-env", action="store_true", help="Use batch Step RPC in a single process VecEnv")
     parser.add_argument("--ent-coef", type=float, default=0.05)
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--gamma", type=float, default=0.99, help="v6.8: 0.99 for better long-term credit assignment")
@@ -440,6 +450,7 @@ def main() -> None:
         n_envs=args.n_envs,
         resume=args.resume,
         reset_vec_normalize=args.reset_vec_normalize,
+        batch_env=args.batch_env,
     )
 
 

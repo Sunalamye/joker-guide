@@ -5,6 +5,7 @@ package joker_guide.v1;
 service JokerEnv {
   rpc Reset(ResetRequest) returns (ResetResponse);
   rpc Step(StepRequest) returns (StepResponse);
+  rpc StepBatch(StepBatchRequest) returns (StepBatchResponse);
   rpc GetSpec(GetSpecRequest) returns (GetSpecResponse);
 }
 
@@ -29,6 +30,14 @@ message StepResponse {
   float reward = 2;
   bool done = 3;
   EnvInfo info = 4;
+}
+
+message StepBatchRequest {
+  repeated StepRequest requests = 1;
+}
+
+message StepBatchResponse {
+  repeated StepResponse responses = 1;
 }
 
 message GetSpecRequest {}

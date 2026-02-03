@@ -36,6 +36,13 @@ class JokerEnvClient:
         self._maybe_profile("Reset", start_ns)
         return response
 
+    def reset_with_session(self, session_id: int, seed: int = 0):
+        start_ns = time.perf_counter_ns()
+        request = joker_guide_pb2.ResetRequest(seed=seed, session_id=session_id)
+        response = self._stub.Reset(request)
+        self._maybe_profile("Reset", start_ns)
+        return response
+
     def step(self, action_id: int, params=None, action_type: int = 0):
         if params is None:
             params = []
@@ -46,6 +53,25 @@ class JokerEnvClient:
         start_ns = time.perf_counter_ns()
         response = self._stub.Step(request)
         self._maybe_profile("Step", start_ns)
+        return response
+
+    def step_with_session(self, session_id: int, action_id: int, params=None, action_type: int = 0):
+        if params is None:
+            params = []
+        action = joker_guide_pb2.Action(
+            action_id=action_id, params=params, action_type=action_type
+        )
+        request = joker_guide_pb2.StepRequest(action=action, session_id=session_id)
+        start_ns = time.perf_counter_ns()
+        response = self._stub.Step(request)
+        self._maybe_profile("Step", start_ns)
+        return response
+
+    def step_batch(self, requests):
+        start_ns = time.perf_counter_ns()
+        batch = joker_guide_pb2.StepBatchRequest(requests=requests)
+        response = self._stub.StepBatch(batch)
+        self._maybe_profile("StepBatch", start_ns)
         return response
 
     def step_discard_mask(self, discard_mask: int):

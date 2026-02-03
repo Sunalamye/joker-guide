@@ -44,6 +44,11 @@ class JokerEnvStub(object):
                 request_serializer=joker__guide__pb2.StepRequest.SerializeToString,
                 response_deserializer=joker__guide__pb2.StepResponse.FromString,
                 _registered_method=True)
+        self.StepBatch = channel.unary_unary(
+                '/joker_guide.v1.JokerEnv/StepBatch',
+                request_serializer=joker__guide__pb2.StepBatchRequest.SerializeToString,
+                response_deserializer=joker__guide__pb2.StepBatchResponse.FromString,
+                _registered_method=True)
         self.GetSpec = channel.unary_unary(
                 '/joker_guide.v1.JokerEnv/GetSpec',
                 request_serializer=joker__guide__pb2.GetSpecRequest.SerializeToString,
@@ -61,6 +66,12 @@ class JokerEnvServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def Step(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def StepBatch(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -84,6 +95,11 @@ def add_JokerEnvServicer_to_server(servicer, server):
                     servicer.Step,
                     request_deserializer=joker__guide__pb2.StepRequest.FromString,
                     response_serializer=joker__guide__pb2.StepResponse.SerializeToString,
+            ),
+            'StepBatch': grpc.unary_unary_rpc_method_handler(
+                    servicer.StepBatch,
+                    request_deserializer=joker__guide__pb2.StepBatchRequest.FromString,
+                    response_serializer=joker__guide__pb2.StepBatchResponse.SerializeToString,
             ),
             'GetSpec': grpc.unary_unary_rpc_method_handler(
                     servicer.GetSpec,
@@ -145,6 +161,33 @@ class JokerEnv(object):
             '/joker_guide.v1.JokerEnv/Step',
             joker__guide__pb2.StepRequest.SerializeToString,
             joker__guide__pb2.StepResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def StepBatch(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/joker_guide.v1.JokerEnv/StepBatch',
+            joker__guide__pb2.StepBatchRequest.SerializeToString,
+            joker__guide__pb2.StepBatchResponse.FromString,
             options,
             channel_credentials,
             insecure,
