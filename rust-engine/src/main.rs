@@ -1,10 +1,9 @@
 // 這些 API 是為未來擴展保留的公開介面
 #![allow(dead_code)]
 
-use std::collections::HashMap;
 use std::env;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
+use dashmap::DashMap;
 
 use rand::Rng;
 use tonic::{Request, Response, Status};
@@ -103,7 +102,7 @@ fn calculate_hand_potential(hand: &[Card]) -> (f32, f32, f32) {
 
 struct EnvService {
     /// 多個遊戲狀態，用 session_id 區分
-    games: Mutex<HashMap<u64, EnvState>>,
+    games: DashMap<u64, EnvState>,
     /// 下一個 session_id
     next_session_id: AtomicU64,
 }
@@ -111,7 +110,7 @@ struct EnvService {
 impl Default for EnvService {
     fn default() -> Self {
         Self {
-            games: Mutex::new(HashMap::new()),
+            games: DashMap::new(),
             next_session_id: AtomicU64::new(1),
         }
     }
@@ -120,16 +119,14 @@ impl Default for EnvService {
 impl EnvService {
     /// 獲取或創建遊戲狀態
     fn get_or_create_game(&self, session_id: u64, seed: u64) -> Result<u64, Status> {
-        let mut games = self.games.lock().map_err(|_| Status::internal("lock error"))?;
-
         if session_id == 0 {
             // 創建新 session
             let new_id = self.next_session_id.fetch_add(1, Ordering::SeqCst);
-            games.insert(new_id, EnvState::new(seed));
+            self.games.insert(new_id, EnvState::new(seed));
             Ok(new_id)
         } else {
             // 重置現有 session
-            games.insert(session_id, EnvState::new(seed));
+            self.games.insert(session_id, EnvState::new(seed));
             Ok(session_id)
         }
     }
@@ -145,12 +142,14 @@ impl JokerEnv for EnvService {
         let seed = req.seed;
         let session_id = self.get_or_create_game(req.session_id, seed)?;
 
-        let games = self.games.lock().map_err(|_| Status::internal("lock error"))?;
-        let state = games.get(&session_id).ok_or_else(|| Status::internal("session not found"))?;
+        let state = self
+            .games
+            .get(&session_id)
+            .ok_or_else(|| Status::internal("session not found"))?;
 
         let observation = Observation {
-            features: Some(observation_from_state(state)),
-            action_mask: Some(action_mask_from_state(state, false)),
+            features: Some(observation_from_state(&state)),
+            action_mask: Some(action_mask_from_state(&state, false)),
         };
 
         let mut info = EnvInfo {
@@ -226,8 +225,7 @@ impl JokerEnv for EnvService {
             action_type: ACTION_TYPE_SELECT,
         });
 
-        let mut games = self.games.lock().map_err(|_| Status::internal("lock error"))?;
-        let state = games.get_mut(&session_id).ok_or_else(|| {
+        let mut state = self.games.get_mut(&session_id).ok_or_else(|| {
             Status::not_found(format!("session {} not found, call Reset first", session_id))
         })?;
 
