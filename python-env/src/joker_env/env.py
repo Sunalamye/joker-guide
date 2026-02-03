@@ -6,6 +6,8 @@ from collections import defaultdict
 
 import gymnasium as gym
 import numpy as np
+import os
+import time
 from gymnasium import spaces
 
 from joker_env.client import JokerEnvClient
@@ -542,6 +544,10 @@ class JokerGymEnv(gym.Env):
         self._episode_metrics: Optional[EpisodeMetrics] = None
         self._aggregated_metrics = AggregatedMetrics()
         self._last_action_type = -1
+        self._py_profile_every = int(os.environ.get("JOKER_PY_PROFILE_EVERY", "0") or 0)
+        self._py_profile_counter = 0
+        self._py_profile_every = int(os.environ.get("JOKER_PY_PROFILE_EVERY", "0") or 0)
+        self._py_profile_counter = 0
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
@@ -570,6 +576,7 @@ class JokerGymEnv(gym.Env):
         return observation, info
 
     def step(self, action):
+        start_ns = time.perf_counter_ns()
         action_type, card_mask = _parse_action(action)
         response = self._client.step(action_type=action_type, action_id=card_mask)
         observation = _tensor_to_numpy(response.observation.features)
@@ -600,6 +607,20 @@ class JokerGymEnv(gym.Env):
                 # 也加入聚合統計
                 agg_info = self._aggregated_metrics.to_dict()
                 info.update(agg_info)
+
+        if self._py_profile_every > 0:
+            self._py_profile_counter += 1
+            if self._py_profile_counter % self._py_profile_every == 0:
+                elapsed_ms = (time.perf_counter_ns() - start_ns) / 1_000_000.0
+                print(
+                    "PY_PROFILE ms={:.3f} rpc_ms={:.3f} action_type={} done={}".format(
+                        elapsed_ms,
+                        self._client.last_rpc_ms,
+                        action_type,
+                        terminated,
+                    ),
+                    flush=True,
+                )
 
         return observation, reward, terminated, truncated, info
 
@@ -719,6 +740,7 @@ class JokerGymDictEnv(gym.Env):
         return observation, info
 
     def step(self, action):
+        start_ns = time.perf_counter_ns()
         action_type, card_mask = _parse_action(action)
         response = self._client.step(action_type=action_type, action_id=card_mask)
         flat = _tensor_to_numpy(response.observation.features)
@@ -750,6 +772,20 @@ class JokerGymDictEnv(gym.Env):
                 # 也加入聚合統計
                 agg_info = self._aggregated_metrics.to_dict()
                 info.update(agg_info)
+
+        if self._py_profile_every > 0:
+            self._py_profile_counter += 1
+            if self._py_profile_counter % self._py_profile_every == 0:
+                elapsed_ms = (time.perf_counter_ns() - start_ns) / 1_000_000.0
+                print(
+                    "PY_PROFILE ms={:.3f} rpc_ms={:.3f} action_type={} done={}".format(
+                        elapsed_ms,
+                        self._client.last_rpc_ms,
+                        action_type,
+                        terminated,
+                    ),
+                    flush=True,
+                )
 
         return observation, reward, terminated, truncated, info
 

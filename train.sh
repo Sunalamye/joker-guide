@@ -27,6 +27,8 @@ LOG_DIR="python-env/logs/run_${TIMESTAMP}"
 # 解析是否禁用 TensorBoard / profiling 設定
 ENABLE_TB=true
 PROFILE_EVERY=0
+PY_PROFILE_EVERY=0
+GRPC_PROFILE_EVERY=0
 EXTRA_ARGS=()
 while [ $# -gt 0 ]; do
     case "$1" in
@@ -35,6 +37,14 @@ while [ $# -gt 0 ]; do
             ;;
         --profile-every)
             PROFILE_EVERY="${2:-0}"
+            shift
+            ;;
+        --py-profile-every)
+            PY_PROFILE_EVERY="${2:-0}"
+            shift
+            ;;
+        --grpc-profile-every)
+            GRPC_PROFILE_EVERY="${2:-0}"
             shift
             ;;
         *)
@@ -95,7 +105,7 @@ if command -v stdbuf >/dev/null 2>&1; then
     ENGINE_CMD=(stdbuf -oL -eL "${ENGINE_CMD[@]}")
 fi
 if [ "$PROFILE_EVERY" != "0" ]; then
-    echo "Profiling enabled: every $PROFILE_EVERY steps"
+    echo "Profiling enabled: every $PROFILE_EVERY steps (Rust)"
     JOKER_PROFILE_EVERY="$PROFILE_EVERY" "${ENGINE_CMD[@]}" >"$ENGINE_LOG" 2>&1 &
 else
     "${ENGINE_CMD[@]}" >"$ENGINE_LOG" 2>&1 &
@@ -148,6 +158,8 @@ echo ""
 
 JOKER_BASE_PORT=$PORT \
 JOKER_N_ENGINES=1 \
+JOKER_PY_PROFILE_EVERY="$PY_PROFILE_EVERY" \
+JOKER_GRPC_PROFILE_EVERY="$GRPC_PROFILE_EVERY" \
 PYTHONPATH=python-env/src python -m joker_env.train_sb3 \
     --n-envs "$N_ENVS" \
     --tensorboard-log "$LOG_DIR" \
