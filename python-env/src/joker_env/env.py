@@ -578,6 +578,9 @@ class JokerGymEnv(gym.Env):
         return observation, info
 
     def step(self, action):
+        if not hasattr(self, "_py_profile_every"):
+            self._py_profile_every = int(os.environ.get("JOKER_PY_PROFILE_EVERY", "0") or 0)
+            self._py_profile_counter = 0
         start_ns = time.perf_counter_ns()
         action_type, card_mask = _parse_action(action)
         response = self._client.step(action_type=action_type, action_id=card_mask)
