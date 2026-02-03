@@ -16,7 +16,7 @@ from joker_env.batch_vec_env import JokerBatchVecEnv
 from stable_baselines3.common.torch_layers import BaseFeaturesExtractor
 
 from joker_env import JokerGymDictEnv
-from joker_env.callbacks import JokerMetricsCallback, EntropyScheduleCallback
+from joker_env.callbacks import JokerMetricsCallback, EntropyScheduleCallback, FpsOnlyCallback
 from joker_env.env import (
     BOSS_BLIND_COUNT,
     CARD_FEATURES,
@@ -258,6 +258,8 @@ def train(
     resume: Path | None = None,
     reset_vec_normalize: bool = False,  # v6.8: 重置 VecNormalize 統計量
     batch_env: bool = False,
+    fps_only: bool = True,
+    fps_interval: float = 1.0,
 ) -> None:
     # 創建並行環境
     if n_envs > 1:
@@ -300,8 +302,9 @@ def train(
         net_arch=net_arch or [128, 128],
     )
 
+    effective_verbose = 0 if fps_only else verbose
     model_kwargs = {
-        "verbose": verbose,
+        "verbose": effective_verbose,
         "n_steps": n_steps,
         "batch_size": batch_size,
         "ent_coef": ent_coef,
@@ -348,13 +351,15 @@ def train(
     # v6.4: 使用 callback 列表，包含 Entropy 衰減
     # final_ent 從 0.005 提升到 0.01，維持更多探索
     callbacks = [
-        JokerMetricsCallback(verbose=verbose, log_freq=log_freq, tb_log_freq=tb_log_freq),
+        JokerMetricsCallback(verbose=0 if fps_only else verbose, log_freq=log_freq, tb_log_freq=tb_log_freq),
         EntropyScheduleCallback(
             initial_ent=ent_coef,
             final_ent=0.01,  # v6.4: 從 0.005 提升（維持探索）
             total_steps=total_timesteps,
         ),
     ]
+    if fps_only:
+        callbacks.append(FpsOnlyCallback(interval_seconds=fps_interval))
     while remaining > 0:
         step = min(chunk, remaining)
         model.learn(total_timesteps=step, reset_num_timesteps=False, callback=callbacks)
@@ -380,6 +385,19 @@ def main() -> None:
     parser.add_argument("--log-freq", type=int, default=10)
     parser.add_argument("--tb-log-freq", type=int, default=1)
     parser.add_argument("--verbose", type=int, default=1, help="SB3 verbosity level")
+    parser.add_argument(
+        "--fps-only",
+        action="store_true",
+        default=True,
+        help="Only print FPS to stdout (default: on)",
+    )
+    parser.add_argument(
+        "--no-fps-only",
+        action="store_false",
+        dest="fps_only",
+        help="Disable FPS-only output",
+    )
+    parser.add_argument("--fps-interval", type=float, default=1.0, help="FPS print interval in seconds")
     parser.add_argument("--n-steps", type=int, default=256)
     parser.add_argument("--batch-size", type=int, default=64)
     parser.add_argument("--batch-env", action="store_true", help="Use batch Step RPC in a single process VecEnv")
@@ -451,6 +469,8 @@ def main() -> None:
         resume=args.resume,
         reset_vec_normalize=args.reset_vec_normalize,
         batch_env=args.batch_env,
+        fps_only=args.fps_only,
+        fps_interval=args.fps_interval,
     )
 
 

@@ -15,6 +15,7 @@ model.learn(total_timesteps=100000, callback=callback)
 """
 
 from typing import Dict, Any, Optional
+import time
 import numpy as np
 from stable_baselines3.common.callbacks import BaseCallback
 
@@ -152,6 +153,36 @@ class JokerMetricsCallback(BaseCallback):
             print(f"Overall Win Rate: {self.total_wins / n:.1%}")
             print(f"Overall Avg Ante: {self.total_antes / n:.2f}")
             print("=" * 60 + "\n")
+
+
+class FpsOnlyCallback(BaseCallback):
+    """只輸出 FPS 的輕量 callback。"""
+
+    def __init__(self, interval_seconds: float = 1.0):
+        super().__init__(verbose=0)
+        self.interval_seconds = max(0.1, interval_seconds)
+        self._last_time = None
+        self._last_steps = 0
+
+    def _on_training_start(self) -> None:
+        self._last_time = time.time()
+        self._last_steps = self.num_timesteps
+
+    def _on_step(self) -> bool:
+        if self._last_time is None:
+            self._last_time = time.time()
+            self._last_steps = self.num_timesteps
+            return True
+
+        now = time.time()
+        elapsed = now - self._last_time
+        if elapsed >= self.interval_seconds:
+            steps = self.num_timesteps - self._last_steps
+            fps = steps / elapsed if elapsed > 0 else 0.0
+            print(f"fps {fps:.0f}", flush=True)
+            self._last_time = now
+            self._last_steps = self.num_timesteps
+        return True
 
 
 class EvalMetricsCallback(BaseCallback):
