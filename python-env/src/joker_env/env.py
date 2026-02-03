@@ -544,11 +544,10 @@ class JokerGymEnv(gym.Env):
         self._episode_metrics: Optional[EpisodeMetrics] = None
         self._aggregated_metrics = AggregatedMetrics()
         self._last_action_type = -1
-        self._py_profile_every = int(os.environ.get("JOKER_PY_PROFILE_EVERY", "0") or 0)
-        self._py_profile_counter = 0
-        self._py_profile_every = int(os.environ.get("JOKER_PY_PROFILE_EVERY", "0") or 0)
-        self._py_profile_counter = 0
-        self._py_profile_every = int(os.environ.get("JOKER_PY_PROFILE_EVERY", "0") or 0)
+        if os.environ.get("JOKER_PROFILE_DISABLE") == "1":
+            self._py_profile_every = 0
+        else:
+            self._py_profile_every = int(os.environ.get("JOKER_PY_PROFILE_EVERY", "0") or 0)
         self._py_profile_counter = 0
 
     def reset(
@@ -579,7 +578,10 @@ class JokerGymEnv(gym.Env):
 
     def step(self, action):
         if not hasattr(self, "_py_profile_every"):
-            self._py_profile_every = int(os.environ.get("JOKER_PY_PROFILE_EVERY", "0") or 0)
+            if os.environ.get("JOKER_PROFILE_DISABLE") == "1":
+                self._py_profile_every = 0
+            else:
+                self._py_profile_every = int(os.environ.get("JOKER_PY_PROFILE_EVERY", "0") or 0)
             self._py_profile_counter = 0
         start_ns = time.perf_counter_ns()
         action_type, card_mask = _parse_action(action)
@@ -716,6 +718,11 @@ class JokerGymDictEnv(gym.Env):
         self._episode_metrics: Optional[EpisodeMetrics] = None
         self._aggregated_metrics = AggregatedMetrics()
         self._last_action_type = -1
+        if os.environ.get("JOKER_PROFILE_DISABLE") == "1":
+            self._py_profile_every = 0
+        else:
+            self._py_profile_every = int(os.environ.get("JOKER_PY_PROFILE_EVERY", "0") or 0)
+        self._py_profile_counter = 0
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
@@ -746,7 +753,10 @@ class JokerGymDictEnv(gym.Env):
 
     def step(self, action):
         if not hasattr(self, "_py_profile_every"):
-            self._py_profile_every = int(os.environ.get("JOKER_PY_PROFILE_EVERY", "0") or 0)
+            if os.environ.get("JOKER_PROFILE_DISABLE") == "1":
+                self._py_profile_every = 0
+            else:
+                self._py_profile_every = int(os.environ.get("JOKER_PY_PROFILE_EVERY", "0") or 0)
             self._py_profile_counter = 0
         start_ns = time.perf_counter_ns()
         action_type, card_mask = _parse_action(action)
