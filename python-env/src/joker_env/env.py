@@ -548,6 +548,8 @@ class JokerGymEnv(gym.Env):
         self._py_profile_counter = 0
         self._py_profile_every = int(os.environ.get("JOKER_PY_PROFILE_EVERY", "0") or 0)
         self._py_profile_counter = 0
+        self._py_profile_every = int(os.environ.get("JOKER_PY_PROFILE_EVERY", "0") or 0)
+        self._py_profile_counter = 0
 
     def reset(
         self, *, seed: int | None = None, options: Dict[str, Any] | None = None
