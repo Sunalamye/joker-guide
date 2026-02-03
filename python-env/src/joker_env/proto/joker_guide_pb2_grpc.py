@@ -3,7 +3,10 @@
 import grpc
 import warnings
 
-from . import joker_guide_pb2 as joker__guide__pb2
+try:
+    from . import joker_guide_pb2 as joker__guide__pb2
+except ImportError:
+    import joker_guide_pb2 as joker__guide__pb2
 
 GRPC_GENERATED_VERSION = '1.76.0'
 GRPC_VERSION = grpc.__version__
@@ -54,13 +57,19 @@ class JokerEnvStub(object):
                 request_serializer=joker__guide__pb2.GetSpecRequest.SerializeToString,
                 response_deserializer=joker__guide__pb2.GetSpecResponse.FromString,
                 _registered_method=True)
+        self.TrainingStream = channel.stream_stream(
+                '/joker_guide.v1.JokerEnv/TrainingStream',
+                request_serializer=joker__guide__pb2.StreamRequest.SerializeToString,
+                response_deserializer=joker__guide__pb2.StreamResponse.FromString,
+                _registered_method=True)
 
 
 class JokerEnvServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def Reset(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """現有 RPC（保留向後兼容）
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -79,6 +88,13 @@ class JokerEnvServicer(object):
 
     def GetSpec(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def TrainingStream(self, request_iterator, context):
+        """Bidirectional Streaming RPC - 低延遲訓練
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -105,6 +121,11 @@ def add_JokerEnvServicer_to_server(servicer, server):
                     servicer.GetSpec,
                     request_deserializer=joker__guide__pb2.GetSpecRequest.FromString,
                     response_serializer=joker__guide__pb2.GetSpecResponse.SerializeToString,
+            ),
+            'TrainingStream': grpc.stream_stream_rpc_method_handler(
+                    servicer.TrainingStream,
+                    request_deserializer=joker__guide__pb2.StreamRequest.FromString,
+                    response_serializer=joker__guide__pb2.StreamResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -215,6 +236,33 @@ class JokerEnv(object):
             '/joker_guide.v1.JokerEnv/GetSpec',
             joker__guide__pb2.GetSpecRequest.SerializeToString,
             joker__guide__pb2.GetSpecResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def TrainingStream(request_iterator,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.stream_stream(
+            request_iterator,
+            target,
+            '/joker_guide.v1.JokerEnv/TrainingStream',
+            joker__guide__pb2.StreamRequest.SerializeToString,
+            joker__guide__pb2.StreamResponse.FromString,
             options,
             channel_credentials,
             insecure,

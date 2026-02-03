@@ -3,10 +3,29 @@ syntax = "proto3";
 package joker_guide.v1;
 
 service JokerEnv {
+  // 現有 RPC（保留向後兼容）
   rpc Reset(ResetRequest) returns (ResetResponse);
   rpc Step(StepRequest) returns (StepResponse);
   rpc StepBatch(StepBatchRequest) returns (StepBatchResponse);
   rpc GetSpec(GetSpecRequest) returns (GetSpecResponse);
+
+  // Bidirectional Streaming RPC - 低延遲訓練
+  rpc TrainingStream(stream StreamRequest) returns (stream StreamResponse);
+}
+
+// Streaming 消息定義
+message StreamRequest {
+  oneof request_type {
+    ResetRequest reset = 1;
+    StepRequest step = 2;
+  }
+}
+
+message StreamResponse {
+  oneof response_type {
+    ResetResponse reset = 1;
+    StepResponse step = 2;
+  }
 }
 
 message ResetRequest {

@@ -2,17 +2,22 @@
 #![allow(dead_code)]
 
 use std::env;
+use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 use dashmap::DashMap;
 
 use rand::Rng;
-use tonic::{Request, Response, Status};
+use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
+use tokio_stream::StreamExt;
+use tonic::{Request, Response, Status, Streaming};
 
 use joker_env::proto::joker_env_server::{JokerEnv, JokerEnvServer};
 use joker_env::proto::{
     Action, EnvInfo, GetSpecRequest, GetSpecResponse, Observation, ResetRequest, ResetResponse,
     StepBatchRequest, StepBatchResponse, StepRequest, StepResponse, TensorSpec,
+    StreamRequest, StreamResponse, stream_request, stream_response,
 };
 
 // 遊戲核心模組
@@ -102,10 +107,10 @@ fn calculate_hand_potential(hand: &[Card]) -> (f32, f32, f32) {
 // ============================================================================
 
 struct EnvService {
-    /// 多個遊戲狀態，用 session_id 區分
-    games: DashMap<u64, EnvState>,
+    /// 多個遊戲狀態，用 session_id 區分（Arc 包裝以支援 streaming 共享）
+    games: std::sync::Arc<DashMap<u64, EnvState>>,
     /// 下一個 session_id
-    next_session_id: AtomicU64,
+    next_session_id: std::sync::Arc<AtomicU64>,
     /// 每 N 步輸出一次 profiling，0 表示關閉
     profile_every: u64,
     /// profiling step counter
@@ -120,8 +125,8 @@ impl Default for EnvService {
             .unwrap_or(0);
 
         Self {
-            games: DashMap::new(),
-            next_session_id: AtomicU64::new(1),
+            games: std::sync::Arc::new(DashMap::new()),
+            next_session_id: std::sync::Arc::new(AtomicU64::new(1)),
             profile_every,
             profile_counter: AtomicU64::new(0),
         }
@@ -2460,6 +2465,455 @@ impl JokerEnv for EnvService {
             action_mask: Some(action_mask),
             action_space: ACTION_MASK_SIZE,
         }))
+    }
+
+    type TrainingStreamStream = Pin<Box<dyn tokio_stream::Stream<Item = Result<StreamResponse, Status>> + Send>>;
+
+    async fn training_stream(
+        &self,
+        request: Request<Streaming<StreamRequest>>,
+    ) -> Result<Response<Self::TrainingStreamStream>, Status> {
+        let mut in_stream = request.into_inner();
+        let (tx, rx) = mpsc::channel(32);  // 背壓緩衝
+        let games = self.games.clone();
+        let next_session_id = self.next_session_id.clone();
+        let profile_every = self.profile_every;
+        let profile_counter = std::sync::Arc::new(AtomicU64::new(0));
+
+        tokio::spawn(async move {
+            while let Some(result) = in_stream.next().await {
+                match result {
+                    Ok(req) => {
+                        let response = match req.request_type {
+                            Some(stream_request::RequestType::Reset(reset_req)) => {
+                                // 處理 Reset - 複用邏輯
+                                let seed = reset_req.seed;
+                                let session_id = if reset_req.session_id == 0 {
+                                    let new_id = next_session_id.fetch_add(1, Ordering::SeqCst);
+                                    games.insert(new_id, EnvState::new(seed));
+                                    new_id
+                                } else {
+                                    games.insert(reset_req.session_id, EnvState::new(seed));
+                                    reset_req.session_id
+                                };
+
+                                let state = match games.get(&session_id) {
+                                    Some(s) => s,
+                                    None => {
+                                        let _ = tx.send(Err(Status::internal("session not found"))).await;
+                                        break;
+                                    }
+                                };
+
+                                let observation = Observation {
+                                    features: Some(observation_from_state(&state)),
+                                    action_mask: Some(action_mask_from_state(&state, false)),
+                                };
+
+                                let (flush_pot, straight_pot, pairs_pot) = calculate_hand_potential(&state.hand);
+
+                                let info = EnvInfo {
+                                    episode_step: state.episode_step,
+                                    chips: state.score,
+                                    mult: 1,
+                                    blind_target: state.required_score(),
+                                    ante: state.ante.to_int(),
+                                    stage: 0,
+                                    blind_type: -1,
+                                    plays_left: state.plays_left as i32,
+                                    discards_left: state.discards_left as i32,
+                                    money: state.money as i32,
+                                    score_delta: 0,
+                                    money_delta: 0,
+                                    last_action_type: -1,
+                                    last_action_cost: 0,
+                                    joker_count: state.jokers.len() as i32,
+                                    joker_slot_limit: state.effective_joker_slot_limit() as i32,
+                                    game_end: 0,
+                                    blind_cleared: false,
+                                    cards_played: 0,
+                                    cards_discarded: 0,
+                                    hand_type: -1,
+                                    tag_id: -1,
+                                    consumable_id: -1,
+                                    joker_sold_id: -1,
+                                    best_shop_joker_cost: state.shop.items.iter().map(|item| item.cost as i32).max().unwrap_or(0),
+                                    flush_potential: flush_pot,
+                                    straight_potential: straight_pot,
+                                    pairs_potential: pairs_pot,
+                                    boss_blind_id: -1,
+                                    ..Default::default()
+                                };
+
+                                StreamResponse {
+                                    response_type: Some(stream_response::ResponseType::Reset(ResetResponse {
+                                        observation: Some(observation),
+                                        info: Some(info),
+                                        session_id,
+                                    }))
+                                }
+                            }
+                            Some(stream_request::RequestType::Step(step_req)) => {
+                                // 處理 Step - 使用內聯處理提高性能
+                                let session_id = step_req.session_id;
+                                let action = step_req.action.unwrap_or(Action {
+                                    action_id: 0,
+                                    params: vec![],
+                                    action_type: ACTION_TYPE_SELECT,
+                                });
+
+                                let mut state = match games.get_mut(&session_id) {
+                                    Some(s) => s,
+                                    None => {
+                                        let _ = tx.send(Err(Status::not_found(format!(
+                                            "session {} not found",
+                                            session_id
+                                        )))).await;
+                                        continue;
+                                    }
+                                };
+
+                                let do_profile = profile_every > 0
+                                    && (profile_counter.fetch_add(1, Ordering::Relaxed) + 1) % profile_every == 0;
+                                let t0 = if do_profile { Some(Instant::now()) } else { None };
+
+                                let action_type = action.action_type;
+                                let action_id = action.action_id as u32;
+
+                                let score_before = state.score;
+                                let money_before = state.money;
+
+                                let reward = 0.0f32;
+                                let mut done = false;
+                                let mut action_cost = 0i64;
+                                let mut blind_cleared = false;
+                                let mut cards_played = 0i32;
+                                let mut cards_discarded = 0i32;
+                                let mut hand_type_id = -1i32;
+                                let mut joker_chip_contrib: f32 = 0.0;
+                                let mut joker_mult_contrib: f32 = 0.0;
+                                let mut joker_xmult_contrib: f32 = 0.0;
+
+                                // 處理核心動作類型（簡化版，完整邏輯在 unary Step）
+                                match state.stage {
+                                    Stage::PreBlind => {
+                                        match action_type {
+                                            ACTION_TYPE_SELECT_BLIND => {
+                                                let next_blind: BlindType = state
+                                                    .blind_type
+                                                    .and_then(|b: BlindType| b.next())
+                                                    .unwrap_or(BlindType::Small);
+                                                state.blind_type = Some(next_blind);
+                                                state.stage = Stage::Blind;
+
+                                                if next_blind == BlindType::Boss {
+                                                    state.select_random_boss();
+                                                    state.plays_left = state
+                                                        .boss_blind
+                                                        .and_then(|b: BossBlind| b.max_plays())
+                                                        .unwrap_or(PLAYS_PER_BLIND);
+                                                } else {
+                                                    state.boss_blind = None;
+                                                    state.plays_left = PLAYS_PER_BLIND;
+                                                }
+                                                state.discards_left = DISCARDS_PER_BLIND;
+                                                state.score = 0;
+                                                state.played_hand_types.clear();
+                                                state.first_hand_type = None;
+                                                state.discards_used_this_blind = 0;
+                                                state.hands_played_this_blind = 0;
+                                            }
+                                            ACTION_TYPE_SKIP_BLIND => {
+                                                if state.blind_type != Some(BlindType::Boss) {
+                                                    let tag_id = TagId::random(&mut state.rng);
+                                                    let tag = Tag::new(tag_id);
+                                                    state.last_tag_id = tag.id.to_index() as i32;
+                                                    state.tags.push(tag);
+                                                    state.stage = Stage::Shop;
+                                                    state.refresh_shop();
+                                                }
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                    Stage::Blind => {
+                                        match action_type {
+                                            ACTION_TYPE_SELECT => {
+                                                if action_id < HAND_SIZE as u32 {
+                                                    let mask = 1u32 << action_id;
+                                                    let current_selected = state.selected_mask.count_ones() as usize;
+                                                    if (state.selected_mask & mask) != 0 {
+                                                        state.selected_mask &= !mask;
+                                                    } else if current_selected < MAX_SELECTED {
+                                                        state.selected_mask |= mask;
+                                                    }
+                                                }
+                                            }
+                                            ACTION_TYPE_PLAY => {
+                                                if state.plays_left > 0 && state.selected_mask > 0 {
+                                                    let selected = build_selected_hand(&state.hand, state.selected_mask);
+                                                    if !selected.is_empty() {
+                                                        cards_played = selected.len() as i32;
+
+                                                        // 計算評分（clone 必要數據避免借用衝突）
+                                                        let jokers_clone = state.jokers.clone();
+                                                        let hand_levels_clone = state.hand_levels.clone();
+                                                        let enhanced_cards_in_deck = state
+                                                            .deck
+                                                            .iter()
+                                                            .filter(|c| c.enhancement != Enhancement::None)
+                                                            .count() as i32;
+                                                        let selzer_charges = state
+                                                            .jokers
+                                                            .iter()
+                                                            .find(|j| j.enabled && j.id == JokerId::Selzer)
+                                                            .map(|j| j.get_selzer_charges())
+                                                            .unwrap_or(0);
+                                                        let uses_plasma_scoring = state.deck_type.uses_plasma_scoring();
+                                                        let observatory_x_mult = state.voucher_effects.observatory_x_mult;
+                                                        let boss_blind = state.boss_blind;
+                                                        let discards_left = state.discards_left;
+                                                        let rerolls_this_run = state.rerolls_this_run;
+                                                        let blinds_skipped = state.blinds_skipped;
+                                                        let joker_slot_limit = state.joker_slot_limit;
+                                                        let is_first_hand = state.hands_played_this_blind == 0;
+                                                        let is_final_hand = state.plays_left == 1;
+                                                        let planet_used_hand_types = state.planet_used_hand_types;
+
+                                                        let score_result = calculate_play_score(
+                                                            &selected,
+                                                            &jokers_clone,
+                                                            boss_blind,
+                                                            discards_left,
+                                                            rerolls_this_run,
+                                                            blinds_skipped,
+                                                            joker_slot_limit,
+                                                            enhanced_cards_in_deck,
+                                                            is_first_hand,
+                                                            is_final_hand,
+                                                            selzer_charges,
+                                                            &hand_levels_clone,
+                                                            uses_plasma_scoring,
+                                                            observatory_x_mult,
+                                                            planet_used_hand_types,
+                                                            &mut state.rng,
+                                                        );
+                                                        state.score += score_result.score;
+                                                        state.plays_left -= 1;
+                                                        state.hands_played_this_blind += 1;
+
+                                                        hand_type_id = score_result.hand_id.to_index() as i32;
+
+                                                        // 使用 CardScoreResult 中的 Joker 貢獻欄位
+                                                        joker_chip_contrib = score_result.joker_chip_contrib;
+                                                        joker_mult_contrib = score_result.joker_mult_contrib;
+                                                        joker_xmult_contrib = score_result.joker_xmult_contrib;
+
+                                                        // 移除選中的牌（使用 discard_with_seals）
+                                                        let mask = state.selected_mask;
+                                                        state.discard_with_seals(mask);
+
+                                                        let required = state.required_score();
+                                                        if state.score >= required {
+                                                            blind_cleared = true;
+                                                            state.reward = state.calc_reward();
+                                                            state.stage = Stage::PostBlind;
+                                                        } else if state.plays_left == 0 {
+                                                            state.stage = Stage::End(GameEnd::Lose);
+                                                            done = true;
+                                                        } else {
+                                                            state.deal();
+                                                        }
+                                                        state.selected_mask = 0;
+                                                    }
+                                                }
+                                            }
+                                            ACTION_TYPE_DISCARD => {
+                                                if state.discards_left > 0 && state.selected_mask > 0 {
+                                                    let mask = state.selected_mask;
+                                                    cards_discarded = mask.count_ones() as i32;
+                                                    state.discard_with_seals(mask);
+                                                    state.discards_left -= 1;
+                                                    state.discards_used_this_blind += 1;
+                                                    state.selected_mask = 0;
+                                                }
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                    Stage::PostBlind => {
+                                        if action_type == ACTION_TYPE_CASH_OUT {
+                                            state.money += state.reward;
+                                            state.stage = Stage::Shop;
+                                            state.refresh_shop();
+                                        }
+                                    }
+                                    Stage::Shop => {
+                                        match action_type {
+                                            ACTION_TYPE_NEXT_ROUND => {
+                                                let current_blind = state.blind_type.unwrap_or(BlindType::Small);
+                                                if current_blind == BlindType::Boss {
+                                                    if state.advance_ante() {
+                                                        state.blind_type = None;
+                                                        state.stage = Stage::PreBlind;
+                                                        state.round += 1;
+                                                    } else {
+                                                        state.stage = Stage::End(GameEnd::Win);
+                                                        done = true;
+                                                    }
+                                                } else {
+                                                    state.stage = Stage::PreBlind;
+                                                    state.round += 1;
+                                                }
+                                                state.selected_mask = 0;
+                                                state.deal();
+                                            }
+                                            ACTION_TYPE_BUY_JOKER => {
+                                                let index = action_id as usize;
+                                                if let Some(item) = state.shop.items.get(index) {
+                                                    let cost = item.cost;
+                                                    if state.can_afford(cost) && state.jokers.len() < state.effective_joker_slot_limit() {
+                                                        action_cost = cost;
+                                                        state.money -= cost;
+                                                        if let Some(bought) = state.shop.buy(index) {
+                                                            state.jokers.push(bought.joker);
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            ACTION_TYPE_SELL_JOKER => {
+                                                let index = action_id as usize;
+                                                if index < state.jokers.len() && !state.jokers[index].is_eternal {
+                                                    let sold_joker = state.jokers.remove(index);
+                                                    state.last_sold_joker_id = sold_joker.id.to_index() as i32;
+                                                    state.money += sold_joker.sell_value;
+                                                }
+                                            }
+                                            ACTION_TYPE_REROLL => {
+                                                let cost = state.shop.current_reroll_cost();
+                                                if state.can_afford(cost) {
+                                                    action_cost = cost;
+                                                    state.money -= cost;
+                                                    state.reroll_shop();
+                                                }
+                                            }
+                                            _ => {}
+                                        }
+                                    }
+                                    Stage::End(_) => {
+                                        done = true;
+                                    }
+                                }
+
+                                state.episode_step += 1;
+                                if state.episode_step >= MAX_STEPS {
+                                    state.stage = Stage::End(GameEnd::Lose);
+                                    done = true;
+                                }
+
+                                let score_delta = state.score - score_before;
+                                let money_delta = state.money - money_before;
+
+                                let game_end = match state.stage {
+                                    Stage::End(GameEnd::Win) => 1,
+                                    Stage::End(GameEnd::Lose) => 2,
+                                    _ => 0,
+                                };
+
+                                let features = observation_from_state(&state);
+                                let action_mask_tensor = action_mask_from_state(&state, done);
+
+                                let observation = Observation {
+                                    features: Some(features),
+                                    action_mask: Some(action_mask_tensor),
+                                };
+
+                                let (flush_pot, straight_pot, pairs_pot) = calculate_hand_potential(&state.hand);
+                                let blind_target = state.required_score();
+                                let expected_per_play = blind_target as f32 / 4.0;
+                                let score_efficiency = if expected_per_play > 0.0 && score_delta > 0 {
+                                    score_delta as f32 / expected_per_play
+                                } else {
+                                    0.0
+                                };
+
+                                let info = EnvInfo {
+                                    episode_step: state.episode_step,
+                                    chips: state.score,
+                                    mult: 1,
+                                    blind_target,
+                                    ante: state.ante.to_int(),
+                                    stage: match state.stage {
+                                        Stage::PreBlind => 0,
+                                        Stage::Blind => 1,
+                                        Stage::PostBlind => 2,
+                                        Stage::Shop => 3,
+                                        Stage::End(_) => 4,
+                                    },
+                                    blind_type: state.blind_type.map(|b| b.to_int()).unwrap_or(-1),
+                                    plays_left: state.plays_left as i32,
+                                    discards_left: state.discards_left as i32,
+                                    money: state.money as i32,
+                                    score_delta,
+                                    money_delta: money_delta as i32,
+                                    last_action_type: action_type,
+                                    last_action_cost: action_cost as i32,
+                                    joker_count: state.jokers.len() as i32,
+                                    joker_slot_limit: state.effective_joker_slot_limit() as i32,
+                                    game_end,
+                                    blind_cleared,
+                                    cards_played,
+                                    cards_discarded,
+                                    hand_type: hand_type_id,
+                                    tag_id: state.last_tag_id,
+                                    consumable_id: state.last_consumable_id,
+                                    joker_sold_id: state.last_sold_joker_id,
+                                    best_shop_joker_cost: state.shop.items.iter().map(|item| item.cost as i32).max().unwrap_or(0),
+                                    flush_potential: flush_pot,
+                                    straight_potential: straight_pot,
+                                    pairs_potential: pairs_pot,
+                                    joker_chip_contrib,
+                                    joker_mult_contrib,
+                                    joker_xmult_contrib,
+                                    score_efficiency,
+                                    boss_blind_id: state.boss_blind.map(|b| b.to_int()).unwrap_or(-1),
+                                    shop_quality_score: calculate_shop_quality(&state.shop, &state.jokers),
+                                    reroll_count_this_shop: state.shop.reroll_count,
+                                };
+
+                                if do_profile {
+                                    let total = t0.unwrap().elapsed();
+                                    println!(
+                                        "PROFILE_STREAM step={} session={} total={:?}",
+                                        state.episode_step, session_id, total
+                                    );
+                                }
+
+                                StreamResponse {
+                                    response_type: Some(stream_response::ResponseType::Step(StepResponse {
+                                        observation: Some(observation),
+                                        reward,
+                                        done,
+                                        info: Some(info),
+                                    }))
+                                }
+                            }
+                            None => continue,
+                        };
+
+                        if tx.send(Ok(response)).await.is_err() {
+                            break;  // 客戶端斷開
+                        }
+                    }
+                    Err(e) => {
+                        let _ = tx.send(Err(Status::internal(e.to_string()))).await;
+                        break;
+                    }
+                }
+            }
+        });
+
+        Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
     }
 }
 
