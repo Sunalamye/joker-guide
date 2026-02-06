@@ -7,6 +7,8 @@
 #   ./train.sh 4 --timesteps 1000000     # 4 個並行環境
 #   ./train.sh 8 --timesteps 1000000     # 8 個並行環境
 #   ./train.sh 4 --no-tensorboard        # 關閉 TensorBoard
+#   ./train.sh 4 --checkpoint 10         # 自動拆 10 個 checkpoint（預設 5 個）
+#   ./train.sh 4 --no-checkpoint         # 關閉自動 checkpoint
 #
 # TensorBoard 預設啟用，訪問 http://localhost:6006
 
@@ -24,16 +26,29 @@ TB_PORT=6006
 TIMESTAMP=$(date +"%Y%m%d_%H%M%S")
 LOG_DIR="python-env/logs/run_${TIMESTAMP}"
 
-# 解析是否禁用 TensorBoard / profiling 設定
+# 解析是否禁用 TensorBoard / profiling / checkpoint 設定
 ENABLE_TB=true
 PROFILE_EVERY=0
 PY_PROFILE_EVERY=0
 GRPC_PROFILE_EVERY=0
+ENABLE_CHECKPOINT=true
+CHECKPOINT_COUNT=5
 EXTRA_ARGS=()
 while [ $# -gt 0 ]; do
     case "$1" in
         --no-tensorboard)
             ENABLE_TB=false
+            ;;
+        --no-checkpoint)
+            ENABLE_CHECKPOINT=false
+            ;;
+        --checkpoint)
+            ENABLE_CHECKPOINT=true
+            # 若下一個參數是數字，視為 checkpoint 數量
+            if [[ "${2:-}" =~ ^[0-9]+$ ]]; then
+                CHECKPOINT_COUNT="$2"
+                shift
+            fi
             ;;
         --profile-every)
             PROFILE_EVERY="${2:-0}"
@@ -151,6 +166,57 @@ if [ "$ENABLE_TB" = true ]; then
     echo ""
 fi
 
+# Checkpoint 自動計算
+CHECKPOINT_ARGS=()
+if [ "$ENABLE_CHECKPOINT" = true ]; then
+    # 從 EXTRA_ARGS 提取 --timesteps 值
+    TIMESTEPS=50000  # 預設值（與 train_sb3.py 相同）
+    for i in "${!EXTRA_ARGS[@]}"; do
+        if [ "${EXTRA_ARGS[$i]}" = "--timesteps" ]; then
+            TIMESTEPS="${EXTRA_ARGS[$((i+1))]}"
+            break
+        fi
+    done
+
+    # 從 EXTRA_ARGS 提取 --n-steps 值（用於對齊）
+    N_STEPS=256  # 預設值
+    for i in "${!EXTRA_ARGS[@]}"; do
+        if [ "${EXTRA_ARGS[$i]}" = "--n-steps" ]; then
+            N_STEPS="${EXTRA_ARGS[$((i+1))]}"
+            break
+        fi
+    done
+
+    # 計算 save_interval = timesteps / checkpoint_count，對齊到 n_steps * n_envs 的倍數
+    ROLLOUT_SIZE=$((N_STEPS * N_ENVS))
+    RAW_INTERVAL=$((TIMESTEPS / CHECKPOINT_COUNT))
+    # 對齊到 rollout 的倍數（至少 1 個 rollout）
+    if [ "$RAW_INTERVAL" -lt "$ROLLOUT_SIZE" ]; then
+        SAVE_INTERVAL="$ROLLOUT_SIZE"
+    else
+        SAVE_INTERVAL=$(( (RAW_INTERVAL / ROLLOUT_SIZE) * ROLLOUT_SIZE ))
+    fi
+    # 重新計算實際 checkpoint 數量
+    ACTUAL_COUNT=$((TIMESTEPS / SAVE_INTERVAL))
+    if [ "$ACTUAL_COUNT" -lt 1 ]; then
+        ACTUAL_COUNT=1
+    fi
+
+    CHECKPOINT_PATH="$LOG_DIR/model"
+    CHECKPOINT_ARGS=(--checkpoint "$CHECKPOINT_PATH" --save-interval "$SAVE_INTERVAL")
+
+    echo "============================================"
+    echo "  Checkpoint Configuration"
+    echo "============================================"
+    echo "  Total timesteps:  $TIMESTEPS"
+    echo "  Checkpoints:      ~$ACTUAL_COUNT"
+    echo "  Save interval:    $SAVE_INTERVAL steps"
+    echo "  Rollout aligned:  $ROLLOUT_SIZE (n_steps=$N_STEPS × n_envs=$N_ENVS)"
+    echo "  Save path:        $CHECKPOINT_PATH"
+    echo "============================================"
+    echo ""
+fi
+
 # 啟動 Python 訓練（所有環境連接同一個引擎）
 echo "Starting training with $N_ENVS parallel environments..."
 echo "Press Ctrl+C to stop"
@@ -164,4 +230,5 @@ PYTHONPATH=python-env/src python -m joker_env.train_sb3 \
     --n-envs "$N_ENVS" \
     --tensorboard-log "$LOG_DIR" \
     --net-arch 512 512 256 \
+    "${CHECKPOINT_ARGS[@]}" \
     "${EXTRA_ARGS[@]}"
