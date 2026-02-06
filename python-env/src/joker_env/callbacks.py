@@ -156,33 +156,65 @@ class JokerMetricsCallback(BaseCallback):
 
 
 class FpsOnlyCallback(BaseCallback):
-    """只輸出 FPS 的輕量 callback。"""
+    """單行刷新顯示 FPS、時間、步數、場數的輕量 callback。"""
 
-    def __init__(self, interval_seconds: float = 1.0):
+    def __init__(self, interval_seconds: float = 2.0):
         super().__init__(verbose=0)
         self.interval_seconds = max(0.1, interval_seconds)
         self._last_time = None
         self._last_steps = 0
+        self._start_time = None
+        self._start_steps = 0
+        self._episode_count = 0
 
     def _on_training_start(self) -> None:
-        self._last_time = time.time()
+        self._start_time = time.time()
+        self._start_steps = self.num_timesteps
+        self._last_time = self._start_time
         self._last_steps = self.num_timesteps
 
     def _on_step(self) -> bool:
         if self._last_time is None:
-            self._last_time = time.time()
+            self._start_time = time.time()
+            self._start_steps = self.num_timesteps
+            self._last_time = self._start_time
             self._last_steps = self.num_timesteps
             return True
+
+        # 計算 episode 數
+        for done in self.locals.get("dones", []):
+            if done:
+                self._episode_count += 1
 
         now = time.time()
         elapsed = now - self._last_time
         if elapsed >= self.interval_seconds:
             steps = self.num_timesteps - self._last_steps
             fps = steps / elapsed if elapsed > 0 else 0.0
-            print(f"fps {fps:.0f}", flush=True)
+
+            # 平均 FPS
+            total_elapsed = now - self._start_time
+            total_steps = self.num_timesteps - self._start_steps
+            avg_fps = total_steps / total_elapsed if total_elapsed > 0 else 0.0
+
+            # 格式化時間
+            mins, secs = divmod(int(total_elapsed), 60)
+            hours, mins = divmod(mins, 60)
+            time_str = f"{hours}h{mins:02d}m" if hours else f"{mins}m{secs:02d}s"
+
+            print(
+                f"\r  FPS {fps:,.0f} (avg {avg_fps:,.0f}) | "
+                f"{time_str} | "
+                f"{self.num_timesteps:,} steps | "
+                f"{self._episode_count:,} episodes   ",
+                end="", flush=True,
+            )
             self._last_time = now
             self._last_steps = self.num_timesteps
         return True
+
+    def _on_training_end(self) -> None:
+        print()  # 結束時換行
 
 
 class EvalMetricsCallback(BaseCallback):
