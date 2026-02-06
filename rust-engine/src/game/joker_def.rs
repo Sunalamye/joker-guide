@@ -2007,6 +2007,27 @@ pub fn get_effect_def(id_index: usize) -> EffectDef {
     }
 }
 
+/// Check if a Joker has any implemented game effect (scoring, trigger, or rule modifier).
+///
+/// Returns `false` for Jokers whose `get_effect_def()` falls into the default (no-op)
+/// AND have no triggers defined. These Jokers occupy a slot without providing any benefit.
+pub fn has_implemented_effect(id_index: usize) -> bool {
+    // Check scoring/rule modifier effects
+    let effect = get_effect_def(id_index);
+    let has_effect = !matches!(
+        effect,
+        EffectDef::Fixed { chips: 0, mult: 0, x_mult, money: 0 }
+            if (x_mult - 1.0).abs() < f32::EPSILON
+    );
+
+    if has_effect {
+        return true;
+    }
+
+    // Check trigger-based effects
+    !get_triggers(id_index).is_empty()
+}
+
 // ============================================================================
 // 觸發器定義
 // ============================================================================
@@ -3058,5 +3079,56 @@ mod tests {
         let ctx2 = ComputeContextV2::from_basic(&basic_ctx2);
         let bonus2 = compute_joker_effect_v2(5, &JokerState::None, &ctx2, 0);
         assert_eq!(bonus2.add_mult, 0);
+    }
+
+    #[test]
+    fn test_has_implemented_effect() {
+        use super::has_implemented_effect;
+
+        // Jokers with scoring effects should return true
+        assert!(has_implemented_effect(0));   // Joker: +4 Mult (Fixed)
+        assert!(has_implemented_effect(5));   // JollyJoker: +8 Mult (Conditional)
+        assert!(has_implemented_effect(19));  // AbstractJoker: Stateful
+        assert!(has_implemented_effect(24));  // FourFingers: RuleModifier
+        assert!(has_implemented_effect(31));  // Fibonacci: CountBonus
+        assert!(has_implemented_effect(78));  // SockAndBuskin: Retrigger
+        assert!(has_implemented_effect(100)); // Cavendish: Stateful + triggers
+
+        // Jokers with only trigger effects should also return true
+        assert!(has_implemented_effect(43));  // Cartomancer: trigger on BlindSkipped
+        assert!(has_implemented_effect(44));  // Astronomer: trigger on BlindSkipped
+        assert!(has_implemented_effect(47));  // Faceless: trigger on CardDiscarded
+        assert!(has_implemented_effect(92));  // RedCard: trigger on BlindSkipped
+        assert!(has_implemented_effect(151)); // MailInRebate: trigger on CardDiscarded
+        assert!(has_implemented_effect(156)); // BurntJoker: trigger on CardDiscarded
+
+        // Jokers with no effect AND no triggers should return false
+        // (these fall into both default cases)
+        assert!(!has_implemented_effect(21));  // SteelJoker: not yet implemented
+        assert!(!has_implemented_effect(36));  // BusinessCard: not yet implemented
+        assert!(!has_implemented_effect(37));  // Supernova: not yet implemented
+        assert!(!has_implemented_effect(39));  // ToTheMoon: not yet implemented
+        assert!(!has_implemented_effect(42));  // Egg: not yet implemented
+        assert!(!has_implemented_effect(58));  // Drunkard: not yet implemented
+        assert!(!has_implemented_effect(59));  // SteakJoker: not yet implemented
+        assert!(!has_implemented_effect(108)); // Juggler: not yet implemented
+    }
+
+    #[test]
+    fn test_no_op_jokers_fewer_than_all() {
+        use super::{has_implemented_effect, JOKER_COUNT};
+
+        let implemented_count = (0..JOKER_COUNT)
+            .filter(|i| has_implemented_effect(*i))
+            .count();
+
+        let no_op_count = JOKER_COUNT - implemented_count;
+
+        // There should be a significant number of implemented Jokers
+        assert!(implemented_count > 100, "Expected >100 implemented, got {}", implemented_count);
+
+        // And some no-op ones
+        assert!(no_op_count > 0, "Expected some no-op Jokers, got 0");
+        assert!(no_op_count < 80, "Too many no-op Jokers: {}", no_op_count);
     }
 }

@@ -41,10 +41,13 @@ impl Shop {
     }
 
     /// 刷新商店物品
+    ///
+    /// Only generates Jokers that have implemented game effects (scoring, trigger,
+    /// or rule modifier). No-op Jokers are excluded to avoid wasting slots.
     pub fn refresh(&mut self, rng: &mut StdRng, item_count: usize) {
         self.items.clear();
 
-        let available_jokers = JokerId::all_available();
+        let available_jokers = JokerId::all_shop_eligible();
         for _ in 0..item_count {
             if let Some(&id) = available_jokers.choose(rng) {
                 let base_cost = id.base_cost();
@@ -236,6 +239,40 @@ mod tests {
         let item = shop.buy(0);
         assert!(item.is_some());
         assert_eq!(shop.items.len(), 1);
+    }
+
+    #[test]
+    fn test_shop_only_generates_effective_jokers() {
+        use crate::game::joker_def::has_implemented_effect;
+
+        let mut rng = StdRng::seed_from_u64(123);
+        let mut shop = Shop::new();
+
+        // Generate many items to sample the pool
+        for _ in 0..50 {
+            shop.refresh(&mut rng, 2);
+            for item in &shop.items {
+                let idx = item.joker.id.to_index();
+                assert!(
+                    has_implemented_effect(idx),
+                    "Shop generated no-op Joker: {:?} (index {})",
+                    item.joker.id,
+                    idx
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_shop_eligible_fewer_than_all() {
+        let all = JokerId::all_available();
+        let eligible = JokerId::all_shop_eligible();
+
+        assert!(eligible.len() < all.len(),
+            "Shop eligible ({}) should be fewer than all available ({})",
+            eligible.len(), all.len());
+        assert!(eligible.len() > 100,
+            "Should have >100 shop eligible Jokers, got {}", eligible.len());
     }
 
     #[test]

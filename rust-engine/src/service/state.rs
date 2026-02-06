@@ -955,7 +955,7 @@ impl EnvState {
 
         // 生成隨機人頭牌 (J=11, Q=12, K=13)
         let face_ranks = [11u8, 12, 13];
-        let suits = [0u8, 1, 2, 3]; // Spades, Hearts, Diamonds, Clubs
+        let suits = [0u8, 1, 2, 3]; // Spade, Diamond, Heart, Club
 
         let mut new_cards = Vec::with_capacity(add_count);
         for _ in 0..add_count {

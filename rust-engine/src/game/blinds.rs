@@ -186,13 +186,16 @@ impl BossBlind {
         ]
     }
 
-    /// 檢查是否禁用指定花色
+    /// Check if this Boss Blind disables the given suit.
+    ///
+    /// Suit mapping (consistent with cards.rs and joker_def.rs):
+    ///   0 = Spade, 1 = Diamond, 2 = Heart, 3 = Club
     pub fn disables_suit(&self, suit: u8) -> bool {
         match (self, suit) {
-            (BossBlind::TheClub, 0) => true,    // Clubs = 0
+            (BossBlind::TheSpade, 0) => true,   // Spades = 0
             (BossBlind::TheDiamond, 1) => true, // Diamonds = 1
             (BossBlind::TheHeart, 2) => true,   // Hearts = 2
-            (BossBlind::TheSpade, 3) => true,   // Spades = 3
+            (BossBlind::TheClub, 3) => true,    // Clubs = 3
             _ => false,
         }
     }
@@ -307,11 +310,13 @@ mod tests {
         assert!(BossBlind::ThePsychic.requires_five_cards());
         assert!(!BossBlind::TheNeedle.requires_five_cards());
 
-        assert_eq!(BossBlind::TheClub.disables_suit(0), true);
-        assert_eq!(BossBlind::TheDiamond.disables_suit(1), true);
-        assert_eq!(BossBlind::TheHeart.disables_suit(2), true);
-        assert_eq!(BossBlind::TheSpade.disables_suit(3), true);
+        // Suit mapping: 0=Spade, 1=Diamond, 2=Heart, 3=Club
+        assert_eq!(BossBlind::TheSpade.disables_suit(0), true);   // Spade=0
+        assert_eq!(BossBlind::TheDiamond.disables_suit(1), true); // Diamond=1
+        assert_eq!(BossBlind::TheHeart.disables_suit(2), true);   // Heart=2
+        assert_eq!(BossBlind::TheClub.disables_suit(3), true);    // Club=3
         assert_eq!(BossBlind::TheSpade.disables_suit(2), false);
+        assert_eq!(BossBlind::TheClub.disables_suit(0), false);   // Club != Spade
     }
 
     #[test]

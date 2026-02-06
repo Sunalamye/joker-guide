@@ -676,6 +676,10 @@ class StepInfo:
     # v7.0: Boss Blind 識別
     boss_blind_id: int = -1  # Boss Blind ID (0-26), -1 = 無 Boss
 
+    # v10.0: 商店品質與 Reroll 追蹤
+    shop_quality_score: float = 0.5   # 商店品質分數 [0, 1]
+    reroll_count_this_shop: int = 0   # 本次商店訪問的 Reroll 次數
+
 
 def parse_env_info(info: dict) -> StepInfo:
     """從 gRPC EnvInfo 解析狀態"""
@@ -715,6 +719,9 @@ def parse_env_info(info: dict) -> StepInfo:
         score_efficiency=info.get("score_efficiency", 0.0),
         # v7.0: Boss Blind 識別
         boss_blind_id=info.get("boss_blind_id", -1),
+        # v10.0: 商店品質與 Reroll 追蹤
+        shop_quality_score=info.get("shop_quality_score", 0.5),
+        reroll_count_this_shop=info.get("reroll_count_this_shop", 0),
     )
 
 
@@ -1857,9 +1864,10 @@ class RewardCalculator:
 
         # 根據動作類型計算獎勵
         elif action_type == ACTION_TYPE_PLAY:
+            play_total = 0.0
             if info.score_delta > 0:
                 # v6.4: 傳入 hand_type, ante, plays_left 以計算牌型+效率獎勵
-                reward += play_reward(
+                play_total += play_reward(
                     info.score_delta,
                     info.blind_target,
                     hand_type=info.hand_type,
@@ -1868,7 +1876,7 @@ class RewardCalculator:
                 )
             if prev is not None:
                 total_plays = max(1, prev.plays_left + 1)
-                reward += blind_progress_signal(
+                play_total += blind_progress_signal(
                     prev.chips,
                     info.chips,
                     info.blind_target,
@@ -1879,8 +1887,8 @@ class RewardCalculator:
                 self._build_tracker.record_hand(info.hand_type)
 
             # v6.9: Joker 貢獻獎勵和分數效率獎勵（純正向）
-            reward += joker_contribution_reward(info)
-            reward += score_efficiency_reward(info)
+            play_total += joker_contribution_reward(info)
+            play_total += score_efficiency_reward(info)
 
             # v7.0: 牌型針對性獎勵（基於 build 追蹤）
             # 使用 BuildTracker 的主導 build 來評估牌型匹配度
@@ -1889,10 +1897,13 @@ class RewardCalculator:
                 # 檢查牌型是否匹配主導 build
                 if info.hand_type in _BUILD_HANDS.get(dominant_build, set()):
                     # 匹配主導 build = 獎勵
-                    reward += 0.03
+                    play_total += 0.03
                     # 更強牌型 + 匹配 = 額外獎勵
                     if info.hand_type >= HAND_STRAIGHT_FLUSH:
-                        reward += 0.02
+                        play_total += 0.02
+
+            # v10.0: PLAY 單步獎勵上限，防止 6 個組件堆疊過重
+            reward += min(play_total, 0.5)
 
             # v6.4: 出牌後重置棄牌追蹤狀態
             self._consecutive_discards = 0
@@ -1980,10 +1991,10 @@ class RewardCalculator:
                 info.last_action_cost,
                 prev.money if prev else info.money,
                 info.ante,
-                getattr(info, 'shop_quality_score', 0.5),
+                info.shop_quality_score,
                 info.joker_count,
                 info.joker_slot_limit,
-                getattr(info, 'reroll_count_this_shop', 0)
+                info.reroll_count_this_shop
             )
 
         elif action_type == ACTION_TYPE_SKIP_BLIND:
@@ -1993,7 +2004,7 @@ class RewardCalculator:
                 info.blind_type,
                 info.ante,
                 tag_id_or_none,
-                getattr(info, 'shop_quality_score', 0.5),
+                info.shop_quality_score,
                 info.joker_count,
                 info.money
             )

@@ -37,6 +37,11 @@ from joker_env.reward import (
     JOKER_SYNERGY_GROUPS,
     BUILD_PAIRS, BUILD_STRAIGHT, BUILD_FLUSH,
     HAND_PAIR, HAND_FLUSH, HAND_STRAIGHT, HAND_STRAIGHT_FLUSH,
+    # 未測試函數
+    consumable_use_reward,
+    voucher_buy_reward,
+    joker_holding_bonus,
+    TAROT_COUNT, PLANET_COUNT,
 )
 
 
@@ -44,22 +49,22 @@ class TestPlayReward:
     """出牌獎勵測試"""
 
     def test_zero_score(self):
-        """零分不給獎勵"""
-        assert play_reward(0, 1000) == 0.0
+        """零分給予懲罰（v5.1: 0 分是嚴重問題）"""
+        assert play_reward(0, 1000) == -0.03
 
     def test_zero_required(self):
-        """目標為零不給獎勵"""
-        assert play_reward(100, 0) == 0.0
+        """目標為零返回基礎出牌獎勵"""
+        assert play_reward(100, 0) == 0.02
 
     def test_partial_progress(self):
         """部分進度給予比例獎勵"""
         reward = play_reward(500, 1000)
-        assert 0.1 < reward < 0.15  # 50% 進度
+        assert 0.05 < reward < 0.12  # 50% 進度 + base + hand_type_bonus
 
     def test_exact_target(self):
         """剛好達標給予基礎獎勵"""
         reward = play_reward(1000, 1000)
-        assert 0.2 < reward < 0.3
+        assert 0.13 < reward < 0.22
 
     def test_overkill_bonus(self):
         """超額有額外獎勵"""
@@ -77,20 +82,18 @@ class TestDiscardReward:
     """棄牌獎勵測試"""
 
     def test_zero_cards(self):
-        """不棄牌不給獎勵"""
-        assert discard_reward(0, 3) == 0.0
+        """空棄牌（no-op）給予懲罰（v5.1 防護）"""
+        assert discard_reward(0, 3) == -0.05
 
-    def test_precise_discard(self):
-        """精準棄牌（1-2 張）獎勵最高"""
-        reward_2 = discard_reward(2, 3)
-        reward_5 = discard_reward(5, 3)
-        assert reward_2 > reward_5
+    def test_any_discard_flat_penalty(self):
+        """有棄牌時統一懲罰 -0.02（v5.1 簡化設計）"""
+        assert discard_reward(2, 3) == -0.02
+        assert discard_reward(5, 3) == -0.02
 
-    def test_last_discard_bonus(self):
-        """最後一次棄牌有額外獎勵"""
-        reward_with_left = discard_reward(2, 2)
-        reward_last = discard_reward(2, 0)
-        assert reward_last > reward_with_left
+    def test_discard_penalty_regardless_of_remaining(self):
+        """棄牌懲罰不受剩餘次數影響（v5.1 扁平懲罰）"""
+        assert discard_reward(2, 2) == -0.02
+        assert discard_reward(2, 0) == -0.02
 
     def test_max_cap(self):
         """獎勵不超過上限 0.05"""
@@ -102,9 +105,9 @@ class TestBlindClearReward:
     """過關獎勵測試"""
 
     def test_small_blind(self):
-        """Small Blind 基礎獎勵（v5.0 提升）"""
+        """Small Blind 基礎獎勵（v6.3: base=0.20）"""
         reward = blind_clear_reward(0, BLIND_SMALL, 1)
-        assert 0.25 < reward < 0.4
+        assert 0.20 <= reward <= 0.25
 
     def test_boss_blind_higher(self):
         """Boss Blind 獎勵更高"""
@@ -125,9 +128,9 @@ class TestBlindClearReward:
         assert late >= early
 
     def test_range(self):
-        """獎勵範圍 0.25~0.75（v5.0 調整）"""
+        """獎勵範圍 0.20~1.50（v6.3: Boss 大幅提升 + Ante 倍率）"""
         reward = blind_clear_reward(4, BLIND_BOSS, 8, boss_blind_id=1)
-        assert 0.25 <= reward <= 0.75
+        assert 0.20 <= reward <= 1.50
 
 
 class TestJokerBuyReward:
@@ -143,10 +146,10 @@ class TestJokerBuyReward:
         assert reward != 0.0
 
     def test_high_cost_ratio_penalty(self):
-        """高成本占比有經濟懲罰（同成本，不同資金）"""
-        # 同樣成本，資金多時獎勵更高
-        rich = joker_buy_reward(5, 50, 1, 2, 3, 5)  # 10% 資金
-        poor = joker_buy_reward(5, 10, 1, 2, 3, 5)  # 50% 資金
+        """後期高成本占比有經濟懲罰（v6.8: 早期無經濟懲罰）"""
+        # 早期 Ante <= 3 完全無經濟懲罰，所以用 Ante 5 測試
+        rich = joker_buy_reward(5, 50, 5, 2, 3, 5)  # 10% 資金
+        poor = joker_buy_reward(5, 10, 5, 2, 3, 5)  # 50% 資金
         assert rich > poor
 
     def test_early_game_bonus(self):
@@ -162,9 +165,9 @@ class TestJokerBuyReward:
         assert with_space > almost_full
 
     def test_range(self):
-        """獎勵範圍 -0.3~0.3"""
+        """獎勵範圍 -0.3~0.5（v6.0: 上限提高到 0.5）"""
         reward = joker_buy_reward(5, 10, 1, 0, 1, 5)
-        assert -0.3 <= reward <= 0.3
+        assert -0.3 <= reward <= 0.5
 
 
 class TestSkipBlindReward:
@@ -265,8 +268,8 @@ class TestGameEndReward:
     """遊戲結束獎勵測試"""
 
     def test_win_reward(self):
-        """勝利給予最大獎勵"""
-        assert game_end_reward(GAME_END_WIN, 8) == 1.0
+        """勝利給予最大獎勵（v4.0: 提升到 5.0）"""
+        assert game_end_reward(GAME_END_WIN, 8) == 5.0
 
     def test_lose_penalty(self):
         """失敗給予懲罰"""
@@ -298,10 +301,10 @@ class TestAnteProgressReward:
         assert late > early
 
     def test_range(self):
-        """獎勵範圍（v5.0 漸進式公式）"""
+        """獎勵範圍（v5.2: 更陡峭曲線 + 里程碑獎勵）"""
         reward = ante_progress_reward(1, 8)
-        # v5.0: 1→8 累積約 3.94
-        assert reward <= 4.5
+        # v5.2: 1→8 = 二次曲線 + 里程碑(0.3+0.5+0.8) ≈ 9.72
+        assert reward <= 10.0
 
 
 class TestJokerValueEstimation:
@@ -401,11 +404,11 @@ class TestHandSetupReward:
         reward = hand_setup_reward(-1, HAND_FLUSH, had_discard=True)
         assert reward == 0.0
 
-    def test_no_reward_for_no_improvement(self):
-        """牌型沒改善不給獎勵"""
+    def test_downgrade_penalty(self):
+        """牌型變差給予輕微懲罰（v6.4 新增）"""
         from joker_env.reward import hand_setup_reward, HAND_FLUSH, HAND_PAIR
         reward = hand_setup_reward(HAND_FLUSH, HAND_PAIR, had_discard=True)
-        assert reward == 0.0
+        assert reward == -0.01
 
     def test_small_improvement_reward(self):
         """小改善（1-2 級）給 0.02"""
@@ -500,14 +503,14 @@ class TestBuildTracker:
         assert penalty < 0
 
     def test_joker_build_bonus_generic(self):
-        """通用 Joker 無獎勵也無懲罰"""
+        """不在 JOKER_BUILD_SUPPORT 中的 Joker 無獎勵也無懲罰"""
         from joker_env.reward import BuildTracker, HAND_FLUSH
         tracker = BuildTracker()
         for _ in range(6):
             tracker.record_hand(HAND_FLUSH)
 
-        # 假設 id=1 是通用 Joker（未在 JOKER_BUILD_SUPPORT 中）
-        bonus = tracker.joker_build_bonus(1, 5)
+        # id=99 不在 JOKER_BUILD_SUPPORT 中，應返回 0.0
+        bonus = tracker.joker_build_bonus(99, 5)
         assert bonus == 0.0
 
     def test_reset_clears_tracker(self):
@@ -703,6 +706,128 @@ class TestJokerSynergyGroups:
         boss_killer = JOKER_SYNERGY_GROUPS.get("boss_killer", set())
         assert 68 in boss_killer  # Chicot
         assert 118 in boss_killer  # Matador
+
+
+# ============================================================================
+# 新增測試：consumable_use_reward, voucher_buy_reward, joker_holding_bonus
+# ============================================================================
+
+class TestConsumableUseReward:
+    """消耗品使用獎勵測試"""
+
+    def test_unknown_consumable_uses_average(self):
+        """未知消耗品使用平均基礎值 0.12"""
+        reward = consumable_use_reward(ante=3, consumable_id=-1)
+        assert 0.10 <= reward <= 0.15
+
+    def test_tarot_base_value(self):
+        """Tarot (id 0-21) 基礎值 0.10"""
+        reward = consumable_use_reward(ante=3, consumable_id=10)
+        assert 0.08 <= reward <= 0.12
+
+    def test_planet_base_value(self):
+        """Planet (id 22-33) 基礎值 0.12"""
+        reward = consumable_use_reward(ante=3, consumable_id=TAROT_COUNT + 5)
+        assert 0.10 <= reward <= 0.15
+
+    def test_spectral_highest_value(self):
+        """Spectral (id 34+) 基礎值最高 0.18"""
+        reward = consumable_use_reward(ante=3, consumable_id=TAROT_COUNT + PLANET_COUNT + 1)
+        assert reward > consumable_use_reward(ante=3, consumable_id=10)
+
+    def test_late_game_scaling(self):
+        """後期消耗品更有價值（stage_weight_late）"""
+        early = consumable_use_reward(ante=1, consumable_id=10)
+        late = consumable_use_reward(ante=8, consumable_id=10)
+        assert late > early
+
+    def test_range(self):
+        """獎勵範圍 0.0 ~ 0.25"""
+        for cid in [-1, 0, 10, 21, 22, 33, 34, 51]:
+            for ante in [1, 4, 8]:
+                reward = consumable_use_reward(ante=ante, consumable_id=cid)
+                assert 0.0 <= reward <= 0.25, f"Out of range for cid={cid}, ante={ante}: {reward}"
+
+
+class TestVoucherBuyReward:
+    """Voucher 購買獎勵測試"""
+
+    def test_early_game_higher_value(self):
+        """早期購買 Voucher 更有價值"""
+        early = voucher_buy_reward(cost=10, money_before=20, ante=1)
+        late = voucher_buy_reward(cost=10, money_before=20, ante=8)
+        assert early > late
+
+    def test_high_cost_ratio_penalty(self):
+        """高成本占比有經濟懲罰"""
+        rich = voucher_buy_reward(cost=10, money_before=50, ante=3)
+        poor = voucher_buy_reward(cost=10, money_before=11, ante=3)
+        assert rich > poor
+
+    def test_zero_money_lowest_reward(self):
+        """零資金時獎勵最低（經濟懲罰最大）"""
+        zero = voucher_buy_reward(cost=10, money_before=0, ante=3)
+        rich = voucher_buy_reward(cost=10, money_before=50, ante=3)
+        assert zero < rich
+
+    def test_affordable_purchase_positive(self):
+        """資金充裕時購買為正向獎勵"""
+        reward = voucher_buy_reward(cost=10, money_before=50, ante=1)
+        assert reward > 0
+
+    def test_range(self):
+        """獎勵範圍 -0.25 ~ 0.3"""
+        for cost in [5, 10, 15]:
+            for money in [0, 5, 10, 20, 50]:
+                for ante in [1, 4, 8]:
+                    reward = voucher_buy_reward(cost=cost, money_before=money, ante=ante)
+                    assert -0.25 <= reward <= 0.3, \
+                        f"Out of range: cost={cost}, money={money}, ante={ante}: {reward}"
+
+
+class TestJokerHoldingBonus:
+    """Joker 持有獎勵測試"""
+
+    def test_zero_jokers_penalty(self):
+        """0 個 Joker 應有懲罰"""
+        reward = joker_holding_bonus(0, ante=1)
+        assert reward < 0
+
+    def test_zero_jokers_early_worse(self):
+        """早期 0 Joker 懲罰更重"""
+        early = joker_holding_bonus(0, ante=1)
+        late = joker_holding_bonus(0, ante=5)
+        assert early < late  # 早期懲罰更重 = 值更負
+
+    def test_holding_jokers_positive(self):
+        """持有 Joker 給正向獎勵"""
+        reward = joker_holding_bonus(3, ante=3)
+        assert reward > 0
+
+    def test_more_jokers_more_reward(self):
+        """更多 Joker 獎勵更高"""
+        few = joker_holding_bonus(1, ante=3)
+        many = joker_holding_bonus(4, ante=3)
+        assert many > few
+
+    def test_early_game_multiplier(self):
+        """早期持有倍率更高"""
+        early = joker_holding_bonus(3, ante=1)
+        late = joker_holding_bonus(3, ante=8)
+        assert early > late
+
+    def test_max_cap(self):
+        """獎勵上限 0.08"""
+        reward = joker_holding_bonus(5, ante=1)
+        assert reward <= 0.08
+
+    def test_range(self):
+        """獎勵範圍 -0.08 ~ 0.08"""
+        for count in range(6):
+            for ante in [1, 3, 5, 8]:
+                reward = joker_holding_bonus(count, ante=ante)
+                assert -0.08 <= reward <= 0.08, \
+                    f"Out of range: count={count}, ante={ante}: {reward}"
 
 
 if __name__ == "__main__":

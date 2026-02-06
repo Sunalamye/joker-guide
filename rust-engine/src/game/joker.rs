@@ -11,6 +11,7 @@ use super::joker_def::{
     JokerState, get_joker_def, compute_joker_effect_v2, ComputeContextV2,
     JokerBonus as JokerBonusNew,
     GameEvent, TriggerContext, TriggerResult, trigger_joker_events,
+    has_implemented_effect,
 };
 
 // ============================================================================
@@ -231,12 +232,72 @@ impl JokerId {
 
     /// 從索引創建 JokerId
     pub fn from_index(index: usize) -> Option<Self> {
-        if index < JOKER_COUNT {
-            // Safety: We verify the index is within bounds
-            Some(unsafe { std::mem::transmute::<u8, JokerId>(index as u8) })
-        } else {
-            None
-        }
+        // Lookup table: safe alternative to transmute that survives enum reordering.
+        const TABLE: [JokerId; JOKER_COUNT] = [
+            JokerId::Joker, JokerId::GreedyJoker, JokerId::LustyJoker,
+            JokerId::WrathfulJoker, JokerId::GluttonousJoker, JokerId::JollyJoker,
+            JokerId::ZanyJoker, JokerId::MadJoker, JokerId::CrazyJoker,
+            JokerId::DrollJoker, JokerId::SlyJoker, JokerId::WilyJoker,
+            JokerId::CleverJoker, JokerId::DeviousJoker, JokerId::CraftyJoker,
+            JokerId::HalfJoker, JokerId::Banner, JokerId::MysticSummit,
+            JokerId::Misprint, JokerId::AbstractJoker,
+            // 20-39
+            JokerId::RideTheBus, JokerId::SteelJoker, JokerId::GlassJoker,
+            JokerId::Hologram, JokerId::FourFingers, JokerId::Shortcut,
+            JokerId::Splash, JokerId::Photograph, JokerId::GreenJoker,
+            JokerId::SuperPosition, JokerId::DuskJoker, JokerId::Fibonacci,
+            JokerId::ScaryFace, JokerId::EvenSteven, JokerId::OddTodd,
+            JokerId::Scholar, JokerId::BusinessCard, JokerId::Supernova,
+            JokerId::Erosion, JokerId::ToTheMoon,
+            // 40-59
+            JokerId::GoldenJoker, JokerId::Bull, JokerId::Egg,
+            JokerId::Cartomancer, JokerId::Astronomer, JokerId::Rocket,
+            JokerId::FortuneTeller, JokerId::Faceless, JokerId::SpaceJoker,
+            JokerId::Vagabond, JokerId::Stuntman, JokerId::Brainstorm,
+            JokerId::Satellite, JokerId::ShootTheMoon, JokerId::Bloodstone,
+            JokerId::Arrowhead, JokerId::Onyx, JokerId::Opal,
+            JokerId::Drunkard, JokerId::SteakJoker,
+            // 60-99
+            JokerId::IceCream, JokerId::DNA, JokerId::BlueJoker,
+            JokerId::Sixth, JokerId::Constellation, JokerId::Hiker,
+            JokerId::CloudNine, JokerId::Popcorn, JokerId::AncientJoker,
+            JokerId::Ramen, JokerId::Walkie, JokerId::Selzer,
+            JokerId::Castle, JokerId::Smiley, JokerId::Campfire,
+            JokerId::Ticket, JokerId::MrBones, JokerId::Acrobat,
+            JokerId::SockAndBuskin, JokerId::Swashbuckler, JokerId::Troubadour,
+            JokerId::Certificate, JokerId::Smeared, JokerId::Throwback,
+            JokerId::HangingChad, JokerId::RoughGem, JokerId::Mime,
+            JokerId::CreditCard, JokerId::Ceremonial, JokerId::Blueprint,
+            JokerId::Wee, JokerId::Merry, JokerId::RedCard,
+            JokerId::Madness, JokerId::Square, JokerId::Seance,
+            JokerId::RiffRaff, JokerId::Vampire, JokerId::InvisibleJoker,
+            JokerId::Baron,
+            // 100-149
+            JokerId::Cavendish, JokerId::Card_Sharp, JokerId::Delayed,
+            JokerId::Hack, JokerId::Pareidolia, JokerId::Gros_Michel,
+            JokerId::Even_Steven, JokerId::Odd_Todd_2, JokerId::Juggler,
+            JokerId::DriversLicense, JokerId::Hit_The_Road, JokerId::The_Duo,
+            JokerId::The_Trio, JokerId::The_Family, JokerId::The_Order,
+            JokerId::The_Tribe, JokerId::Stencil, JokerId::Perkeo,
+            JokerId::Flower_Pot, JokerId::BluePrint, JokerId::Canio,
+            JokerId::Triboulet, JokerId::Yorick, JokerId::Chicot,
+            JokerId::Perkeo_2, JokerId::Seeing_Double, JokerId::Matador,
+            JokerId::Stuntman_2, JokerId::Stone, JokerId::Lucky_Cat,
+            JokerId::Obelisk, JokerId::Runner, JokerId::Courier,
+            JokerId::Cloud9, JokerId::Spare_Trousers, JokerId::Ring_Master,
+            JokerId::Golden_Ticket, JokerId::Rough_Gem_2, JokerId::Bootstraps,
+            JokerId::Caino, JokerId::Flash, JokerId::Trousers,
+            JokerId::LoyaltyCard, JokerId::Blackboard, JokerId::TurtleBean,
+            JokerId::Burglar, JokerId::GiftCard, JokerId::Luchador,
+            JokerId::ReservedParking, JokerId::TradingCard,
+            // 150-163
+            JokerId::MarbleJoker, JokerId::MailInRebate, JokerId::BaseballCard,
+            JokerId::RaisedFist, JokerId::EightBall, JokerId::ToDoList,
+            JokerId::BurntJoker, JokerId::MidasMask, JokerId::OopsAll6s,
+            JokerId::TheIdol, JokerId::SquareJoker, JokerId::DietCola,
+            JokerId::ChaosTheClown, JokerId::Hallucination,
+        ];
+        TABLE.get(index).copied()
     }
 
     /// 所有可用的 Joker 列表（排除保留位）
@@ -254,6 +315,18 @@ impl JokerId {
                         | JokerId::Rough_Gem_2
                 )
             })
+            .collect()
+    }
+
+    /// Shop-eligible Jokers (excludes reserved AND no-op Jokers)
+    ///
+    /// Filters out Jokers whose `get_effect_def()` returns the default no-op
+    /// AND have no trigger definitions. These Jokers would occupy a slot
+    /// without providing any scoring, trigger, or rule modifier benefit.
+    pub fn all_shop_eligible() -> Vec<JokerId> {
+        Self::all_available()
+            .into_iter()
+            .filter(|j| has_implemented_effect(j.to_index()))
             .collect()
     }
 

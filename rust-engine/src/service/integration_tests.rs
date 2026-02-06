@@ -266,7 +266,9 @@ mod tests {
 
     #[test]
     fn test_boss_blind_scoring_modifiers() {
-        let selected = make_cards(&[(2, 0), (3, 0), (4, 0), (5, 0), (6, 0)]);
+        // All cards are suit 3 (Club) -- TheClub should disable all of them
+        // Suit mapping: 0=Spade, 1=Diamond, 2=Heart, 3=Club
+        let selected = make_cards(&[(2, 3), (3, 3), (4, 3), (5, 3), (6, 3)]);
         let jokers: Vec<JokerSlot> = Vec::new();
         let hand_levels = HandLevels::new();
         let mut rng = rand::rngs::StdRng::seed_from_u64(0);
@@ -289,6 +291,7 @@ mod tests {
             0,
             &mut rng,
         );
+        // Straight Flush (100 chips, 8 mult) with all cards disabled = 100 * 8 = 800
         assert_eq!(score_club_disabled.score, 800);
 
         let selected_faces = make_cards(&[(11, 0), (12, 1), (13, 2), (10, 3), (9, 0)]);

@@ -74,7 +74,7 @@ rust-engine/
 │   ├── lib.rs          # Proto module inclusion
 │   ├── main.rs         # gRPC 服務實現 (EnvService)
 │   ├── game/           # 核心遊戲邏輯 (13 模組)
-│   │   ├── constants.rs    # OBS_SIZE=1130, ACTION_MASK_SIZE=46
+│   │   ├── constants.rs    # OBS_SIZE=1556, ACTION_MASK_SIZE=46
 │   │   ├── cards.rs        # Card, Enhancement, Seal, Edition
 │   │   ├── blinds.rs       # Stage, BlindType, BossBlind (27 types)
 │   │   ├── hand_types.rs   # HandId, HandScore
@@ -292,7 +292,7 @@ reward = calculator.calculate(info_dict)
 
 ## 強化學習設計
 
-### 觀測空間（~1,651 維度）
+### 觀測空間（1,556 維度）
 
 | 組件 | 維度 | 編碼 | 說明 |
 |------|------|------|------|

@@ -4,7 +4,7 @@
 use std::env;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use dashmap::DashMap;
 
 use rand::Rng;
@@ -2107,9 +2107,48 @@ fn execute_shop_logic(
 // gRPC 服務（支援多遊戲並發）
 // ============================================================================
 
+/// Session TTL for cleanup (30 minutes)
+const SESSION_TTL: Duration = Duration::from_secs(30 * 60);
+
+/// Session wrapper that tracks last access time for TTL cleanup.
+struct Session {
+    state: EnvState,
+    last_accessed: Instant,
+}
+
+impl Session {
+    fn new(state: EnvState) -> Self {
+        Self {
+            state,
+            last_accessed: Instant::now(),
+        }
+    }
+
+    fn touch(&mut self) {
+        self.last_accessed = Instant::now();
+    }
+
+    fn is_stale(&self) -> bool {
+        self.last_accessed.elapsed() > SESSION_TTL
+    }
+}
+
+impl std::ops::Deref for Session {
+    type Target = EnvState;
+    fn deref(&self) -> &EnvState {
+        &self.state
+    }
+}
+
+impl std::ops::DerefMut for Session {
+    fn deref_mut(&mut self) -> &mut EnvState {
+        &mut self.state
+    }
+}
+
 struct EnvService {
-    /// 多個遊戲狀態，用 session_id 區分（Arc 包裝以支援 streaming 共享）
-    games: std::sync::Arc<DashMap<u64, EnvState>>,
+    /// Game sessions keyed by session_id.
+    games: std::sync::Arc<DashMap<u64, Session>>,
     /// 下一個 session_id
     next_session_id: std::sync::Arc<AtomicU64>,
     /// 每 N 步輸出一次 profiling，0 表示關閉
@@ -2138,15 +2177,22 @@ impl EnvService {
     /// 獲取或創建遊戲狀態
     fn get_or_create_game(&self, session_id: u64, seed: u64) -> Result<u64, Status> {
         if session_id == 0 {
-            // 創建新 session
+            // Sweep stale sessions before creating a new one
+            self.cleanup_stale_sessions();
+
             let new_id = self.next_session_id.fetch_add(1, Ordering::SeqCst);
-            self.games.insert(new_id, EnvState::new(seed));
+            self.games.insert(new_id, Session::new(EnvState::new(seed)));
             Ok(new_id)
         } else {
-            // 重置現有 session
-            self.games.insert(session_id, EnvState::new(seed));
+            // Reset existing session
+            self.games.insert(session_id, Session::new(EnvState::new(seed)));
             Ok(session_id)
         }
+    }
+
+    /// Remove sessions that have not been accessed within SESSION_TTL.
+    fn cleanup_stale_sessions(&self) {
+        self.games.retain(|_id, session| !session.is_stale());
     }
 }
 
@@ -2246,6 +2292,7 @@ impl JokerEnv for EnvService {
         let mut state = self.games.get_mut(&session_id).ok_or_else(|| {
             Status::not_found(format!("session {} not found, call Reset first", session_id))
         })?;
+        state.touch(); // Update session TTL
 
         let do_profile = self.profile_every > 0
             && (self.profile_counter.fetch_add(1, Ordering::Relaxed) + 1) % self.profile_every == 0;
@@ -2329,10 +2376,10 @@ impl JokerEnv for EnvService {
                                 let seed = reset_req.seed;
                                 let session_id = if reset_req.session_id == 0 {
                                     let new_id = next_session_id.fetch_add(1, Ordering::SeqCst);
-                                    games.insert(new_id, EnvState::new(seed));
+                                    games.insert(new_id, Session::new(EnvState::new(seed)));
                                     new_id
                                 } else {
-                                    games.insert(reset_req.session_id, EnvState::new(seed));
+                                    games.insert(reset_req.session_id, Session::new(EnvState::new(seed)));
                                     reset_req.session_id
                                 };
 
@@ -2411,6 +2458,7 @@ impl JokerEnv for EnvService {
                                         continue;
                                     }
                                 };
+                                state.touch();
 
                                 let do_profile = profile_every > 0
                                     && (profile_counter.fetch_add(1, Ordering::Relaxed) + 1) % profile_every == 0;
