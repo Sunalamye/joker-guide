@@ -354,7 +354,7 @@ def train(
         JokerMetricsCallback(verbose=0 if fps_only else verbose, log_freq=log_freq, tb_log_freq=tb_log_freq),
         EntropyScheduleCallback(
             initial_ent=ent_coef,
-            final_ent=0.01,  # v6.4: 從 0.005 提升（維持探索）
+            final_ent=0.025,  # v10.1: 從 0.01 提升（防止 entropy collapse）
             total_steps=total_timesteps,
         ),
     ]

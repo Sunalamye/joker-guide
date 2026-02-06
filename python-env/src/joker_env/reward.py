@@ -304,23 +304,24 @@ _HAND_STRENGTH_ORDER = {
     HAND_FLUSH_FIVE: 12,
 }
 
-# v6.5: 牌型品質獎勵 — 與過關獎勵對齊
-# 核心思路：Four Kind (+0.60) 應接近 Boss 過關 (+0.80)，因為打出 Four Kind 幾乎等於過關
-# Pair 改為小懲罰，不再是安全基線
+# v10.1: 牌型品質獎勵 — 壓縮至 Boss 過關的 1/5（基於 super-analyst-pro 分析）
+# 核心修復：v6.5 的 Four Kind (+0.60) 接近 Boss 過關 (+0.80)，創造局部最優
+# Agent 可以通過打好牌獲得幾乎等同過 Boss 的獎勵，無需真正過關
+# v10.1: 壓縮 ~60%，保持相對排序，讓 Boss 過關 (1.56) 成為 Four Kind (0.24) 的 6.5x
 HAND_TYPE_BONUSES = {
-    HAND_HIGH_CARD: -0.08,        # 加重懲罰（原 -0.05）
-    HAND_PAIR: -0.02,             # 小懲罰，不再是安全基線（原 0.00）
-    HAND_TWO_PAIR: 0.05,          # 略微正向
-    HAND_THREE_KIND: 0.20,        # 2x 放大（原 0.10）
-    HAND_STRAIGHT: 0.28,          # 2x 放大（原 0.14）
-    HAND_FLUSH: 0.32,             # 2x 放大（原 0.16）
-    HAND_FULL_HOUSE: 0.40,        # 2x 放大（原 0.20）
-    HAND_FOUR_KIND: 0.60,         # 關鍵！接近 Boss 過關（原 0.28）
-    HAND_STRAIGHT_FLUSH: 0.75,    # 超高獎勵（原 0.35）
-    HAND_ROYAL_FLUSH: 0.85,       # 頂級獎勵（原 0.42）
-    HAND_FIVE_KIND: 0.75,         # 同 Straight Flush（原 0.35）
-    HAND_FLUSH_HOUSE: 0.85,       # 同 Royal Flush（原 0.42）
-    HAND_FLUSH_FIVE: 1.00,        # 最強牌型，超過 Boss 過關（原 0.52）
+    HAND_HIGH_CARD: -0.03,        # v10.1: 壓縮（原 -0.08）
+    HAND_PAIR: -0.01,             # v10.1: 壓縮（原 -0.02）
+    HAND_TWO_PAIR: 0.02,          # v10.1: 壓縮（原 0.05）
+    HAND_THREE_KIND: 0.08,        # v10.1: 壓縮（原 0.20）
+    HAND_STRAIGHT: 0.11,          # v10.1: 壓縮（原 0.28）
+    HAND_FLUSH: 0.13,             # v10.1: 壓縮（原 0.32）
+    HAND_FULL_HOUSE: 0.16,        # v10.1: 壓縮（原 0.40）
+    HAND_FOUR_KIND: 0.24,         # v10.1: 壓縮（原 0.60）
+    HAND_STRAIGHT_FLUSH: 0.30,    # v10.1: 壓縮（原 0.75）
+    HAND_ROYAL_FLUSH: 0.34,       # v10.1: 壓縮（原 0.85）
+    HAND_FIVE_KIND: 0.30,         # v10.1: 壓縮（原 0.75）
+    HAND_FLUSH_HOUSE: 0.34,       # v10.1: 壓縮（原 0.85）
+    HAND_FLUSH_FIVE: 0.40,        # v10.1: 壓縮（原 1.00）
 }
 
 _BUILD_HANDS = {
@@ -399,6 +400,29 @@ JOKER_SYNERGY_GROUPS = {
 
     # Boss Killer：對抗 Boss 的特效
     "boss_killer": {68, 118},  # Chicot (禁用 Boss), Matador (+$8 if Boss)
+}
+
+# ============================================================================
+# v10.1: xMult Joker 識別（基於 super-analyst-pro 分析）
+# ============================================================================
+# xMult Joker 提供乘法加成，是突破 Ante 3+ Boss 的數學必要條件
+# 5 個 additive Joker 最多 ~3,500 分，但 Ante 3 Boss 需要 4,000+
+# 加入 1 個 X2 xMult Joker 就能翻倍到 ~7,000 分
+XMULT_JOKER_IDS = {
+    # 條件性 xMult（打特定牌型時觸發）
+    111,  # The_Duo: X2 Mult if contains Pair
+    112,  # The_Trio: X3 Mult if contains Three of a Kind
+    113,  # The_Family: X4 Mult if contains Four of a Kind
+    114,  # The_Order: X3 Mult if contains Straight
+    115,  # The_Tribe: X2 Mult if contains Flush
+    # 無條件或高頻 xMult
+    100,  # Cavendish: X3 unconditional (with small chance to destroy)
+    27,   # Photograph: X2 for first Face card scored
+    # 累積型 xMult（隨遊戲進行增長）
+    97,   # Vampire: gains xMult from enhanced cards
+    120,  # Hologram: gains xMult from added cards
+    64,   # Constellation: gains xMult from Planet cards used
+    93,   # Campfire: gains xMult from selling Jokers
 }
 
 # 將 Joker ID 映射到其所屬的協同群組
@@ -831,7 +855,7 @@ def play_reward(score_gained: int, required: int, hand_type: int = -1, ante: int
         efficiency_bonus = 0.02 * (plays_left - 1)
 
     reward = base_play_bonus + progress_reward + type_bonus + low_score_penalty + efficiency_bonus
-    return clamp(reward, -0.10, 1.00)  # v6.5: 上限提高到 1.0（配合強牌型獎勵）
+    return clamp(reward, -0.10, 0.30)  # v10.1: 上限從 1.0 降到 0.30（配合壓縮後的牌型獎勵）
 
 
 def discard_reward(cards_discarded: int, discards_left: int) -> float:
@@ -860,35 +884,38 @@ def blind_clear_reward(
     boss_blind_id: Optional[int] = None
 ) -> float:
     """
-    過關獎勵：強化 Boss 獎勵（v6.3）
+    過關獎勵：Boss 過關為主導信號（v10.1）
 
     設計原則：
-    - Boss 過關獎勵大幅提升（是 Small 的 4 倍）
-    - 過關獎勵隨 Ante 顯著增加
-    - Ante 3+ 的過關獎勵明顯高於早期
+    - Boss 過關獎勵是 Hand Type Bonus 的 6x+（v10.1 核心修復）
+    - 過關獎勵隨 Ante 更陡峭增長
+    - Ante 3 Boss 過關 ≈ 1.56（vs Hand Type max 0.24 = 6.5:1 ratio）
 
-    v6.3 修改：Boss 基礎獎勵從 0.50 提升到 0.80
+    v10.1 修改（基於 super-analyst-pro 分析）：
+    - Boss 基礎從 0.80 → 1.20（讓 Boss 信號主導）
+    - Ante 斜率從 0.15 → 0.20（後期增長更明顯）
+    - 上限從 1.50 → 2.50（為高 Ante 留空間）
     """
-    # 基礎獎勵（v6.3: Boss 大幅提升）
+    # 基礎獎勵（v10.1: Boss 進一步提升）
     base = {
-        BLIND_SMALL: 0.20,   # 略降
-        BLIND_BIG: 0.30,     # 略降
-        BLIND_BOSS: 0.80,    # 大幅提升（原 0.50）
+        BLIND_SMALL: 0.20,
+        BLIND_BIG: 0.30,
+        BLIND_BOSS: 1.20,    # v10.1: 從 0.80 提升到 1.20
     }.get(blind_type, 0.20)
 
     # Boss 難度加成
     boss_bonus = 0.0
     if blind_type == BLIND_BOSS:
-        boss_bonus = 0.10  # 提高（原 0.05）
+        boss_bonus = 0.10
 
     # 效率獎勵（剩餘出牌次數）
-    efficiency = plays_left * 0.02  # 提高（原 0.01）
+    efficiency = plays_left * 0.02
 
-    # Ante 階段權重（v5.2: 更陡峭的增長）
-    # Ante 1: 1.0, Ante 3: 1.3, Ante 5: 1.6, Ante 8: 2.05
-    ante_mult = 1.0 + (ante - 1) * 0.15
+    # Ante 階段權重（v10.1: 更陡峭增長）
+    # Ante 1: 1.0, Ante 3: 1.4, Ante 5: 1.8, Ante 8: 2.4
+    ante_mult = 1.0 + (ante - 1) * 0.20  # v10.1: 從 0.15 提升到 0.20
 
-    return clamp((base + boss_bonus + efficiency) * ante_mult, 0.20, 1.50)
+    return clamp((base + boss_bonus + efficiency) * ante_mult, 0.20, 2.50)  # v10.1: 上限提升
 
 
 def ante_progress_reward(old_ante: int, new_ante: int) -> float:
@@ -910,9 +937,12 @@ def ante_progress_reward(old_ante: int, new_ante: int) -> float:
     base_reward = ante_value(new_ante) - ante_value(old_ante)
 
     # 里程碑獎勵：鼓勵突破關鍵 Ante
+    # v10.1: 新增 Ante 4 里程碑 (+0.4)，填補 Ante 3→5 之間的「獎勵斷崖」
     milestone_bonus = 0.0
     if old_ante < 3 <= new_ante:
         milestone_bonus += 0.3  # 首次進入 Ante 3
+    if old_ante < 4 <= new_ante:
+        milestone_bonus += 0.4  # v10.1: 首次進入 Ante 4（填補斷崖）
     if old_ante < 5 <= new_ante:
         milestone_bonus += 0.5  # 首次進入 Ante 5
     if old_ante < 7 <= new_ante:
@@ -1007,6 +1037,12 @@ def joker_buy_reward(
     # Joker 價值估算（基於成本和可選的 joker_id）
     joker_value = estimate_joker_value(cost, joker_id)
 
+    # v10.1: xMult Joker 購買加倍獎勵
+    # xMult Joker 是突破 Ante 3+ Boss 的數學必要條件
+    # 沒有 xMult，即使 5 個 additive Joker 也無法穩定過 Boss
+    if joker_id is not None and joker_id in XMULT_JOKER_IDS:
+        joker_value *= 2.0  # xMult Joker 購買價值翻倍
+
     # v6.7: 調整購買階梯 — 強調第 2-3 個 Joker 的重要性
     # 避免「花光買 1 個」的陷阱，鼓勵存錢買更多
     if ante <= 3 and joker_count_after == 1:
@@ -1043,7 +1079,7 @@ def joker_buy_reward(
 
     # 獎勵計算：Joker 價值 × 階段權重 - 各種懲罰
     reward = joker_value * stage_mult - economic_penalty - interest_loss - slot_penalty
-    return clamp(reward, -0.3, 0.5)  # 上限提高到 0.5
+    return clamp(reward, -0.3, 0.8)  # v10.1: 上限從 0.5 提到 0.8（讓 xMult 獎勵不被截斷）
 
 
 def get_tag_value(tag_id: Optional[int] = None) -> float:

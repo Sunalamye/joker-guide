@@ -229,16 +229,21 @@ class EvalMetricsCallback(BaseCallback):
 
 class EntropyScheduleCallback(BaseCallback):
     """
-    Entropy coefficient 線性衰減 Callback（v5.0）
+    Entropy coefficient cosine annealing Callback（v10.1）
 
-    早期高探索 → 後期低探索
-    公式：ent = initial + (final - initial) × progress
+    早期高探索 → 後期低探索，使用 cosine 衰減保持中期探索能力
+    公式：ent = final + 0.5 * (initial - final) * (1 + cos(π × progress))
+
+    v10.1 改動（基於 super-analyst-pro 分析）：
+    - 從線性衰減改為 cosine annealing（中期保持更多探索）
+    - floor 從 0.005/0.01 提升到 0.025（防止 entropy collapse）
+    - 50% 進度時 ent_coef ≈ 0.5*(initial+final)，而非線性的中點
     """
 
     def __init__(
         self,
         initial_ent: float = 0.05,
-        final_ent: float = 0.005,
+        final_ent: float = 0.025,  # v10.1: 提高下限防止 entropy collapse
         total_steps: int = 500000,
         verbose: int = 0,
     ):
@@ -248,7 +253,9 @@ class EntropyScheduleCallback(BaseCallback):
         self.total = total_steps
 
     def _on_step(self) -> bool:
+        import math
         progress = min(1.0, self.num_timesteps / self.total)
-        new_ent = self.initial + (self.final - self.initial) * progress
+        # v10.1: cosine annealing — 中期保持更高探索
+        new_ent = self.final + 0.5 * (self.initial - self.final) * (1 + math.cos(math.pi * progress))
         self.model.ent_coef = new_ent
         return True
