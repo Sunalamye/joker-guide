@@ -179,7 +179,7 @@ if [ "$ENABLE_CHECKPOINT" = true ]; then
     done
 
     # 從 EXTRA_ARGS 提取 --n-steps 值（用於對齊）
-    N_STEPS=256  # 預設值
+    N_STEPS=512  # v10.1 預設值（與 train_sb3.py 同步）
     for i in "${!EXTRA_ARGS[@]}"; do
         if [ "${EXTRA_ARGS[$i]}" = "--n-steps" ]; then
             N_STEPS="${EXTRA_ARGS[$((i+1))]}"
