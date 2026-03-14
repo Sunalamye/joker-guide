@@ -231,4 +231,8 @@ PYTHONPATH=python-env/src python -m joker_env.train_sb3 \
     --tensorboard-log "$LOG_DIR" \
     --net-arch 512 512 256 \
     "${CHECKPOINT_ARGS[@]}" \
+    --batch-env \
+    --batch-size 512 \
+    --n-steps 512 \
+    --n-epochs 3 \
     "${EXTRA_ARGS[@]}"

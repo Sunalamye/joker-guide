@@ -6,6 +6,7 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 use dashmap::DashMap;
+use rayon::prelude::*;
 
 use rand::Rng;
 use tokio::sync::mpsc;
@@ -2324,11 +2325,37 @@ impl JokerEnv for EnvService {
         request: Request<StepBatchRequest>,
     ) -> Result<Response<StepBatchResponse>, Status> {
         let req = request.into_inner();
-        let mut responses = Vec::with_capacity(req.requests.len());
-        for step_req in req.requests {
-            let resp = self.step(Request::new(step_req)).await?;
-            responses.push(resp.into_inner());
-        }
+        let games = &self.games;
+
+        // rayon 並行處理所有 env — 每個 session 獨立鎖定，零 contention
+        let responses: Vec<Result<StepResponse, Status>> = req.requests
+            .into_par_iter()
+            .map(|step_req| {
+                let session_id = step_req.session_id;
+                let action = step_req.action.unwrap_or(Action {
+                    action_id: 0,
+                    params: vec![],
+                    action_type: ACTION_TYPE_SELECT,
+                });
+
+                let mut state = games.get_mut(&session_id).ok_or_else(|| {
+                    Status::not_found(format!("session {} not found, call Reset first", session_id))
+                })?;
+
+                let action_type = action.action_type;
+                let action_id = action.action_id as u32;
+                let params: Vec<i32> = action.params;
+
+                let result = execute_step_logic(&mut state, action_type, action_id, &params);
+                Ok(build_step_response(&state, &result, action_type))
+            })
+            .collect();
+
+        // 收集結果，遇到錯誤立即返回
+        let responses: Vec<StepResponse> = responses
+            .into_iter()
+            .collect::<Result<Vec<_>, Status>>()?;
+
         Ok(Response::new(StepBatchResponse { responses }))
     }
 
@@ -2360,7 +2387,7 @@ impl JokerEnv for EnvService {
         request: Request<Streaming<StreamRequest>>,
     ) -> Result<Response<Self::TrainingStreamStream>, Status> {
         let mut in_stream = request.into_inner();
-        let (tx, rx) = mpsc::channel(32);  // 背壓緩衝
+        let (tx, rx) = mpsc::channel(128);  // 背壓緩衝（增大以減少 contention）
         let games = self.games.clone();
         let next_session_id = self.next_session_id.clone();
         let profile_every = self.profile_every;
