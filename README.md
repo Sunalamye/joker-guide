@@ -20,6 +20,26 @@ A Balatro reinforcement learning training project using **Rust + Python separate
 - **Rust Engine** (`rust-engine/`): Pure game environment - state management, action validation, action mask generation
 - **Python Environment** (`python-env/`): Reward calculation, Gymnasium wrapper, MaskablePPO training
 
+## Key Results
+
+| Metric | Value |
+|--------|-------|
+| **Best avg_ante** | 8.42 (E4 experiment) |
+| **Baseline → Best** | 3.57 → 8.42 (+136%) |
+| **Training FPS** | 18,184 (27.3x from initial 665) |
+| **Core Finding** | Reward simplification > reward engineering |
+
+### Experiment History
+
+| Experiment | Modification | avg_ante | Δ |
+|------------|-------------|----------|---|
+| E1 | Baseline (reward v5.0) | 3.57 | — |
+| E2 | Freeze opinion rewards | 4.72 | +32% |
+| E3 | Fix sell_joker asymmetry | 5.55 | +55% |
+| E4 | Cap game_end_reward ±2.0 | 8.42 | +136% |
+
+**Key insight**: VecNormalize scale dominance — a large terminal reward (±5.0) compressed all intermediate signals into noise. Capping it to ±2.0 restored learning across all reward channels.
+
 ## Quick Start
 
 **One-click setup** (recommended):
@@ -44,7 +64,7 @@ See [INSTALL.md](INSTALL.md) for detailed installation instructions, GPU setup, 
 
 ## Architecture Overview
 
-### Observation Vector (1,613 dimensions)
+### Observation Vector (1,556 dimensions)
 
 | Component | Dims | Description |
 |-----------|------|-------------|
@@ -54,7 +74,7 @@ See [INSTALL.md](INSTALL.md) for detailed installation instructions, GPU setup, 
 | Hand Type | 13 | Poker hand type one-hot |
 | Deck | 52 | Remaining card counts |
 | Jokers | 765 | 5 slots × 153 features (150 ID one-hot + 3 flags) |
-| Shop | 302 | 2 shop jokers × 151 features |
+| Shop | 302 | 2 shop jokers × 151 features (150 ID one-hot + cost) |
 | Boss Blind | 27 | Boss blind type one-hot |
 | Deck Type | 16 | Starting deck type |
 | Stake | 8 | Difficulty level |
@@ -87,11 +107,11 @@ MultiDiscrete action space with **46-dimensional action mask**:
 Use `train.sh` for automated concurrent training:
 
 ```bash
-# 4 parallel environments, 1M timesteps (TensorBoard auto-starts)
-./train.sh 4 --timesteps 1000000 --checkpoint python-env/models/v1
+# 120 batch environments, 10M timesteps (high-performance mode)
+./train.sh 120 --timesteps 10000000 --batch-env --batch-size 512 --n-steps 512
 
-# 8 parallel environments
-./train.sh 8 --timesteps 1000000 --checkpoint python-env/models/v1
+# 4 parallel environments, 1M timesteps (lightweight mode)
+./train.sh 4 --timesteps 1000000 --checkpoint python-env/models/v1
 
 # Disable TensorBoard
 ./train.sh 4 --timesteps 1000000 --no-tensorboard
@@ -124,7 +144,7 @@ PYTHONPATH=python-env/src python -m joker_env.train_sb3 \
   --tensorboard-log python-env/logs/ppo
 ```
 
-Key parameters:
+Key parameters (v10.1):
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
@@ -132,15 +152,21 @@ Key parameters:
 | `--checkpoint` | - | Model save path |
 | `--save-interval` | 25000 | Checkpoint interval |
 | `--n-envs` | 1 | Parallel environments |
+| `--n-steps` | 512 | Rollout length per env |
+| `--batch-size` | 256 | Minibatch size |
 | `--learning-rate` | 3e-4 | Learning rate |
-| `--ent-coef` | 0.05 | Entropy coefficient |
+| `--ent-coef` | 0.06 | Entropy coefficient |
 | `--gamma` | 0.95 | Discount factor |
-| `--batch-size` | 64 | Minibatch size |
+| `--gae-lambda` | 0.92 | GAE lambda |
+| `--n-epochs` | 3 | PPO epochs per rollout |
+| `--clip-range-vf` | 0.2 | Value function clip range |
+| `--target-kl` | 0.02 | Early stopping KL threshold |
 | `--net-arch` | 128 128 | MLP hidden layers |
+| `--batch-env` | off | Use JokerBatchVecEnv for high FPS |
 
 Full parameter list: `python -m joker_env.train_sb3 --help`
 
-## Reward System (v5.0)
+## Reward System (v10.0)
 
 Rewards are calculated in Python (`python-env/src/joker_env/reward.py`):
 
@@ -150,16 +176,32 @@ Rewards are calculated in Python (`python-env/src/joker_env/reward.py`):
 | Game Lose | -2.0 ~ -0.5 | Penalty scaled by progress |
 | Ante Progress | +0.48 ~ +2.27 | Progressive scaling (0.15×a^1.5) |
 | Blind Clear | +0.25 ~ +0.75 | Ante-adjusted bonus |
+| Boss Clear | +0.0 ~ +0.15 | Difficulty-based bonus (v7.0) |
 | Play Hand | +0.02 ~ +0.17 | Base bonus + normalized score reward |
 | Discard | -0.05 ~ -0.02 | Increased cost to prevent discard loops |
 | Buy Joker | -0.3 ~ +0.3 | Phase-weighted with economy penalty |
-| Skip Blind | -0.2 ~ +0.25 | Tag value assessment |
+| Skip Blind | -0.2 ~ +0.25 | State-aware with dynamic opportunity cost (v10.0) |
+| Reroll | variable | Shop quality-aware reroll budget (v10.0) |
+| Joker Synergy | +0.0 ~ +0.12 | Synergy group and build alignment (v7.0) |
+| Score Efficiency | +0.0 ~ +0.06 | Bonus for exceeding expected score (v6.9) |
 
 Key features:
 - **Terminal reward dominance**: Win reward (5.0) outweighs all intermediate rewards
 - **Reward hacking protection**: Empty discard (-0.05), failed purchase (-0.05), no-op (-0.03)
-- **Interest threshold bonuses**: $5/$10/$15/$20/$25 milestone rewards
-- **Tag value mapping**: 25 tag types with individual value assessment
+- **Shop quality scoring**: Rarity (40%), synergy (30%), cost-efficiency (20%), specials (10%)
+- **Reroll budget tracking**: First 2 rerolls normal, diminishing returns after 3rd
+- **Joker contribution tracking**: xMult weighted highest (0.5), chips lowest (0.2)
+
+## FPS Optimization History
+
+| Phase | FPS | Speedup | Technique |
+|-------|-----|---------|-----------|
+| Initial | 665 | 1.0x | Basic gRPC |
+| Proto zero-copy | — | — | raw_data zero-copy deserialization |
+| Vectorized obs | — | — | Batch observation splitting |
+| torch.compile | — | — | JIT-compiled policy network |
+| f64→f32 fix | — | — | Action mask dtype correction |
+| **Final** | **18,184** | **27.3x** | All optimizations combined |
 
 ## Project Structure
 
@@ -180,13 +222,15 @@ joker-guide/
 │       └── action_mask.rs   # Legal action generation
 ├── python-env/src/joker_env/
 │   ├── env.py               # Gymnasium environment wrapper
-│   ├── reward.py            # Reward calculation (v5.0)
+│   ├── reward.py            # Reward calculation (v10.0)
 │   ├── callbacks.py         # Training callbacks
 │   ├── train_sb3.py         # MaskablePPO training
+│   ├── batch_vec_env.py     # High-performance vectorized environment
 │   └── train.py             # Basic REINFORCE training
 ├── proto/
 │   └── joker_guide.proto    # gRPC protocol definition
 ├── data/                    # Game data (JSON reference files)
+├── experiments/             # Experiment logs and research notes
 └── train.sh                 # Concurrent training script
 ```
 
@@ -215,6 +259,7 @@ cd python-env && pytest tests/
 - **Log directory**: `python-env/logs/run_YYYYMMDD_HHMMSS/` (timestamped)
 - **Checkpoints**: Saved to `python-env/experiments/checkpoints.jsonl`
 - **Report script**: `python scripts/checkpoint_report.py --tail 10`
+- **Experiment logs**: `experiments/autoresearch_log.md`, `experiments/daily_log_*.md`
 
 ## Proto Regeneration
 
